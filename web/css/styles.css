@@ -1,54 +1,67 @@
 /* ==========================================================================
-   Morning Brief: warm editorial cards and a sunrise audio player
+   Morning Brief v3 look (ported from the Android APK theme):
+   near-monochrome ink on a soft grey backdrop, frosted glass panels,
+   pill controls and small uppercase labels. Inter throughout.
    ========================================================================== */
 :root {
-  --bg: #f7f4ef;
-  --bg-2: #efe9e0;
-  --surface: #ffffff;
-  --surface-2: #faf8f5;
-  --ink: #1d1b18;
-  --ink-2: #4a4640;
-  --muted: #7a746b;
-  --line: #e6dfd4;
-  --accent: #ef5f2f;
-  --accent-2: #f5a524;
-  --accent-ink: #ffffff;
+  --bg: #E9E9E5;
+  --bg-2: #DFDFDA;
+  --surface: #FFFFFF;
+  --surface-2: #F2F2EF;
+  --ink: #0D0D0D;
+  --ink-2: #3A3A38;
+  --muted: #6C6C68;
+  --line: rgba(0, 0, 0, .08);
+  --glass: rgba(255, 255, 255, .45);
+  --glass-line: rgba(255, 255, 255, .85);
+  --on-ink: #F4F4F1;
+  --accent: #0D0D0D;
+  --accent-2: #6C6C68;
+  --accent-ink: #F4F4F1;
   --focus: #2f6fed;
   --canada: #d52b1e;
   --tech: #6a4cf5;
   --custom: #0e9f8e;
   --ok: #1a9b5b;
   --warn: #c7811a;
-  --err: #d0412f;
-  --hero-a: #ff7a45;
-  --hero-b: #f7b733;
-  --hero-c: #ff5e62;
-  --hero-ink: #231710;
-  --shadow-sm: 0 1px 2px rgba(40, 28, 10, .06), 0 1px 1px rgba(40, 28, 10, .04);
-  --shadow: 0 10px 30px -12px rgba(60, 38, 12, .25), 0 2px 6px rgba(60, 38, 12, .06);
-  --shadow-lg: 0 30px 60px -20px rgba(60, 38, 12, .35);
+  --err: #B3261E;
+  --hero-a: #BDBDB8;
+  --hero-b: #C9C9C4;
+  --hero-c: #B3B3AE;
+  --hero-ink: #0D0D0D;
+  --shadow-sm: 0 1px 2px rgba(20, 20, 18, .06), 0 1px 1px rgba(20, 20, 18, .04);
+  --shadow: 0 10px 30px -12px rgba(20, 20, 18, .22), 0 2px 6px rgba(20, 20, 18, .06);
+  --shadow-lg: 0 30px 60px -20px rgba(20, 20, 18, .30);
   --radius: 20px;
   --radius-sm: 12px;
   --font-ui: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-head: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-head: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --gutter: clamp(16px, 4vw, 32px);
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0f1115; --bg-2: #151821; --surface: #181b23; --surface-2: #1d212b; --ink: #eeebe6; --ink-2: #c9c4bc;
-    --muted: #979ca6; --line: #2a2f3a; --accent: #ff7a45; --accent-2: #ffb547; --focus: #7aa5ff;
-    --canada: #ff5a4e; --tech: #9c88ff; --custom: #2fd1bd; --hero-a: #3b2a55; --hero-b: #b4542d; --hero-c: #2a2f63;
-    --hero-ink: #fff4ea; --shadow: 0 10px 30px -12px rgba(0, 0, 0, .6); --shadow-lg: 0 30px 60px -20px rgba(0, 0, 0, .7);
+    --bg: #121211; --bg-2: #1C1C1B; --surface: #1C1C1B; --surface-2: #222220; --ink: #EDEDE9; --ink-2: #C9C9C4;
+    --muted: #93938E; --line: rgba(255, 255, 255, .09);
+    --glass: rgba(255, 255, 255, .06); --glass-line: rgba(255, 255, 255, .11); --on-ink: #121211;
+    --accent: #EDEDE9; --accent-2: #93938E; --accent-ink: #121211; --focus: #7aa5ff;
+    --canada: #ff5a4e; --tech: #9c88ff; --custom: #2fd1bd;
+    --hero-a: #2B2B28; --hero-b: #242422; --hero-c: #30302D; --hero-ink: #EDEDE9;
+    --err: #F2B8B5;
+    --shadow: 0 10px 30px -12px rgba(0, 0, 0, .6); --shadow-lg: 0 30px 60px -20px rgba(0, 0, 0, .7);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #0f1115; --bg-2: #151821; --surface: #181b23; --surface-2: #1d212b; --ink: #eeebe6; --ink-2: #c9c4bc;
-  --muted: #979ca6; --line: #2a2f3a; --accent: #ff7a45; --accent-2: #ffb547; --focus: #7aa5ff;
-  --canada: #ff5a4e; --tech: #9c88ff; --custom: #2fd1bd; --hero-a: #3b2a55; --hero-b: #b4542d; --hero-c: #2a2f63;
-  --hero-ink: #fff4ea; --shadow: 0 10px 30px -12px rgba(0, 0, 0, .6); --shadow-lg: 0 30px 60px -20px rgba(0, 0, 0, .7);
+  --bg: #121211; --bg-2: #1C1C1B; --surface: #1C1C1B; --surface-2: #222220; --ink: #EDEDE9; --ink-2: #C9C9C4;
+  --muted: #93938E; --line: rgba(255, 255, 255, .09);
+  --glass: rgba(255, 255, 255, .06); --glass-line: rgba(255, 255, 255, .11); --on-ink: #121211;
+  --accent: #EDEDE9; --accent-2: #93938E; --accent-ink: #121211; --focus: #7aa5ff;
+  --canada: #ff5a4e; --tech: #9c88ff; --custom: #2fd1bd;
+  --hero-a: #2B2B28; --hero-b: #242422; --hero-c: #30302D; --hero-ink: #EDEDE9;
+  --err: #F2B8B5;
+  --shadow: 0 10px 30px -12px rgba(0, 0, 0, .6); --shadow-lg: 0 30px 60px -20px rgba(0, 0, 0, .7);
   color-scheme: dark;
 }
 
@@ -633,3 +646,101 @@ body.signed-out > :not(.landing):not(.toast):not(svg) { display: none; }
 /* Privacy and Terms links under the landing page and in Settings */
 .legal-links { display: flex; gap: 16px; justify-content: center; font-size: 13px; margin: 8px 0 24px; }
 .legal-links a { color: var(--muted); }
+
+/* ==========================================================================
+   v3 Android look: component overrides
+   ========================================================================== */
+
+/* Soft blobs on the backdrop, like the Android theme */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(520px 380px at 8% -4%, var(--hero-a), transparent 70%),
+    radial-gradient(460px 340px at 96% 12%, var(--hero-b), transparent 70%),
+    radial-gradient(560px 420px at 12% 108%, var(--hero-c), transparent 70%);
+  opacity: .55;
+}
+
+/* Hero: frosted glass panel instead of the sunrise gradient */
+.hero {
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  backdrop-filter: blur(22px) saturate(1.3);
+  -webkit-backdrop-filter: blur(22px) saturate(1.3);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+.hero-glow { display: none; }
+.hero .eyebrow { opacity: .65; }
+.hero-meta { opacity: .75; }
+.weather-chip {
+  background: var(--glass); border: 1px solid var(--glass-line); color: var(--ink);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+.play-btn { background: var(--ink); color: var(--on-ink); }
+.play-btn:hover { transform: scale(1.04); }
+.track::before { background: color-mix(in srgb, var(--ink) 15%, transparent); }
+.track-fill { background: var(--ink); }
+.track-marks i { background: var(--ink); }
+.ctrl { background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--ink); }
+.ctrl:hover { background: color-mix(in srgb, var(--ink) 14%, transparent); }
+.progress-bar { background: color-mix(in srgb, var(--ink) 12%, transparent); }
+.progress-bar span { background: var(--ink); }
+.builder-copy { opacity: .8; }
+
+/* Cards: frosted glass */
+.card {
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  backdrop-filter: blur(18px) saturate(1.25);
+  -webkit-backdrop-filter: blur(18px) saturate(1.25);
+}
+.card.is-playing { border-color: var(--ink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 18%, transparent), var(--shadow); }
+
+/* Monochrome section chips (v3 is near-monochrome; dots stay as wayfinding) */
+.chip { background: color-mix(in srgb, var(--surface) 88%, transparent); color: var(--ink); border: 1px solid var(--line); }
+.chip[data-section="canada"], .chip[data-section="tech"], .chip[data-section="custom"] { --dot: var(--ink); }
+.card-media.placeholder span { color: var(--on-ink); opacity: .92; }
+.card-media.placeholder[data-section="canada"] { background: linear-gradient(135deg, #3a3a38, #6C6C68); }
+.card-media.placeholder[data-section="tech"] { background: linear-gradient(135deg, #6C6C68, #BDBDB8); }
+.card-media.placeholder[data-section="custom"] { background: linear-gradient(135deg, #0D0D0D, #3a3a38); }
+
+/* Voice avatars: ink instead of sunrise gradient */
+.voice-summary .avatar, .voice-card .avatar, .voice-chip .avatar { background: var(--ink); color: var(--on-ink); }
+.voice-card:has(input:checked) { border-color: var(--ink); background: color-mix(in srgb, var(--ink) 6%, var(--surface)); }
+
+/* Pills, tabs, toggles already ink-driven via --accent; keep switches monochrome */
+.switch input:checked + span { background: var(--ink); }
+.step-dots span.on { background: var(--ink); }
+.mini-bar span { background: var(--ink); }
+.icon-btn.saved { color: var(--ink); }
+.spinner { border-top-color: var(--ink); }
+.range-row input { accent-color: var(--ink); }
+#settingsProgress .progress-bar span { background: var(--ink); }
+.confirm-check input { accent-color: var(--ink); }
+
+/* First-brief banner: glass, not sunrise */
+.first-brief { background: var(--glass); border: 1px solid var(--glass-line); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+
+/* Landing: same glass hero treatment */
+.landing-hero {
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  backdrop-filter: blur(22px) saturate(1.3);
+  -webkit-backdrop-filter: blur(22px) saturate(1.3);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+.landing-hero .btn-primary { background: var(--ink); color: var(--on-ink); border-color: transparent; }
+.sample-player { background: var(--glass); border: 1px solid var(--glass-line); color: var(--ink); }
+.sample-player .play-btn { background: var(--ink); color: var(--on-ink); }
+.sample-bar { background: color-mix(in srgb, var(--ink) 12%, transparent); }
+.sample-bar span { background: var(--ink); }
+.sample-card.reading { border-color: var(--ink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 15%, transparent), var(--shadow); }
+.sample-card.reading .meta::after { color: var(--ink); }
+.voice-chip.playing { border-color: var(--ink); }
+.source-chip { border-color: var(--ink); background: color-mix(in srgb, var(--ink) 6%, var(--surface)); }
+.source-chip::before { color: var(--ink); }
+.chip-btn.active { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+.chip-row .chip-btn.active { background: var(--ink); }
+@keyframes pulse { 50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--ink) 12%, transparent), 0 12px 26px -10px rgba(0, 0, 0, .4); } }
