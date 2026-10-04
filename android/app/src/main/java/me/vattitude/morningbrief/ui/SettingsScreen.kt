@@ -288,7 +288,11 @@ internal fun VoicePicker(vm: AppViewModel, modifier: Modifier = Modifier) = Colu
     }
     if (!natural) {
         Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Hint("Your phone's built-in voice. No download, but flatter than the natural voices.", Modifier.weight(1f))
+            Column(Modifier.weight(1f)) {
+                OfflineTag()
+                Hint("Your phone's built-in voice. Always offline, no download — but flatter than the natural voices.",
+                    Modifier.padding(top = 6.dp))
+            }
             Spacer(Modifier.width(12.dp))
             InkCircle(Icons.Filled.PlayArrow, "Play a sample", size = 40.dp, busy = previewing == PHONE_VOICE) {
                 vm.previewVoice(PHONE_VOICE)
@@ -297,8 +301,12 @@ internal fun VoicePicker(vm: AppViewModel, modifier: Modifier = Modifier) = Colu
     } else {
         val installed = pack
         if (installed == null) {
-            Hint("Lifelike voices that run on your phone. A one-time ${KokoroPack.HD.megabytes} MB " +
-                "download (Wi-Fi recommended); after that they work offline.", Modifier.padding(top = 14.dp))
+            Column(Modifier.padding(top = 14.dp)) {
+                OfflineTag()
+                Hint("Better voices are part of the app: a one-time ${KokoroPack.HD.megabytes} MB " +
+                    "download (Wi-Fi recommended), then they work offline — even in airplane mode.",
+                    Modifier.padding(top = 6.dp))
+            }
         } else {
             Column(Modifier.padding(top = 6.dp)) {
                 for (v in KOKORO_VOICES) {
@@ -353,9 +361,12 @@ internal fun VoicePicker(vm: AppViewModel, modifier: Modifier = Modifier) = Colu
                     download.error?.let { Hint(it, color = t.error) }
                     val mb = remember(installed) { vm.packSize() / 1_000_000 }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Hint(if (installed == KokoroPack.STANDARD) "You have the older, smaller voices. The full-quality " +
-                            "ones sound noticeably cleaner (${KokoroPack.HD.megabytes} MB)." else "Using $mb MB on this phone",
-                            Modifier.weight(1f))
+                        Column(Modifier.weight(1f)) {
+                            OfflineTag()
+                            Hint(if (installed == KokoroPack.STANDARD) "You have the older, smaller voices. The full-quality " +
+                                "ones sound noticeably cleaner (${KokoroPack.HD.megabytes} MB)." else "Using $mb MB on this phone",
+                                Modifier.padding(top = 6.dp))
+                        }
                         if (installed == KokoroPack.STANDARD) PillButton("Upgrade") { vm.downloadVoices(KokoroPack.HD) }
                         PillButton("Remove", filled = false) { confirmRemove = true }
                     }
@@ -365,18 +376,27 @@ internal fun VoicePicker(vm: AppViewModel, modifier: Modifier = Modifier) = Colu
     }
 }
 
-/** A tappable "FREE" badge: jumps straight to where the provider hands out keys. */
+/** A small pill tag; tappable when onClick is given. */
 @Composable
-private fun FreeTag(onClick: () -> Unit) {
+private fun Tag(label: String, onClick: (() -> Unit)? = null) {
     val t = Mb.t
     Box(
         Modifier.height(22.dp).clip(CircleShape).background(t.ink)
-            .clickable(onClick = onClick).padding(horizontal = 8.dp),
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text("FREE", style = Type.tiny.copy(fontWeight = FontWeight.Bold), color = t.onInk)
+        Text(label, style = Type.tiny.copy(fontWeight = FontWeight.Bold), color = t.onInk)
     }
 }
+
+/** A tappable "FREE" badge: jumps straight to where the provider hands out keys. */
+@Composable
+private fun FreeTag(onClick: () -> Unit) = Tag("FREE", onClick)
+
+/** Marks a voice as on-device: part of the app, no internet needed. */
+@Composable
+private fun OfflineTag() = Tag("OFFLINE")
 
 /** Who writes the summaries: a service and the user's key for it, with a link to get one and a check. */
 @OptIn(ExperimentalLayoutApi::class)
