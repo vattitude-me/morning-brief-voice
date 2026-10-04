@@ -3,6 +3,7 @@ import { SECTIONS, api, clockLabel, fmtTime, h, icon, sb, store, timeAgo, toast 
 import { Player } from './player.js';
 import { Landing } from './landing.js';
 import { SettingsSheet, SourcesSheet, WelcomeSheet, installMode, onInstallChange, promptInstall, pushSupported, wireSheet } from './sheets.js';
+import { buildBriefing, loadLocalBriefing } from './brief.js';
 
 const state = {
   briefing: null,
@@ -64,10 +65,7 @@ function renderHero() {
 
   renderNotice();
   if (!hasBriefing) {
-    const at = clockLabel(state.status?.batch_time);
-    $('builderCopy').textContent = state.status?.running
-      ? 'Hang tight. Your briefing is being prepared.'
-      : `Your briefing is built every morning${at ? ` at ${at}` : ''}. Meanwhile, add your own news links in Sources and pick a voice in Settings.`;
+    $('builderCopy').textContent = 'No briefing yet. Build it fresh right in your browser with your free AI keys — it takes a few minutes. Add your own news links in Sources and pick a voice in Settings first.';
     $('heroTitle').textContent = 'Your news, read aloud every morning';
     $('heroMeta').textContent = 'Top stories from across Canada plus the latest in AI & tech, in about five minutes.';
     $('weatherChip').classList.add('hidden');
@@ -242,7 +240,7 @@ function showProgress(status) {
   const label = status?.step || 'Starting…';
   const pct = `${Math.round((status?.progress || 0) * 100)}%`;
   $('buildProgress').classList.toggle('hidden', !running);
-  $('buildBtn').classList.toggle('hidden', !!running || !state.profile?.is_admin);
+  $('buildBtn').classList.toggle('hidden', !!running);
   $('buildBar').style.width = pct;
   $('buildStep').textContent = `${label}…`.replace(/……$/, '…');
   if (running) $('builderCopy').textContent = 'Hang tight. Briefings are being prepared. This usually takes a few minutes.';
@@ -254,26 +252,34 @@ function showProgress(status) {
   if (running) $('builder').classList.remove('hidden');
 }
 
-// Admin only: the server clears today's briefing and builds a fresh one (it picks up requests every minute).
+// Everyone builds their own briefing in the browser: RSS via /api/fetch,
+// summaries via /api/llm with their free key, speech via /api/tts.
 async function build() {
   $('buildBtn').disabled = true;
   $('rebuildBtn').disabled = true;
+  showProgress({ running: true, step: 'Starting', progress: 0 });
   try {
-    const id = await api.generate();
-    toast('Asked the server for a fresh briefing. It starts within a minute…', { ms: 5000 });
-    showProgress({ running: true, step: 'Waiting for the server', progress: 0 });
-    poll();
-    const row = await api.waitForRequest(id);
-    clearInterval(state.polling);
-    state.polling = null;
-    try { state.status = await api.status(); } catch { /* ignore */ }
-    showProgress(state.status);
-    if (row.status === 'done') toast('Your new briefing is ready ☀️');
-    else toast(row.message || 'The build failed. Check the admin notification for details.', { error: true, ms: 9000 });
-    await refreshProfile();
-    await loadBriefing();
+    const [{ settings }, { sources }] = await Promise.all([api.settings(), api.sources()]);
+    const catalog = await (await fetch('catalog/sources.json')).json();
+    const disabledNames = new Set(sources.filter((s) => s.builtin && !s.enabled).map((s) => s.name));
+    const builtin = catalog.sources.filter((s) => !disabledNames.has(s.name));
+    const custom = sources.filter((s) => !s.builtin && s.enabled);
+    const { briefing, audio } = await buildBriefing({
+      settings, builtin, customSources: custom, catalog,
+      onProgress: (step, progress) => showProgress({ running: true, step, progress }),
+    });
+    state.briefing = briefing;
+    briefing.audio_url = URL.createObjectURL(audio);
+    player.load(briefing);
+    setFootnote();
+    renderHero();
+    renderTabs();
+    renderCards();
+    showProgress({ running: false });
+    toast('Your briefing is ready ☀️');
   } catch (err) {
-    toast(err.message, { error: true });
+    showProgress({ running: false });
+    toast(err.message, { error: true, ms: 9000 });
   } finally {
     $('buildBtn').disabled = false;
     $('rebuildBtn').disabled = false;
@@ -315,22 +321,34 @@ async function loadArchive(selected) {
   }));
 }
 
-const WRITER = { groq: 'Summaries by AI (Groq)', mixed: 'Summaries by AI + built-in summarizer', 'built-in': 'Built-in summaries' };
+const WRITER = { groq: 'Summaries by AI (Groq)', mixed: 'Summaries by AI + built-in summarizer', 'built-in': 'Built-in summaries', ai: 'Summaries by your AI key' };
+
+function setFootnote() {
+  const writer = WRITER[state.briefing?.writer] || 'Summarized in your browser';
+  $('footnote').textContent = state.briefing
+    ? `${writer} · voiced by ${state.briefing.voice?.name || 'Default'} · built ${timeAgo(state.briefing.generated_at)}`
+    : '';
+}
+
+function displayBriefing() {
+  player.load(state.briefing);
+  setFootnote();
+  renderHero();
+  renderTabs();
+  renderCards();
+}
 
 async function loadBriefing(day) {
   const res = day ? await api.briefing(day) : await api.latest();
   state.briefing = res.briefing;
   if (state.briefing) {
-    player.load(state.briefing);
     if (!day) store.set('last-briefing', state.briefing); // for offline mornings
+    displayBriefing();
+  } else {
+    renderHero();
+    renderTabs();
+    renderCards();
   }
-  const writer = WRITER[state.briefing?.writer] || 'Summarized on our server';
-  $('footnote').textContent = state.briefing
-    ? `${writer} · voiced by ${state.briefing.voice?.name || 'Kokoro'} · built ${timeAgo(state.briefing.generated_at)}`
-    : '';
-  renderHero();
-  renderTabs();
-  renderCards();
   await loadArchive(state.briefing?.date);
 }
 
@@ -424,10 +442,21 @@ async function enterApp() {
 /* -------------------------------------------------------------------- boot */
 async function start() {
   $('cards').replaceChildren(...Array.from({ length: 3 }, () => h('div', { class: 'skeleton' })));
+  const today = new Date().toLocaleDateString('en-CA');
   try {
     const [status, profile] = await Promise.all([api.status(), api.profile()]);
     state.status = status;
     state.profile = profile;
+    // A briefing built on this device today wins over anything older.
+    const local = await loadLocalBriefing(today).catch(() => null);
+    if (local?.briefing && local?.audio) {
+      state.briefing = local.briefing;
+      state.briefing.audio_url = URL.createObjectURL(local.audio);
+      displayBriefing();
+      await loadArchive(state.briefing.date);
+      showProgress({ running: false });
+      return;
+    }
     await loadBriefing();
     showProgress(status);
     renderHero();

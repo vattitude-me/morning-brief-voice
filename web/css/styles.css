@@ -360,10 +360,15 @@ main { max-width: 1180px; margin: 0 auto; padding: 18px var(--gutter) 0; }
 .hint { margin: 0 0 12px; font-size: 13.5px; color: var(--muted); }
 .input-row { display: flex; gap: 8px; }
 .input-row input { flex: 1; min-width: 0; }
-input[type="url"], .text-input, .time-input {
+.input-row select { flex: 1; min-width: 0; }
+input[type="url"], .text-input, .time-input, select.text-input {
   border: 1px solid var(--line); background: var(--surface-2); border-radius: 12px; padding: 11px 13px; font-size: 15px;
   transition: border-color .15s, box-shadow .15s;
+  color: inherit; font-family: inherit;
 }
+.key-row + .key-row { margin-top: 14px; }
+.key-row h4 { display: flex; align-items: center; justify-content: space-between; margin: 0 0 8px; }
+.key-link { font-size: 13px; font-weight: 500; }
 input[type="url"]:focus, .text-input:focus, .time-input:focus { outline: none; border-color: var(--focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 25%, transparent); }
 .segmented { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .segmented input { position: absolute; opacity: 0; pointer-events: none; }

@@ -1,5 +1,6 @@
 // Sources and Voice & settings sheets.
 import { SECTIONS, api, clockLabel, h, icon, sectionLabel, timeAgo, toast } from './api.js';
+import { LLM_PROVIDERS, VOICES } from './brief.js';
 
 export function wireSheet(dialog) {
   dialog.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => dialog.close()));
@@ -166,7 +167,9 @@ export class SettingsSheet {
     this.status = status || {};
     const { settings } = await api.settings();
     this.settings = settings;
-    this.renderVoices(this.status.voices || [], settings.voice);
+    const voice = VOICES.some((v) => v.id === settings.voice) ? settings.voice : 'gemini:Kore';
+    this.renderVoices(VOICES, voice);
+    this.renderAI(settings);
     const range = document.getElementById('speedRange');
     range.value = settings.speed;
     range.dispatchEvent(new Event('input'));
@@ -179,7 +182,7 @@ export class SettingsSheet {
     document.getElementById('lonInput').value = settings.longitude;
     this.email = profile?.email || '';
     document.getElementById('accountEmail').textContent = this.email;
-    document.getElementById('rebuildGroup').classList.toggle('hidden', !profile?.is_admin);
+    document.getElementById('rebuildGroup').classList.remove('hidden');
     this.renderSteppers(settings.stories);
     this.showStatus(this.status);
     this.refreshPush();
@@ -231,20 +234,19 @@ export class SettingsSheet {
   }
 
   showStatus(status) {
-    const at = clockLabel(status.batch_time);
-    const keep = status.keep_days || 2;
-    document.getElementById('nextRun').textContent = at
-      ? `Briefings are built every day at ${at} (${(status.timezone || 'America/Toronto').split('/').pop().replace('_', ' ')} time).`
-      : '';
     const max = status.limits?.max_custom_sources || 15;
     const items = [
-      `New links you add are checked and used at the next morning build${at ? ` (${at})` : ''}.`,
-      `Only ${keep === 2 ? "today's and yesterday's" : `the last ${keep} days'`} briefings are kept. Use the Read links on each card for the full stories.`,
-      'Summaries are written by a free AI service with a daily limit. If it runs out, the built-in summarizer takes over (shorter, plainer summaries) and a note appears on your briefing.',
-      `Up to ${max} of your own links are used each day. A red dot in Sources means a link couldn't be read.`,
-      'If something goes wrong with a build, the admin is notified automatically.',
+      'Your briefing is built right in this browser when you tap Build — no server involved.',
+      'Summaries and voice use your own free API keys (Groq, Gemini or OpenRouter). Keys are sent only to the provider they belong to.',
+      'Without an AI key, the built-in summarizer writes plainer summaries and a note appears on your briefing.',
+      'Generated audio is cached on this device, so rebuilding is fast and repeat listens are free.',
+      `Up to ${max} of your own links are used each day.`,
     ];
     document.getElementById('limitsList').replaceChildren(...items.map((t) => h('li', {}, t)));
+    const at = clockLabel(status.batch_time);
+    document.getElementById('nextRun').textContent = at
+      ? `The old server build ran at ${at}; briefings are now built on demand in your browser.`
+      : '';
   }
 
   renderVoices(voices, selected) {
@@ -293,18 +295,85 @@ export class SettingsSheet {
     }));
   }
 
-  preview(voice, btn) {
-    const src = voice.preview_url;
+  // Free BYOK keys for summaries + voice. Keys live in the user's own
+  // profile settings; they're only ever sent to the provider they belong to.
+  renderAI(settings) {
+    const provSel = document.getElementById('llmProvider');
+    const modelSel = document.getElementById('llmModel');
+    const keys = settings.llm_keys || {};
+    const provider = settings.llm_provider || 'groq';
+    provSel.replaceChildren(...Object.entries(LLM_PROVIDERS).map(([k, p]) =>
+      h('option', { value: k, selected: k === provider ? '' : null }, p.label)));
+    const fillModels = () => {
+      const p = LLM_PROVIDERS[provSel.value];
+      const cur = settings.llm_model && p.models.includes(settings.llm_model) ? settings.llm_model : p.models[0];
+      modelSel.replaceChildren(...p.models.map((m) => h('option', { value: m, selected: m === cur ? '' : null }, m)));
+    };
+    provSel.onchange = fillModels;
+    fillModels();
+
+    const box = document.getElementById('keyFields');
+    box.replaceChildren(...Object.entries(LLM_PROVIDERS).map(([k, p]) => {
+      const input = h('input', {
+        type: 'password', class: 'text-input', id: `key-${k}`, placeholder: 'Paste key…',
+        value: keys[k] || '', autocomplete: 'off', spellcheck: 'false',
+        'aria-label': p.keyLabel,
+      });
+      const testBtn = h('button', { type: 'button', class: 'btn btn-ghost' }, 'Test');
+      const hint = h('p', { class: 'hint' }, '');
+      testBtn.addEventListener('click', async () => {
+        const key = input.value.trim();
+        if (!key) { hint.textContent = 'Paste a key first.'; return; }
+        testBtn.disabled = true;
+        hint.textContent = 'Checking…';
+        try {
+          const r = await fetch('/api/llm', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              provider: k, apiKey: key, model: LLM_PROVIDERS[k].models[0], maxTokens: 5, json: false,
+              messages: [{ role: 'user', content: 'Reply with the word ok.' }],
+            }),
+          });
+          const data = await r.json().catch(() => ({}));
+          hint.textContent = r.ok ? 'Key works ✓' : `Failed: ${data.error || r.status}`;
+        } catch (err) { hint.textContent = `Failed: ${err.message}`; }
+        testBtn.disabled = false;
+      });
+      return h('div', { class: 'key-row' },
+        h('h4', {}, h('label', { for: `key-${k}` }, p.keyLabel),
+          h('a', { href: p.keyUrl, target: '_blank', rel: 'noopener noreferrer', class: 'key-link' }, 'Get one →')),
+        h('div', { class: 'input-row' }, input, testBtn),
+        hint);
+    }));
+  }
+
+  async preview(voice, btn) {
     const a = this.previewAudio;
-    if (a.dataset.src === src && !a.paused) { a.pause(); return; }
+    const done = () => btn.classList.remove('loading');
     document.querySelectorAll('.preview-btn.loading').forEach((b) => b.classList.remove('loading'));
+    if (this.previewVoice === voice.id && !a.paused) { a.pause(); return; }
+    this.previewVoice = voice.id;
     btn.classList.add('loading');
-    a.dataset.src = src;
-    a.src = src;
-    a.onplaying = () => btn.classList.remove('loading');
-    a.onerror = () => { btn.classList.remove('loading'); toast("Couldn't load that voice sample.", { error: true }); };
     a.playbackRate = Number(document.getElementById('speedRange').value) || 1;
-    a.play().catch(() => btn.classList.remove('loading'));
+    try {
+      let src = voice.preview_url;
+      if (!src) {
+        // Synthesize a sample on the fly with the user's own key.
+        const [provider, vname] = voice.id.split(':');
+        const key = (this.settings.llm_keys || {})[provider] || '';
+        if (!key) throw new Error(`Add your ${LLM_PROVIDERS[provider].label} key above first.`);
+        const r = await fetch('/api/tts', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ provider, apiKey: key, voice: vname, text: 'Good morning! This is what your briefing will sound like.' }),
+        });
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `Voice failed (${r.status})`);
+        src = URL.createObjectURL(new Blob([await r.arrayBuffer()], { type: 'audio/wav' }));
+      }
+      a.src = src;
+      a.onplaying = done;
+      a.onerror = () => { done(); toast("Couldn't play that voice sample.", { error: true }); };
+      await a.play();
+    } catch (err) { done(); toast(err.message, { error: true }); }
   }
 
   renderSteppers(stories) {
@@ -328,6 +397,12 @@ export class SettingsSheet {
     const voice = this.selectedVoice;
     const lat = parseFloat(document.getElementById('latInput').value);
     const lon = parseFloat(document.getElementById('lonInput').value);
+    const llm_keys = {};
+    for (const k of Object.keys(LLM_PROVIDERS)) {
+      const v = document.getElementById(`key-${k}`)?.value.trim();
+      if (v) llm_keys[k] = v;
+      else if (this.settings.llm_keys?.[k]) llm_keys[k] = this.settings.llm_keys[k];
+    }
     const body = {
       voice,
       speed: Number(document.getElementById('speedRange').value),
@@ -337,13 +412,16 @@ export class SettingsSheet {
       say_sources: document.getElementById('saySourcesOn').checked,
       city: document.getElementById('cityInput').value.trim() || 'Toronto',
       stories: this.stories,
+      llm_provider: document.getElementById('llmProvider').value,
+      llm_model: document.getElementById('llmModel').value,
+      llm_keys,
     };
     if (Number.isFinite(lat)) body.latitude = lat;
     if (Number.isFinite(lon)) body.longitude = lon;
     try {
       const res = await api.saveSettings(body);
       const voiceChanged = voice !== this.settings.voice || body.speed !== this.settings.speed;
-      toast(voiceChanged ? 'Saved. Tomorrow\'s briefing will use the new voice.' : 'Saved. Changes apply from the next briefing.');
+      toast(voiceChanged ? 'Saved. Your next briefing will use the new voice.' : 'Saved. Changes apply from the next briefing.');
       this.dialog.close();
       return res;
     } catch (err) {

@@ -25,9 +25,12 @@ export const sectionLabel = (key) => { const s = SECTIONS[key] || SECTIONS.custo
 
 export const DEFAULT_SETTINGS = {
   name: '',
-  voice: 'kokoro:af_heart',
+  voice: 'gemini:Kore',
   speed: 1.0,
   daily: true,
+  llm_provider: 'groq',
+  llm_model: '',
+  llm_keys: {},
   stories: { canada: 6, tech: 6, follow: 3, custom: 4 },
   city: 'Toronto',
   latitude: 43.6532,

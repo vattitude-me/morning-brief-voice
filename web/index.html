@@ -218,7 +218,7 @@
 
         <!-- Empty / building state -->
         <div class="builder hidden" id="builder">
-          <p class="builder-copy" id="builderCopy">Your first briefing arrives tomorrow morning. Meanwhile, add your own news links in Sources and pick a voice in Settings.</p>
+          <p class="builder-copy" id="builderCopy">Your first briefing is built right in your browser. Add your free AI keys in Settings, then tap build.</p>
           <button class="btn btn-primary btn-lg hidden" id="buildBtn"><svg><use href="#i-refresh"/></svg> Build my briefing</button>
           <div class="progress hidden" id="buildProgress" role="status" aria-live="polite">
             <div class="progress-bar"><span id="buildBar"></span></div>
@@ -447,6 +447,19 @@
         </details>
       </section>
 
+      <section class="set-section" aria-labelledby="setAI">
+        <h3 class="set-label" id="setAI">AI services <span class="tag">free keys</span></h3>
+        <div class="setting-group">
+          <h4><label for="llmProvider">Summaries written by</label></h4>
+          <div class="input-row">
+            <select id="llmProvider" class="text-input" aria-label="AI provider for summaries"></select>
+            <select id="llmModel" class="text-input" aria-label="AI model for summaries"></select>
+          </div>
+          <p class="hint">Your key, your quota. Keys are sent to the AI service only when building a briefing — never stored anywhere else.</p>
+        </div>
+        <div class="setting-group" id="keyFields"></div>
+      </section>
+
       <section class="set-section" aria-labelledby="setMorning">
         <h3 class="set-label" id="setMorning">Every morning</h3>
         <div class="setting-group">
@@ -473,9 +486,9 @@
           <p class="hint">Optional. The host greets you by name.</p>
           <input type="text" id="nameInput" class="text-input" maxlength="40" autocomplete="given-name" placeholder="First name">
         </div>
-        <div class="setting-group hidden" id="rebuildGroup">
-          <h4>Build now <span class="tag">admin</span></h4>
-          <p class="hint">Starts over: deletes today's briefing, re-reads your links and records a new one. Takes a few minutes.</p>
+        <div class="setting-group" id="rebuildGroup">
+          <h4>Build now</h4>
+          <p class="hint">Re-reads your sources and records a fresh briefing in this browser. Takes a few minutes.</p>
           <button class="btn btn-primary" id="rebuildBtn"><svg><use href="#i-refresh"/></svg> Build a fresh briefing</button>
           <div class="progress hidden" id="settingsProgress" role="status" aria-live="polite">
             <div class="progress-bar"><span></span></div>
