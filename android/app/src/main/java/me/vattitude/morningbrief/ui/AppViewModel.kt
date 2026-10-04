@@ -210,6 +210,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---- Reports -----------------------------------------------------------------------------
 
+    /** The first-run "while you wait" cards: shown until dismissed or the first brief lands. */
+    val upsellsSeen = MutableStateFlow(repo.prefs.upsellsSeen)
+    fun dismissUpsells() {
+        repo.prefs.upsellsSeen = true
+        upsellsSeen.value = true
+    }
+
     /** Stories reported from this phone, so their button says so. */
     val reported = MutableStateFlow(repo.prefs.reported)
 

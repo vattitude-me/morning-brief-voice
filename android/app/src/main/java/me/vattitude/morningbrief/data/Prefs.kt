@@ -32,6 +32,11 @@ class Prefs(context: Context) {
         get() = sp.getString("appearance", null) ?: "system"
         set(value) = sp.edit().putString("appearance", value).apply()
 
+    /** Whether the first-run "while you wait" upsells were shown or dismissed. */
+    var upsellsSeen: Boolean
+        get() = sp.getBoolean("upsells_seen", false)
+        set(value) = sp.edit().putBoolean("upsells_seen", value).apply()
+
     /** The PKCE secret for a Google sign-in in progress; kept here in case Android stops the app meanwhile. */
     var pkceVerifier: String?
         get() = sp.getString("pkce_verifier", null)

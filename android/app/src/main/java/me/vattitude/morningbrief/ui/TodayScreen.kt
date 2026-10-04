@@ -31,6 +31,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -105,6 +106,9 @@ fun TodayScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     val saved by vm.saved.collectAsState()
     val pack by vm.packInstalled.collectAsState()
     val reported by vm.reported.collectAsState()
+    val upsellsSeen by vm.upsellsSeen.collectAsState()
+    // Once the first brief exists the waiting room (and its upsells) are behind us.
+    LaunchedEffect(briefing) { if (briefing != null) vm.dismissUpsells() }
     var reporting by remember { mutableStateOf<Pair<Card, String>?>(null) }
     reporting?.let { (card, date) -> ReportDialog(vm, card, date) { reporting = null } }
     val context = LocalContext.current
@@ -220,6 +224,11 @@ fun TodayScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                         Modifier.padding(top = 6.dp), style = Type.body, color = t.muted)
                     PillButton("Make my first brief", Modifier.padding(top = 16.dp), enabled = !build.running) { startBuild() }
                 }
+            }
+            // The wait for the first brief is dead time: surface the two upgrades that matter most,
+            // voice and summaries, exactly once. Dismissing or the brief landing retires them.
+            if (build.running && !upsellsSeen) entry("upsells") {
+                FirstRunUpsells(vm, Modifier.padding(top = 22.dp), onDismiss = vm::dismissUpsells)
             }
             return@LazyColumn
         }
@@ -570,5 +579,43 @@ private fun dayLabel(date: String): String {
         today -> "Today"
         today.minusDays(1) -> "Yesterday"
         else -> d.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH))
+    }
+}
+
+/**
+ * First run, while the first brief builds: the two upgrades worth a moment before the wait ends.
+ * Voice first — nobody should meet the phone's flat voice with no way out — then AI summaries.
+ * Shown once; dismissing or the brief landing retires it for good.
+ */
+@Composable
+private fun FirstRunUpsells(vm: AppViewModel, modifier: Modifier = Modifier, onDismiss: () -> Unit) {
+    val t = Mb.t
+    LaunchedEffect(Unit) { vm.loadVoices() }
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Overline("While you wait", Modifier.weight(1f))
+            TextButton(onClick = onDismiss, contentPadding = PaddingValues(horizontal = 8.dp)) {
+                Text("Dismiss", style = Type.meta, color = t.muted)
+            }
+        }
+        Glass(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(18.dp)) {
+                Text("Give it a better voice", style = Type.title, color = t.ink)
+                Text("This first brief uses your phone's voice so it could start right away. Natural voices " +
+                    "sound like a real host and work offline once downloaded — switch now and your next " +
+                    "briefs use it, or re-record this one when it's done.",
+                    Modifier.padding(top = 6.dp), style = Type.body, color = t.muted)
+                VoicePicker(vm, Modifier.padding(top = 4.dp))
+            }
+        }
+        Glass(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(18.dp)) {
+                Text("Sharper summaries, written to be heard", style = Type.title, color = t.ink)
+                Text("Your brief already works without this: it picks the key sentences from each article. " +
+                    "Add a free AI key and every story is rewritten short and clear — from your next brief.",
+                    Modifier.padding(top = 6.dp), style = Type.body, color = t.muted)
+                SummaryPicker(vm, Modifier.padding(top = 4.dp))
+            }
+        }
     }
 }
