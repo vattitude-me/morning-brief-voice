@@ -3,12 +3,9 @@ package me.vattitude.morningbrief.ui
 import android.Manifest
 import android.app.TimePickerDialog
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
-import android.os.PowerManager
-import android.provider.Settings as AndroidSettings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.browser.customtabs.CustomTabsIntent
@@ -131,8 +128,6 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             vm.loadVoices()
         }
     }
-    val pm = context.getSystemService(PowerManager::class.java)
-    val unrestricted = remember(resumed) { pm.isIgnoringBatteryOptimizations(context.packageName) }
     val canNotify = remember(resumed) {
         Build.VERSION.SDK_INT < 33 ||
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
@@ -171,17 +166,9 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                                 st.readyHour, st.readyMinute, false).show()
                         }
                     })
-                if (!canNotify || !unrestricted) Hairline()
+                if (!canNotify) Hairline()
                 if (!canNotify) Nudge("Notifications are off", "Allow") {
                     askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
-                }
-                // Battery limits can stop the overnight build; the app's page in system settings is where
-                // the person can lift them (under Battery or App battery usage).
-                if (!unrestricted) Nudge("Allow background use so your brief is ready on time", "Open") {
-                    runCatching {
-                        context.startActivity(Intent(AndroidSettings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                            Uri.parse("package:${context.packageName}")))
-                    }
                 }
                 Hairline()
                 SwitchRow("Say where each story is from", st.saySources) { on -> vm.update { it.copy(saySources = on) } }
