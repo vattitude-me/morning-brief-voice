@@ -365,6 +365,19 @@ internal fun VoicePicker(vm: AppViewModel, modifier: Modifier = Modifier) = Colu
     }
 }
 
+/** A tappable "FREE" badge: jumps straight to where the provider hands out keys. */
+@Composable
+private fun FreeTag(onClick: () -> Unit) {
+    val t = Mb.t
+    Box(
+        Modifier.height(22.dp).clip(CircleShape).background(t.ink)
+            .clickable(onClick = onClick).padding(horizontal = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text("FREE", style = Type.tiny.copy(fontWeight = FontWeight.Bold), color = t.onInk)
+    }
+}
+
 /** Who writes the summaries: a service and the user's key for it, with a link to get one and a check. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -377,8 +390,15 @@ internal fun SummaryPicker(vm: AppViewModel, modifier: Modifier = Modifier) = Co
     var checking by remember { mutableStateOf(false) }
     var result by remember(st.aiProvider, st.summaryKey, st.aiBaseUrl, st.aiModel) { mutableStateOf<String?>(null) }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        for (option in AI_PROVIDERS) Chip(option.name, selected = option.id == p.id) {
-            vm.update { it.copy(aiProvider = option.id) }
+        for (option in AI_PROVIDERS) Row(verticalAlignment = Alignment.CenterVertically) {
+            Chip(option.name, selected = option.id == p.id) {
+                vm.update { it.copy(aiProvider = option.id) }
+            }
+            // The free key, one tap away: the tag jumps straight to where keys are made.
+            if (option.freeKey && option.keyUrl.isNotEmpty()) {
+                Spacer(Modifier.width(6.dp))
+                FreeTag { openPage(context, option.keyUrl) }
+            }
         }
     }
     Hint(p.note, Modifier.padding(top = 12.dp))

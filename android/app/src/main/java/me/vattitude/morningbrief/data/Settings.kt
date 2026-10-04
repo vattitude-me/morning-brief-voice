@@ -44,7 +44,7 @@ data class Settings(
     val aiModel: String = "",
     val welcomed: Boolean = false,
     /** Show story thumbnails in color; the hero cover stays black and white. */
-    val colorPhotos: Boolean = false,
+    val colorPhotos: Boolean = true,
 ) {
     val localCity: String get() = newsCity.ifBlank { city }
     val readyHour: Int get() = readyBy.substringBefore(':').toIntOrNull()?.coerceIn(0, 23) ?: 7
@@ -123,7 +123,7 @@ data class Settings(
                 aiBaseUrl = json.optString("android_ai_base_url", ""),
                 aiModel = json.optString("android_ai_model", ""),
                 welcomed = json.optBoolean("welcomed", false),
-                colorPhotos = json.optBoolean("android_color_photos", false),
+                colorPhotos = json.optBoolean("android_color_photos", true),
             )
         }
     }

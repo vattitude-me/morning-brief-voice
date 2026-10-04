@@ -598,21 +598,25 @@ private fun FirstRunUpsells(vm: AppViewModel, modifier: Modifier = Modifier, onD
                 Text("Dismiss", style = Type.meta, color = t.muted)
             }
         }
+        Text("Heads up: this first brief is the basic version.", style = Type.title, color = t.ink)
+        Text("Phone voice, plain summaries — so it could start right away. It won't sound like the sample " +
+            "you heard. Two quick upgrades fix that:",
+            Modifier.padding(top = 6.dp), style = Type.body, color = t.muted)
         Glass(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(18.dp)) {
-                Text("Give it a better voice", style = Type.title, color = t.ink)
-                Text("This first brief uses your phone's voice so it could start right away. Natural voices " +
-                    "sound like a real host and work offline once downloaded — switch now and your next " +
-                    "briefs use it, or re-record this one when it's done.",
+                Text("Give it a real voice", style = Type.title, color = t.ink)
+                Text("Natural voices sound like a human host and work offline after a one-time download. " +
+                    "Pick one now — your next briefs use it, or re-record this one when it's done.",
                     Modifier.padding(top = 6.dp), style = Type.body, color = t.muted)
                 VoicePicker(vm, Modifier.padding(top = 4.dp))
             }
         }
         Glass(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(18.dp)) {
-                Text("Sharper summaries, written to be heard", style = Type.title, color = t.ink)
-                Text("Your brief already works without this: it picks the key sentences from each article. " +
-                    "Add a free AI key and every story is rewritten short and clear — from your next brief.",
+                Text("Summaries written to be heard", style = Type.title, color = t.ink)
+                Text("Right now each story is just key sentences lifted from the article. Add a free key — " +
+                    "tap the FREE tag next to a provider — and every story is rewritten short and clear, " +
+                    "from your next brief.",
                     Modifier.padding(top = 6.dp), style = Type.body, color = t.muted)
                 SummaryPicker(vm, Modifier.padding(top = 4.dp))
             }
