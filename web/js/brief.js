@@ -72,7 +72,9 @@ async function idbTx(store, mode, fn) {
     const tx = db.transaction(store, mode);
     const st = tx.objectStore(store);
     const out = fn(st);
-    tx.oncomplete = () => resolve(out && out.result !== undefined ? out.result : out);
+    // Unwrap IDBRequests: .result is the value, or undefined on a cache miss
+    // (resolving the request itself would look like a truthy cache hit).
+    tx.oncomplete = () => resolve(out instanceof IDBRequest ? out.result : out);
     tx.onerror = () => reject(tx.error);
   });
 }
