@@ -139,6 +139,11 @@ export const api = {
   },
 
   // --------------------------------------------------------------- sources
+  async report({ reason, note, headline, summary, url, source }) {
+    return check(await sb.from('content_reports').insert({
+      reason, note, headline, summary, url, source, writer: 'web', app: 'web',
+    }));
+  },
   async sources() {
     const [rows, profile] = await Promise.all([
       sb.from('sources').select('*').order('id').then(check),

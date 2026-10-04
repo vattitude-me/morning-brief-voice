@@ -14,15 +14,14 @@ export const VOICES = [
   { id: 'gemini:Aoede', provider: 'gemini', name: 'Aoede', accent: 'American', gender: 'female', description: 'Alto, neutral' },
   { id: 'gemini:Fenrir', provider: 'gemini', name: 'Fenrir', accent: 'American', gender: 'male', description: 'Deep, calm' },
   { id: 'gemini:Leda', provider: 'gemini', name: 'Leda', accent: 'American', gender: 'female', description: 'Bright, warm' },
-  // Orpheus voices through Groq's /audio/speech endpoint.
-  { id: 'groq:tara', provider: 'groq', name: 'Tara', accent: 'American', gender: 'female', description: 'Orpheus via Groq', recommended: true },
-  { id: 'groq:leah', provider: 'groq', name: 'Leah', accent: 'American', gender: 'female', description: 'Orpheus via Groq' },
-  { id: 'groq:jess', provider: 'groq', name: 'Jess', accent: 'American', gender: 'female', description: 'Orpheus via Groq' },
-  { id: 'groq:leo', provider: 'groq', name: 'Leo', accent: 'American', gender: 'male', description: 'Orpheus via Groq' },
-  { id: 'groq:dan', provider: 'groq', name: 'Dan', accent: 'American', gender: 'male', description: 'Orpheus via Groq' },
-  { id: 'groq:mia', provider: 'groq', name: 'Mia', accent: 'American', gender: 'female', description: 'Orpheus via Groq' },
-  { id: 'groq:zac', provider: 'groq', name: 'Zac', accent: 'American', gender: 'male', description: 'Orpheus via Groq' },
-  { id: 'groq:wendy', provider: 'groq', name: 'Wendy', accent: 'American', gender: 'female', description: 'Orpheus via Groq' },
+  // Orpheus voices through Groq's /audio/speech endpoint. Note: Groq hosts its
+  // own voice names (not the upstream tara/leo set) and caps input at 200 chars.
+  { id: 'groq:autumn', provider: 'groq', name: 'Autumn', accent: 'American', gender: 'female', description: 'Orpheus via Groq', recommended: true },
+  { id: 'groq:diana', provider: 'groq', name: 'Diana', accent: 'American', gender: 'female', description: 'Orpheus via Groq' },
+  { id: 'groq:hannah', provider: 'groq', name: 'Hannah', accent: 'American', gender: 'female', description: 'Orpheus via Groq' },
+  { id: 'groq:austin', provider: 'groq', name: 'Austin', accent: 'American', gender: 'male', description: 'Orpheus via Groq' },
+  { id: 'groq:daniel', provider: 'groq', name: 'Daniel', accent: 'American', gender: 'male', description: 'Orpheus via Groq' },
+  { id: 'groq:troy', provider: 'groq', name: 'Troy', accent: 'American', gender: 'male', description: 'Orpheus via Groq' },
 ];
 
 export const LLM_PROVIDERS = {
@@ -376,11 +375,13 @@ export async function buildBriefing({ settings, builtin, customSources, catalog,
     saySources: !!settings.say_sources, city: settings.city || 'Toronto',
   });
 
-  // 5. Speak.
+  // 5. Speak. (Groq Orpheus caps input at 200 chars per request.)
+  const [ttsProvider] = tts.voice.split(':');
+  const chunkMax = ttsProvider === 'groq' ? 180 : 900;
   const blobs = [];
   for (let i = 0; i < segments.length; i++) {
     tick(`Recording ${i + 1} of ${segments.length}`, 0.65 + (0.25 * i) / segments.length);
-    const chunks = chunkText(segments[i].text);
+    const chunks = chunkText(segments[i].text, chunkMax);
     const parts = [];
     for (const c of chunks) parts.push(await ttsChunk(c, tts));
     // Stitch the chunk wavs for this segment back together (skip re-encode per chunk).

@@ -30,6 +30,9 @@
     <symbol id="i-prev" viewBox="0 0 24 24"><path d="M18 6.5v11a.8.8 0 0 1-1.25.66L9 12.66a.8.8 0 0 1 0-1.32l7.75-5.5A.8.8 0 0 1 18 6.5Z" fill="currentColor"/><rect x="5.6" y="5.5" width="2.4" height="13" rx="1" fill="currentColor"/></symbol>
     <symbol id="i-sources" viewBox="0 0 24 24"><path d="M5 19a1 1 0 1 0 0-2 1 1 0 0 0 0 2ZM4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="16" cy="7" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="10" cy="17" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="i-headphones" viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 16 0v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="3" y="13" width="4" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="17" y="13" width="4" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="i-eq" viewBox="0 0 24 24"><path d="M6 10v4M10 7v10M14 10v4M18 7v10" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path d="M6 21V4m0 1h11l-2.5 3.5L17 12H6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
     <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
@@ -45,7 +48,7 @@
     <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
   </svg>
 
-  <a class="skip-link" href="#cards">Skip to stories</a>
+  <a class="skip-link" href="#sections">Skip to stories</a>
 
   <!-- Signed-out landing: a sample briefing first, sign-in second -->
   <div class="landing hidden" id="login">
@@ -149,108 +152,73 @@
     </div>
   </div>
 
-  <header class="topbar">
-    <div class="brand">
-      <img src="/icons/icon.svg" alt="" width="32" height="32">
-      <div>
-        <span class="brand-name">Morning Brief</span>
-        <span class="brand-date" id="todayLabel"></span>
-      </div>
-    </div>
-    <div class="topbar-actions">
-      <label class="archive-picker" title="Past briefings">
-        <span class="sr-only">Briefing date</span>
-        <select id="archiveSelect" aria-label="Choose a briefing"></select>
-      </label>
-      <button class="icon-btn install-btn hidden" id="installBtn" aria-label="Install the app" title="Install the app"><svg><use href="#i-download"/></svg></button>
-      <button class="icon-btn" id="openSources" aria-label="Sources" title="Sources"><svg><use href="#i-sources"/></svg></button>
-      <button class="icon-btn" id="openSettings" aria-label="Settings" title="Settings"><svg><use href="#i-settings"/></svg></button>
-      <button class="icon-btn" id="themeToggle" aria-label="Toggle dark mode" title="Theme"><svg><use href="#i-moon"/></svg></button>
-    </div>
-  </header>
-
   <main id="main">
-    <!-- Player / hero -->
-    <section class="hero" id="hero" aria-label="Audio briefing">
-      <div class="hero-glow" aria-hidden="true"></div>
-      <div class="hero-inner">
-        <div class="hero-top">
-          <div>
-            <p class="eyebrow" id="greeting">Good morning</p>
-            <h1 class="hero-title" id="heroTitle">Your daily briefing</h1>
-            <p class="hero-meta" id="heroMeta"></p>
-          </div>
-          <div class="weather-chip hidden" id="weatherChip"></div>
+    <div class="screen">
+      <header class="screen-header">
+        <div class="overline-row">
+          <span class="overline" id="dateOverline"></span>
+          <span class="wx" id="wxChip"></span>
+          <span class="spacer"></span>
+          <button class="icon-btn sm hidden" id="installBtn" aria-label="Install the app" title="Install the app"><svg><use href="#i-download"/></svg></button>
+          <button class="icon-btn sm" id="themeToggle" aria-label="Toggle dark mode" title="Theme"><svg><use href="#i-moon"/></svg></button>
         </div>
+        <h1 class="display">Morning Brief</h1>
+        <p class="subtitle" id="screenSubtitle"></p>
+      </header>
 
-        <!-- Things the user should know about today's briefing (AI limits, broken links, late build) -->
-        <div class="notice hidden" id="notice" role="status" aria-live="polite"></div>
+      <div id="notice"></div>
 
-        <!-- Player -->
-        <div class="player hidden" id="player">
-          <div class="player-row">
-            <button class="play-btn" id="playBtn" aria-label="Play briefing">
+      <!-- Hero player card -->
+      <section class="glass hero hidden" id="hero" aria-label="Audio briefing">
+        <img class="hero-cover hidden" id="heroCover" alt="">
+        <div class="hero-body">
+          <p class="overline" id="heroState"></p>
+          <h2 class="hero-title" id="heroTitle"></h2>
+          <div class="seg-progress" id="segProgress" role="slider" tabindex="0" aria-label="Seek through the briefing" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div class="seg-thumb" id="segThumb"></div>
+          </div>
+          <div class="times"><span id="curTime">0:00</span><span id="durTime">-0:00</span></div>
+          <div class="hero-controls">
+            <button class="skip-btn" id="prevChapter" aria-label="Previous story"><svg><use href="#i-prev"/></svg></button>
+            <button class="ink-circle" id="playBtn" aria-label="Play briefing">
               <svg class="i-play"><use href="#i-play"/></svg>
               <svg class="i-pause"><use href="#i-pause"/></svg>
             </button>
-            <div class="now-playing">
-              <span class="np-label" id="npLabel">Ready when you are</span>
-              <span class="np-title" id="npTitle">Press play for today's stories</span>
-            </div>
-          </div>
-          <div class="scrubber">
-            <div class="track" id="track">
-              <div class="track-fill" id="trackFill"></div>
-              <div class="track-marks" id="trackMarks"></div>
-              <input type="range" id="seek" min="0" max="1000" value="0" step="1" aria-label="Seek">
-            </div>
-            <div class="times"><span id="curTime">0:00</span><span id="durTime">0:00</span></div>
-          </div>
-          <div class="controls">
-            <button class="ctrl" id="prevChapter" aria-label="Previous story"><svg><use href="#i-prev"/></svg></button>
-            <button class="ctrl" id="back15" aria-label="Back 15 seconds"><svg><use href="#i-back"/></svg></button>
-            <button class="ctrl speed" id="speedBtn" aria-label="Playback speed">1×</button>
-            <button class="ctrl" id="fwd30" aria-label="Forward 30 seconds"><svg><use href="#i-fwd"/></svg></button>
-            <button class="ctrl" id="nextChapter" aria-label="Next story"><svg><use href="#i-next"/></svg></button>
-          </div>
-          <audio id="audio" preload="metadata"></audio>
-        </div>
-
-        <!-- Empty / building state -->
-        <div class="builder hidden" id="builder">
-          <p class="builder-copy" id="builderCopy">Your first briefing is built right in your browser. Add your free AI keys in Settings, then tap build.</p>
-          <button class="btn btn-primary btn-lg hidden" id="buildBtn"><svg><use href="#i-refresh"/></svg> Build my briefing</button>
-          <div class="progress hidden" id="buildProgress" role="status" aria-live="polite">
-            <div class="progress-bar"><span id="buildBar"></span></div>
-            <span class="progress-label" id="buildStep">Starting…</span>
+            <button class="skip-btn" id="nextChapter" aria-label="Next story"><svg><use href="#i-next"/></svg></button>
           </div>
         </div>
-      </div>
-    </section>
+        <audio id="audio" preload="metadata"></audio>
+      </section>
 
-    <!-- Section tabs -->
-    <div class="toolbar" id="toolbar">
-      <nav class="tabs" role="tablist" aria-label="Sections" id="tabs"></nav>
-      <div class="view-toggle" role="group" aria-label="Layout">
-        <button class="icon-btn sm" data-view="grid" aria-label="Grid view" aria-pressed="true"><svg><use href="#i-grid"/></svg></button>
-        <button class="icon-btn sm" data-view="swipe" aria-label="Swipe view" aria-pressed="false"><svg><use href="#i-swipe"/></svg></button>
-      </div>
+      <div class="chips hidden" id="dateChips" role="group" aria-label="Past briefings"></div>
+
+      <div id="sections"></div>
+      <p class="footnote" id="footnote"></p>
     </div>
-
-    <section class="cards" id="cards" aria-live="polite"></section>
-    <div class="swipe-dots hidden" id="swipeDots" aria-hidden="true"></div>
-    <p class="footnote" id="footnote"></p>
   </main>
 
-  <!-- Mini player -->
-  <div class="mini-player" id="miniPlayer" aria-hidden="true">
-    <button class="play-btn sm" id="miniPlay" aria-label="Play or pause">
+  <!-- Floating mini player -->
+  <div class="mini-player hidden" id="miniPlayer" aria-hidden="true">
+    <img class="mini-cover hidden" id="miniCover" alt="">
+    <span class="mini-eq hidden" id="miniEq" aria-hidden="true"><i></i><i></i><i></i></span>
+    <div class="mini-text">
+      <span class="mini-title" id="miniTitle">Morning Brief</span>
+      <span class="mini-sub" id="miniSub"></span>
+      <div class="mini-bar"><span id="miniBar"></span></div>
+    </div>
+    <button class="ink-circle sm" id="miniPlay" aria-label="Play or pause">
       <svg class="i-play"><use href="#i-play"/></svg>
       <svg class="i-pause"><use href="#i-pause"/></svg>
     </button>
-    <div class="mini-text"><span id="miniTitle">Morning Brief</span><div class="mini-bar"><span id="miniBar"></span></div></div>
-    <button class="ctrl" id="miniNext" aria-label="Next story"><svg><use href="#i-next"/></svg></button>
+    <button class="skip-btn sm" id="miniNext" aria-label="Next story"><svg><use href="#i-next"/></svg></button>
   </div>
+
+  <!-- Bottom tab bar -->
+  <nav class="tabbar" id="tabbar" aria-label="Primary">
+    <button class="tab active" data-tab="today" aria-current="page"><svg><use href="#i-headphones"/></svg><span>Today</span></button>
+    <button class="tab" data-tab="sources"><svg><use href="#i-sources"/></svg><span>Sources</span></button>
+    <button class="tab" data-tab="settings"><svg><use href="#i-settings"/></svg><span>Settings</span></button>
+  </nav>
 
   <!-- Sources sheet -->
   <dialog class="sheet" id="sourcesSheet" aria-labelledby="sourcesTitle">
@@ -515,6 +483,24 @@
     <div class="sheet-foot">
       <button class="btn btn-ghost" data-close>Cancel</button>
       <button class="btn btn-primary" id="saveSettings">Save settings</button>
+    </div>
+  </dialog>
+
+  <!-- Report a summary -->
+  <dialog class="sheet" id="reportSheet" aria-labelledby="reportTitle">
+    <div class="sheet-head">
+      <h2 id="reportTitle">Report this summary</h2>
+      <button class="icon-btn" data-close aria-label="Close"><svg><use href="#i-close"/></svg></button>
+    </div>
+    <div class="sheet-body">
+      <p class="hint">Summaries are written by AI and can get things wrong. What's the problem?</p>
+      <div class="chip-row" id="reportReasons" role="group" aria-label="Reason"></div>
+      <input type="text" id="reportNote" class="text-input" style="width:100%;margin-top:10px" maxlength="1000" placeholder="Anything to add? (optional)" aria-label="Anything to add">
+      <p class="form-error" id="reportError" role="alert"></p>
+    </div>
+    <div class="sheet-foot">
+      <button class="btn btn-ghost" data-close>Cancel</button>
+      <button class="btn btn-primary" id="reportSend">Send</button>
     </div>
   </dialog>
 

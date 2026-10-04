@@ -60,6 +60,9 @@ export default async function handler(req, res) {
       });
       if (!r.ok) {
         const data = await r.json().catch(() => ({}));
+        if (data?.error?.code === 'model_terms_required') {
+          throw new Error('Groq needs a one-time OK for the Orpheus voice model: open console.groq.com/playground?model=canopylabs/orpheus-v1-english, accept the terms, then rebuild.');
+        }
         throw new Error(data?.error?.message || `Groq error ${r.status}`);
       }
       audio = Buffer.from(await r.arrayBuffer());
