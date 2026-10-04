@@ -64,8 +64,8 @@ function summaryLine(b) {
 function renderHeader() {
   const now = new Date();
   const wd = now.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
-  const md = now.toLocaleDateString('en-US', { day: 'numeric', month: 'short' }).toUpperCase().replace(',', '');
-  $('dateOverline').textContent = `${wd} · ${md}`;
+  const mon = now.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
+  $('dateOverline').textContent = `${wd} · ${now.getDate()} ${mon}`;
   const w = state.briefing?.weather;
   $('wxChip').textContent = w ? `${w.city} ${w.now}°` : '';
   $('screenSubtitle').textContent = state.briefing ? summaryLine(state.briefing) : 'Your news, read aloud each morning.';

@@ -376,7 +376,6 @@ export async function buildBriefing({ settings, builtin, customSources, catalog,
   });
 
   // 5. Speak. (Groq Orpheus caps input at 200 chars per request.)
-  const [ttsProvider] = tts.voice.split(':');
   const chunkMax = ttsProvider === 'groq' ? 180 : 900;
   const blobs = [];
   for (let i = 0; i < segments.length; i++) {
