@@ -507,6 +507,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         _settings.value = change(_settings.value)
     }
 
+    /** Changes the draft and keeps it right away; for flows with no Save button. */
+    fun updateAndSave(change: (Settings) -> Settings) {
+        update(change)
+        val new = _settings.value
+        viewModelScope.launch {
+            repo.saveSettings(new)
+            _saved.value = repo.settings
+        }
+    }
+
     fun save() {
         val new = _settings.value
         val switches = pendingEnabled.value

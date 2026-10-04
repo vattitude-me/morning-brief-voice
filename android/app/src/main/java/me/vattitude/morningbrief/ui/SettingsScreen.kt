@@ -273,7 +273,8 @@ private fun VoiceGroup(vm: AppViewModel) {
 
 /** Phone or natural voices: download, choose and hear them. In Settings and in the first-run setup. */
 @Composable
-internal fun VoicePicker(vm: AppViewModel, modifier: Modifier = Modifier) = Column(modifier) {
+internal fun VoicePicker(vm: AppViewModel, modifier: Modifier = Modifier, saveThrough: Boolean = false) = Column(modifier) {
+    val update = if (saveThrough) vm::updateAndSave else vm::update
     val st by vm.settings.collectAsState()
     val pack by vm.packInstalled.collectAsState()
     val download by vm.packDownload.collectAsState()
@@ -284,7 +285,7 @@ internal fun VoicePicker(vm: AppViewModel, modifier: Modifier = Modifier) = Colu
     val t = Mb.t
     val current = kokoroVoice(st.voice) ?: KOKORO_VOICES.first()
     Segmented(listOf("Phone", "Natural"), if (natural) 1 else 0) {
-        vm.update { s -> s.copy(voice = if (it == 0) PHONE_VOICE else lastKokoro) }
+        update { s -> s.copy(voice = if (it == 0) PHONE_VOICE else lastKokoro) }
     }
     if (!natural) {
         Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -314,7 +315,7 @@ internal fun VoicePicker(vm: AppViewModel, modifier: Modifier = Modifier) = Colu
                     Row(
                         Modifier.fillMaxWidth().clickable {
                             lastKokoro = v.id
-                            vm.update { it.copy(voice = v.id) }
+                            update { it.copy(voice = v.id) }
                             vm.previewVoice(v.id)
                         }.padding(vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -401,7 +402,8 @@ private fun OfflineTag() = Tag("OFFLINE")
 /** Who writes the summaries: a service and the user's key for it, with a link to get one and a check. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun SummaryPicker(vm: AppViewModel, modifier: Modifier = Modifier) = Column(modifier) {
+internal fun SummaryPicker(vm: AppViewModel, modifier: Modifier = Modifier, saveThrough: Boolean = false) = Column(modifier) {
+    val update = if (saveThrough) vm::updateAndSave else vm::update
     val st by vm.settings.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -412,7 +414,7 @@ internal fun SummaryPicker(vm: AppViewModel, modifier: Modifier = Modifier) = Co
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         for (option in AI_PROVIDERS) Row(verticalAlignment = Alignment.CenterVertically) {
             Chip(option.name, selected = option.id == p.id) {
-                vm.update { it.copy(aiProvider = option.id) }
+                update { it.copy(aiProvider = option.id) }
             }
             // The free key, one tap away: the tag jumps straight to where keys are made.
             if (option.freeKey && option.keyUrl.isNotEmpty()) {
@@ -431,12 +433,12 @@ internal fun SummaryPicker(vm: AppViewModel, modifier: Modifier = Modifier) = Co
     } else Spacer(Modifier.height(10.dp))
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (p.id == "custom") {
-            PillField(st.aiBaseUrl, { v -> vm.update { it.copy(aiBaseUrl = v.trim()) } }, "Base URL, e.g. https://…/v1",
+            PillField(st.aiBaseUrl, { v -> update { it.copy(aiBaseUrl = v.trim()) } }, "Base URL, e.g. https://…/v1",
                 Modifier.fillMaxWidth())
-            PillField(st.aiModel, { v -> vm.update { it.copy(aiModel = v.trim()) } }, "Model", Modifier.fillMaxWidth())
+            PillField(st.aiModel, { v -> update { it.copy(aiModel = v.trim()) } }, "Model", Modifier.fillMaxWidth())
         }
         PillField(st.summaryKey, { v ->
-            vm.update { if (p.id == "groq") it.copy(groqKey = v.trim()) else it.copy(aiKeys = it.aiKeys + (p.id to v.trim())) }
+            update { if (p.id == "groq") it.copy(groqKey = v.trim()) else it.copy(aiKeys = it.aiKeys + (p.id to v.trim())) }
         }, "${if (p.id == "custom") "API" else p.name} key", Modifier.fillMaxWidth(),
             visualTransformation = PasswordVisualTransformation())
     }

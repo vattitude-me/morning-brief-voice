@@ -608,7 +608,7 @@ private fun FirstRunUpsells(vm: AppViewModel, modifier: Modifier = Modifier, onD
                 Text("Natural voices sound like a human host and work offline after a one-time download. " +
                     "Pick one now — your next briefs use it, or re-record this one when it's done.",
                     Modifier.padding(top = 6.dp), style = Type.body, color = t.muted)
-                VoicePicker(vm, Modifier.padding(top = 4.dp))
+                VoicePicker(vm, Modifier.padding(top = 4.dp), saveThrough = true)
             }
         }
         Glass(Modifier.fillMaxWidth()) {
@@ -618,7 +618,7 @@ private fun FirstRunUpsells(vm: AppViewModel, modifier: Modifier = Modifier, onD
                     "tap the FREE tag next to a provider — and every story is rewritten short and clear, " +
                     "from your next brief.",
                     Modifier.padding(top = 6.dp), style = Type.body, color = t.muted)
-                SummaryPicker(vm, Modifier.padding(top = 4.dp))
+                SummaryPicker(vm, Modifier.padding(top = 4.dp), saveThrough = true)
             }
         }
     }
