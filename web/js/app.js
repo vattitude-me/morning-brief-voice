@@ -1,8 +1,10 @@
-// Morning Brief: main UI (APK Today layout).
+// Morning Brief: main UI (APK Today layout, tab pages).
 import { api, fmtTime, h, icon, sb, store, timeAgo, toast } from './api.js';
 import { Player } from './player.js';
 import { Landing } from './landing.js';
-import { SettingsSheet, SourcesSheet, WelcomeSheet, installMode, onInstallChange, promptInstall, pushSupported, wireSheet } from './sheets.js';
+import { WelcomeSheet, installMode, onInstallChange, promptInstall, pushSupported, wireSheet } from './sheets.js';
+import { SourcesPage } from './pages/sources.js';
+import { SettingsPage } from './pages/settings.js';
 import { buildBriefing, loadLocalBriefing } from './brief.js';
 
 const state = {
@@ -19,8 +21,9 @@ const state = {
 
 const $ = (id) => document.getElementById(id);
 const player = new Player();
-const sources = new SourcesSheet();
-const settings = new SettingsSheet({ onBuild: () => build() });
+let sourcesPage = null;
+let settingsPage = null;
+let currentTab = 'today';
 const welcome = new WelcomeSheet({
   onDone: async () => { try { state.profile = await api.profile(); } catch { /* keep the old one */ } renderHeader(); },
 });
@@ -110,7 +113,9 @@ function renderHero() {
 function chipLabel(date) {
   const today = new Date().toLocaleDateString('en-CA');
   if (date === today) return 'Today';
-  return new Date(`${date}T12:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const y = new Date(); y.setDate(y.getDate() - 1);
+  if (date === y.toLocaleDateString('en-CA')) return 'Yesterday';
+  return new Date(`${date}T12:00`).toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
 function renderDateChips() {
@@ -199,13 +204,21 @@ function renderSections() {
     if (!stories.length) return [];
     const here = currentSection === sec.key;
     const right = here
-      ? [h('span', { class: 'dot', 'aria-hidden': 'true' }), h('span', { class: 'overline', style: 'color:var(--ink)' }, player.isPlaying ? 'Playing' : 'Paused')]
+      ? [h('span', { class: 'dot', 'aria-hidden': 'true' }), h('span', { class: 'overline here', style: 'color:var(--ink)' }, player.isPlaying ? 'Playing' : 'Paused')]
       : [h('span', { class: 'overline' }, `${stories.length} ${stories.length === 1 ? 'story' : 'stories'}`)];
-    const head = h('div', { class: 'section-head' },
-      h('span', { class: 'overline' }, sec.title), ...right);
+    const head = h('button', { class: 'section-head', type: 'button', 'aria-label': `Play from ${sec.title}` },
+      h('span', { class: 'overline', style: 'color:var(--ink)' }, sec.title), ...right);
+    head.addEventListener('click', () => player.seekTo(stories[0].start || 0));
     const group = h('div', { class: 'glass glass-group' }, ...stories.map(storyRow));
     return [head, group];
   }));
+  // APK parity: rebuild action at the end of the page.
+  const today = new Date().toLocaleDateString('en-CA');
+  const fresh = h('button', { class: 'pill-btn glass-btn wide', type: 'button' },
+    icon('refresh'), b.date === today ? 'Make a fresh brief' : "Make today's brief");
+  fresh.addEventListener('click', () => build());
+  fresh.disabled = state.building;
+  box.append(h('div', { class: 'fresh-wrap' }, fresh));
   syncPlaying();
 }
 
@@ -305,7 +318,7 @@ function setFootnote() {
 }
 
 function displayBriefing() {
-  player.load(state.briefing);
+  if (state.briefing) player.load(state.briefing);
   setFootnote();
   renderHeader();
   renderHero();
@@ -322,28 +335,94 @@ async function loadArchive() {
   renderDateChips();
 }
 
+/* ------------------------------------------------------------ tab pages */
+async function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('#tabbar .tab').forEach((t) => {
+    const on = t.dataset.tab === tab;
+    t.classList.toggle('active', on);
+    if (on) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
+  });
+  for (const p of ['today', 'sources', 'settings']) {
+    document.getElementById(`page-${p}`).classList.toggle('hidden', p !== tab);
+  }
+  window.scrollTo({ top: 0 });
+  if (tab === 'sources' && !sourcesPage) {
+    sourcesPage = new SourcesPage({ onDirty: syncSaveBar });
+    try { await sourcesPage.load(); } catch (err) { toast(err.message, { error: true }); }
+  }
+  if (tab === 'settings' && !settingsPage) {
+    settingsPage = new SettingsPage({
+      onDirty: syncSaveBar,
+      goSources: () => switchTab('sources'),
+      email: state.profile?.email,
+    });
+    try { await settingsPage.load(); } catch (err) { toast(err.message, { error: true }); }
+  }
+  const mini = $('miniPlayer');
+  if (tab === 'today') {
+    // Hero is back in view; its scroll observer resumes control from here.
+    mini.classList.remove('show');
+    mini.setAttribute('aria-hidden', 'true');
+  }
+  syncMini();
+  syncSaveBar();
+}
+
+/** APK mini-player rule: on other tabs it shows whenever there's something to resume. */
+function syncMini() {
+  if (currentTab === 'today') return;
+  const show = !!player.briefing && (player.isPlaying || player.audio.currentTime > 0);
+  const mini = $('miniPlayer');
+  mini.classList.toggle('show', show);
+  mini.setAttribute('aria-hidden', show ? 'false' : 'true');
+}
+
+function syncSaveBar() {
+  const dirty = currentTab !== 'today' && (sourcesPage?.isDirty() || settingsPage?.isDirty());
+  $('saveBar').classList.toggle('hidden', !dirty);
+}
+
+async function saveAll() {
+  try {
+    if (sourcesPage?.isDirty()) await sourcesPage.save();
+    if (settingsPage?.isDirty()) await settingsPage.save();
+    toast('Saved.');
+  } catch (err) {
+    toast(err.message, { error: true });
+  }
+  syncSaveBar();
+}
+
+function discardAll() {
+  sourcesPage?.discard();
+  settingsPage?.discard();
+  syncSaveBar();
+  toast('Changes discarded.');
+}
+
 /* ------------------------------------------------------------------ events */
 function bindEvents() {
-  document.querySelectorAll('#tabbar .tab').forEach((t) => t.addEventListener('click', () => {
-    document.querySelectorAll('#tabbar .tab').forEach((x) => { x.classList.toggle('active', x === t); x.removeAttribute('aria-current'); });
-    t.setAttribute('aria-current', 'page');
-    const tab = t.dataset.tab;
-    if (tab === 'today') window.scrollTo({ top: 0, behavior: 'smooth' });
-    else if (tab === 'sources') sources.open().catch((e) => toast(e.message, { error: true }));
-    else if (tab === 'settings') settings.open(state.status, state.profile).catch((e) => toast(e.message, { error: true }));
-  }));
+  document.querySelectorAll('#tabbar .tab').forEach((t) => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+  $('saveBtn').addEventListener('click', saveAll);
+  $('discardBtn').addEventListener('click', discardAll);
+  wireSheet($('confirmDialog'));
+  $('miniPlayer').addEventListener('click', (e) => {
+    if (e.target.closest('button')) return;
+    switchTab('today');
+  });
   $('installBtn').addEventListener('click', install);
   wireSheet($('installSheet'));
   onInstallChange(syncInstallBtn);
   $('themeToggle').addEventListener('click', () => setTheme(currentTheme() === 'dark' ? 'light' : 'dark'));
+  document.addEventListener('mb-theme', syncThemeIcon);
   $('reportSend').addEventListener('click', sendReport);
   wireSheet($('reportSheet'));
-  $('settingsSheet').addEventListener('close', async () => {
-    try { state.status = await api.status(); state.profile = await api.profile(); } catch { /* ignore */ }
-  });
 
   player.addEventListener('chapter', syncPlaying);
+  player.addEventListener('chapter', syncMini);
   player.addEventListener('state', syncPlaying);
+  player.addEventListener('state', syncMini);
 
   document.addEventListener('keydown', (e) => {
     if (e.target.closest('input, textarea, select, dialog[open]') || e.metaKey || e.ctrlKey) return;

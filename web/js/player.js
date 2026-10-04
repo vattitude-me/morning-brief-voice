@@ -96,6 +96,7 @@ export class Player extends EventTarget {
   get isPlaying() { return !this.audio.paused && !this.audio.ended; }
 
   load(briefing) {
+    if (!briefing) return;
     this.briefing = briefing;
     this.chapters = (briefing.chapters || []).filter((c) => c.kind !== 'section');
     this.current = null;
@@ -150,8 +151,14 @@ export class Player extends EventTarget {
   playChapter(id) {
     const ch = this.chapters.find((c) => c.id === id);
     if (!ch) return;
-    this.audio.currentTime = ch.start;
+    this.seekTo(ch.start);
     this.audio.play().catch(() => {});
+  }
+
+  seekTo(seconds) {
+    if (!this.briefing) return;
+    this.audio.currentTime = Math.min(Math.max(0, seconds), this.audio.duration || this.briefing.duration || 0);
+    this.tick();
   }
 
   nextChapter() {

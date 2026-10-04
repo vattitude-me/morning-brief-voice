@@ -1,0 +1,274 @@
+// Sources tab: a full page mirroring the Android SourcesScreen.
+// Budget card, your picks (links), and expandable topic cards with story counts.
+import { SECTIONS, api, h, icon, toast } from '../api.js';
+import { CheckDot, Chip, GlassGroup, Hairline, Hint, Overline, PillButton, SectionLabel, StoryStepper } from '../design.js';
+
+const STORY_BUDGET = 12;
+const MAX_PER_SECTION = 4;
+const TOPIC_KEYS = ['canada', 'local', 'world', 'business', 'tech', 'health', 'science', 'sports', 'entertainment'];
+const LINK_EXAMPLES = ['cbc.ca/sports/hockey/nhl', 'theglobeandmail.com', 'techcrunch.com'];
+
+const hostOf = (url) => {
+  try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; }
+};
+
+export class SourcesPage {
+  constructor({ onDirty }) {
+    this.onDirty = onDirty;
+    this.root = document.querySelector('#page-sources .screen');
+    this.saved = null;
+    this.draft = null;
+    this.sources = [];
+    this.expanded = new Set();
+    this.city = '';
+    this.loaded = false;
+  }
+
+  async load() {
+    if (this.loaded) return;
+    const [{ settings }, { sources }] = await Promise.all([api.settings(), api.sources()]);
+    this.city = settings.city || '';
+    this.sources = sources;
+    this.saved = {
+      stories: { ...settings.stories },
+      enabled: Object.fromEntries(sources.map((s) => [s.id, !!s.enabled])),
+    };
+    this.draft = {
+      stories: { ...settings.stories },
+      enabled: { ...this.saved.enabled },
+    };
+    this.loaded = true;
+    this.render();
+  }
+
+  reload() { this.loaded = false; return this.load(); }
+
+  total() { return TOPIC_KEYS.concat('custom').reduce((a, k) => a + (this.draft.stories[k] || 0), 0); }
+
+  isDirty() {
+    if (!this.draft) return false;
+    const keys = new Set([...Object.keys(this.saved.stories), ...Object.keys(this.draft.stories)]);
+    for (const k of keys) if ((this.saved.stories[k] || 0) !== (this.draft.stories[k] || 0)) return true;
+    for (const id of Object.keys(this.draft.enabled)) {
+      if (!!this.draft.enabled[id] !== !!this.saved.enabled[id]) return true;
+    }
+    return false;
+  }
+
+  markDirty() { this.onDirty?.(); }
+
+  async save() {
+    const changedToggles = this.sources.filter((s) => !!this.draft.enabled[s.id] !== !!this.saved.enabled[s.id]);
+    await api.saveSettings({ stories: this.draft.stories });
+    for (const s of changedToggles) await api.updateSource(s, { enabled: this.draft.enabled[s.id] });
+    this.saved = {
+      stories: { ...this.draft.stories },
+      enabled: { ...this.draft.enabled },
+    };
+    this.markDirty();
+    this.render();
+  }
+
+  discard() {
+    this.draft = {
+      stories: { ...this.saved.stories },
+      enabled: { ...this.saved.enabled },
+    };
+    this.markDirty();
+    this.render();
+  }
+
+  setStories(key, n) {
+    this.draft.stories[key] = Math.max(0, Math.min(MAX_PER_SECTION, n));
+    this.markDirty();
+    this.render();
+  }
+
+  toggleSource(id, on) {
+    this.draft.enabled[id] = on;
+    this.markDirty();
+    this.render();
+  }
+
+  on(src) { return !!this.draft.enabled[src.id]; }
+
+  /* ------------------------------------------------------------ rendering */
+  render() {
+    if (!this.draft) return;
+    const total = this.total();
+    const full = total >= STORY_BUDGET;
+    this.root.replaceChildren(
+      this.header(),
+      this.budget(total, full),
+      Hint('Tap a topic to see its sources, and use − and + to set how many stories it gets. A topic set to Off is skipped.'),
+      this.picks(full),
+      ...TOPIC_KEYS.map((k) => this.topic(k, full)),
+    );
+  }
+
+  header() {
+    return h('header', { class: 'screen-header' },
+      h('div', { class: 'overline-row' }, Overline('Synced to your account')),
+      h('h1', { class: 'display' }, 'Sources'),
+      h('p', { class: 'subtitle' }, "What goes into tomorrow's brief."));
+  }
+
+  budget(total, full) {
+    const ticks = h('div', { class: 'budget-ticks' });
+    for (let i = 0; i < STORY_BUDGET; i++) ticks.append(h('span', { class: i < total ? 'on' : '' }));
+    return h('div', { class: 'glass budget-card' },
+      h('div', { class: 'budget-top' },
+        h('h3', {}, `${total} of ${STORY_BUDGET} stories`),
+        h('span', { class: 'meta' }, total === 0 ? 'Nothing picked' : `About ${Math.max(1, Math.round(total / 2.4))} min`)),
+      ticks,
+      Hint(full
+        ? 'Your brief is full. Lower one topic to make room for another.'
+        : `Up to ${MAX_PER_SECTION} from each topic and ${STORY_BUDGET} in all, so a brief stays near five minutes.`));
+  }
+
+  picks(full) {
+    const n = this.draft.stories.custom || 0;
+    const stepper = StoryStepper(n, !full, MAX_PER_SECTION, (v) => this.setStories('custom', v));
+    const label = SectionLabel(SECTIONS.custom.title, {
+      detail: 'Paste any news link — a site, section, feed or single article.',
+      end: stepper,
+    });
+
+    const input = h('input', {
+      type: 'text', class: 'pill-field', placeholder: 'Paste a news link…',
+      'aria-label': 'News link to add', inputmode: 'url', autocapitalize: 'off', spellcheck: 'false',
+    });
+    const addBtn = h('button', { type: 'button', class: 'ink-circle sm', 'aria-label': 'Add link' }, icon('plus'));
+    let working = false;
+    const go = async () => {
+      if (working) return;
+      let url = input.value.trim();
+      if (!url) return;
+      if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+      try { url = new URL(url).href; } catch { toast("That doesn't look like a web link.", { error: true }); return; }
+      working = true;
+      addBtn.classList.add('busy');
+      try {
+        await api.addSource({ url, section: 'custom' });
+        const { sources } = await api.sources();
+        this.sources = sources;
+        for (const s of sources) if (!(s.id in this.draft.enabled)) this.draft.enabled[s.id] = !!s.enabled;
+        input.value = '';
+        toast('Added. It will be checked at the next briefing.');
+        this.render();
+      } catch (err) { toast(err.message, { error: true }); }
+      finally { working = false; addBtn.classList.remove('busy'); }
+    };
+    addBtn.addEventListener('click', go);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+    const addField = h('div', { class: 'add-field' }, input, addBtn);
+
+    const mine = this.sources.filter((s) => s.section === 'custom');
+    const chips = mine.length === 0
+      ? h('div', { class: 'chip-flow' }, ...LINK_EXAMPLES.map((ex) => Chip(ex, { onClick: () => { input.value = ex; input.focus(); } })))
+      : null;
+    const list = mine.length
+      ? GlassGroup(...mine.flatMap((s, i) => [
+          ...(i > 0 ? [Hairline()] : []),
+          this.sourceRow(s, () => this.confirmRemove(s)),
+        ]))
+      : null;
+    const offHint = n === 0 && mine.length > 0
+      ? Hint('Your picks are set to Off, so these won\'t be in your brief.', 'var(--err)') : null;
+    return h('section', { class: 'picks-section' }, label, addField, chips, list, offHint);
+  }
+
+  topic(key, full) {
+    const sec = SECTIONS[key];
+    const n = this.draft.stories[key] || 0;
+    const items = this.sources.filter((s) => s.section === key);
+    const onCount = items.filter((s) => this.on(s)).length;
+    const open = this.expanded.has(key);
+    const city = (this.city || '').split(',')[0].trim();
+    const label = key === 'local' && city ? `${sec.title} · ${city}` : sec.title;
+
+    const head = h('button', { type: 'button', class: 'topic-head', 'aria-expanded': String(open) },
+      h('span', { class: 'emoji-circle', 'aria-hidden': 'true' }, sec.emoji),
+      h('span', { class: 'topic-titles' },
+        h('span', { class: 'topic-title' }, label),
+        h('span', { class: 'tiny' }, `${items.length} source${items.length === 1 ? '' : 's'} · ${onCount} on`)),
+      StoryStepper(n, !full, MAX_PER_SECTION, (v) => this.setStories(key, v)),
+      h('span', { class: 'caret' + (open ? ' open' : ''), 'aria-hidden': 'true' }, icon(open ? 'chev-d' : 'chev-r')));
+    head.addEventListener('click', (e) => {
+      // The stepper handles its own taps; anything else toggles the card.
+      if (e.target.closest('.pill-stepper')) return;
+      if (this.expanded.has(key)) this.expanded.delete(key); else this.expanded.add(key);
+      this.render();
+    });
+
+    const card = h('div', { class: 'glass topic-card' }, head);
+    if (open) {
+      const body = h('div', { class: 'topic-body' }, Hairline());
+      if (key === 'local') {
+        const cityRow = h('button', { type: 'button', class: 'list-row clickable' },
+          h('div', { class: 'list-row-text' }, h('span', { class: 'list-row-label' }, 'City')),
+          h('span', { class: 'list-row-value' }, city || 'Not set'),
+          h('span', { class: 'caret', 'aria-hidden': 'true' }, icon('chev-r')));
+        cityRow.addEventListener('click', () => document.querySelector('[data-tab="settings"]')?.click());
+        body.append(cityRow);
+        if (items.length) body.append(Hairline());
+      }
+      if (!items.length) {
+        body.append(Hint('No sources for this topic yet.'));
+      } else {
+        items.forEach((s, i) => {
+          if (i > 0) body.append(Hairline());
+          body.append(this.sourceRow(s, null));
+        });
+      }
+      if (n === 0) body.append(Hint('This topic is Off — raise the count to include its stories.', 'var(--err)'));
+      card.append(body);
+    }
+    return card;
+  }
+
+  sourceRow(s, onRemove) {
+    const host = hostOf(s.url);
+    const kind = s.kind === 'article' ? ' · single article' : s.kind === 'page' ? ' · page of links' : ' · feed';
+    const row = h('div', { class: 'source-row' },
+      h('div', { class: 'source-text' },
+        h('span', { class: 'source-name' }, s.name),
+        h('span', { class: 'tiny' }, `${host}${kind}`)),
+      onRemove && !s.builtin
+        ? h('button', { type: 'button', class: 'icon-btn sm', 'aria-label': `Remove ${s.name}` }, icon('close'))
+        : null,
+      h('button', {
+        type: 'button', class: 'check-dot' + (this.on(s) ? ' on' : ''),
+        'aria-label': `${this.on(s) ? 'Turn off' : 'Turn on'} ${s.name}`,
+        'aria-pressed': String(this.on(s)),
+      }, this.on(s) ? icon('check') : null));
+    const dot = row.querySelector('.check-dot');
+    row.addEventListener('click', () => this.toggleSource(s.id, !this.on(s)));
+    const rmBtn = row.querySelector('.icon-btn');
+    if (rmBtn) rmBtn.addEventListener('click', (e) => { e.stopPropagation(); onRemove(); });
+    dot.addEventListener('click', (e) => { e.stopPropagation(); this.toggleSource(s.id, !this.on(s)); });
+    return row;
+  }
+
+  confirmRemove(s) {
+    const dlg = document.getElementById('confirmDialog');
+    document.getElementById('confirmTitle').textContent = `Remove ${s.name}?`;
+    document.getElementById('confirmBody').textContent = 'Its stories will no longer appear in your briefings.';
+    const go = document.getElementById('confirmGo');
+    go.textContent = 'Remove';
+    const onGo = async () => {
+      go.removeEventListener('click', onGo);
+      try {
+        await api.deleteSource(s.id);
+        this.sources = this.sources.filter((x) => x.id !== s.id);
+        delete this.draft.enabled[s.id];
+        delete this.saved.enabled[s.id];
+        this.markDirty();
+        this.render();
+      } catch (err) { toast(err.message, { error: true }); }
+      dlg.close();
+    };
+    go.addEventListener('click', onGo);
+    dlg.showModal();
+  }
+}

@@ -46,6 +46,11 @@
     <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-chev-d" viewBox="0 0 24 24"><path d="M5 9l7 7 7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4L2.5 20h19L12 4Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.2" r="1.2" fill="currentColor"/></symbol>
   </svg>
 
   <a class="skip-link" href="#sections">Skip to stories</a>
@@ -153,6 +158,7 @@
   </div>
 
   <main id="main">
+    <section class="page" id="page-today" aria-label="Today">
     <div class="screen">
       <header class="screen-header">
         <div class="overline-row">
@@ -195,6 +201,9 @@
       <div id="sections"></div>
       <p class="footnote" id="footnote"></p>
     </div>
+    </section>
+    <section class="page hidden" id="page-sources" aria-label="Sources"><div class="screen"></div></section>
+    <section class="page hidden" id="page-settings" aria-label="Settings"><div class="screen"></div></section>
   </main>
 
   <!-- Floating mini player -->
@@ -213,32 +222,19 @@
     <button class="skip-btn sm" id="miniNext" aria-label="Next story"><svg><use href="#i-next"/></svg></button>
   </div>
 
+  <!-- Unsaved changes on Sources or Settings -->
+  <div class="save-bar hidden" id="saveBar" role="status">
+    <span class="save-label">Unsaved changes</span>
+    <button class="link-btn" id="discardBtn" type="button">Discard</button>
+    <button class="pill-btn" id="saveBtn" type="button">Save</button>
+  </div>
+
   <!-- Bottom tab bar -->
   <nav class="tabbar" id="tabbar" aria-label="Primary">
     <button class="tab active" data-tab="today" aria-current="page"><svg><use href="#i-headphones"/></svg><span>Today</span></button>
     <button class="tab" data-tab="sources"><svg><use href="#i-sources"/></svg><span>Sources</span></button>
     <button class="tab" data-tab="settings"><svg><use href="#i-settings"/></svg><span>Settings</span></button>
   </nav>
-
-  <!-- Sources sheet -->
-  <dialog class="sheet" id="sourcesSheet" aria-labelledby="sourcesTitle">
-    <div class="sheet-head">
-      <h2 id="sourcesTitle">Sources</h2>
-      <button class="icon-btn" data-close aria-label="Close"><svg><use href="#i-close"/></svg></button>
-    </div>
-    <div class="sheet-body">
-      <form class="add-source" id="addSourceForm" autocomplete="off">
-        <label class="field-label" for="sourceUrl">Add a news link</label>
-        <p class="hint">Paste a site, section page, RSS feed or a single article. New links are checked at the next morning build; a single article goes into one briefing only.</p>
-        <div class="input-row">
-          <input type="text" id="sourceUrl" placeholder="https://www.example.com/news" required inputmode="url" autocapitalize="off" spellcheck="false">
-          <button class="btn btn-primary" type="submit" id="checkSourceBtn">Add link</button>
-        </div>
-        <div class="preview hidden" id="sourcePreview"></div>
-      </form>
-      <div id="sourceList"></div>
-    </div>
-  </dialog>
 
   <!-- First-run welcome: three short steps (you, your news, your morning). -->
   <dialog class="sheet welcome" id="welcomeSheet" aria-labelledby="welcomeTitle">
@@ -356,133 +352,18 @@
     </form>
   </dialog>
 
-  <!-- Settings sheet: one page, ordered by how often each setting is touched.
-       Content mix first, then the voice (set once, so collapsed), delivery, account. -->
-  <dialog class="sheet" id="settingsSheet" aria-labelledby="settingsTitle">
+  <!-- Generic confirm dialog -->
+  <dialog class="sheet" id="confirmDialog" aria-labelledby="confirmTitle">
     <div class="sheet-head">
-      <h2 id="settingsTitle">Settings</h2>
+      <h2 id="confirmTitle"></h2>
       <button class="icon-btn" data-close aria-label="Close"><svg><use href="#i-close"/></svg></button>
     </div>
     <div class="sheet-body">
-      <section class="set-section" aria-labelledby="setBriefing">
-        <h3 class="set-label" id="setBriefing">Your briefing</h3>
-        <div class="setting-group">
-          <h4>Stories per section</h4>
-          <div class="steppers" id="storySteppers"></div>
-        </div>
-        <div class="setting-group">
-          <div class="setting-row">
-            <label class="switch"><input type="checkbox" id="saySourcesOn"><span></span></label>
-            <label for="saySourcesOn">Say where each story is from</label>
-          </div>
-          <p class="hint">Off keeps transitions clean. The source is always shown on the card.</p>
-        </div>
-        <div class="setting-group">
-          <div class="setting-row">
-            <label class="switch"><input type="checkbox" id="weatherOn" aria-label="Weather in the intro"><span></span></label>
-            <span>Weather in the intro for</span>
-            <input type="text" id="cityInput" class="text-input city-input" placeholder="City" aria-label="City">
-          </div>
-          <details class="advanced">
-            <summary>Coordinates</summary>
-            <div class="input-row">
-              <input type="number" step="0.0001" id="latInput" class="text-input" aria-label="Latitude" placeholder="Latitude">
-              <input type="number" step="0.0001" id="lonInput" class="text-input" aria-label="Longitude" placeholder="Longitude">
-            </div>
-          </details>
-        </div>
-        <details class="setting-group voice-picker" id="voicePicker">
-          <summary class="voice-summary">
-            <span class="avatar" id="voiceAvatar" aria-hidden="true"></span>
-            <span class="v-text">
-              <span class="v-label">Voice</span>
-              <span class="v-name" id="voiceSummary"></span>
-            </span>
-            <span class="btn btn-ghost voice-change">Change</span>
-          </summary>
-          <div class="voice-body">
-            <p class="hint">Neural voices, not robotic. Tap ▶ to hear a sample.</p>
-            <div class="chip-row" id="voiceFilters" role="group" aria-label="Filter voices by accent"></div>
-            <div class="voice-grid" id="voiceGrid"></div>
-            <h4><label for="speedRange">Speaking pace</label></h4>
-            <div class="range-row">
-              <span>Relaxed</span>
-              <input type="range" id="speedRange" min="0.8" max="1.25" step="0.05">
-              <span>Brisk</span>
-              <output id="speedOut">1.0×</output>
-            </div>
-          </div>
-        </details>
-      </section>
-
-      <section class="set-section" aria-labelledby="setAI">
-        <h3 class="set-label" id="setAI">AI services <span class="tag">free keys</span></h3>
-        <div class="setting-group">
-          <h4><label for="llmProvider">Summaries written by</label></h4>
-          <div class="input-row">
-            <select id="llmProvider" class="text-input" aria-label="AI provider for summaries"></select>
-            <select id="llmModel" class="text-input" aria-label="AI model for summaries"></select>
-          </div>
-          <p class="hint">Your key, your quota. Keys are sent to the AI service only when building a briefing — never stored anywhere else.</p>
-        </div>
-        <div class="setting-group" id="keyFields"></div>
-      </section>
-
-      <section class="set-section" aria-labelledby="setMorning">
-        <h3 class="set-label" id="setMorning">Every morning</h3>
-        <div class="setting-group">
-          <div class="setting-row">
-            <label class="switch"><input type="checkbox" id="dailyOn"><span></span></label>
-            <label for="dailyOn">Build my briefing every morning</label>
-          </div>
-          <p class="hint" id="nextRun"></p>
-        </div>
-        <div class="setting-group">
-          <div class="setting-row">
-            <label class="switch"><input type="checkbox" id="pushOn"><span></span></label>
-            <label for="pushOn">Notify this device when it's ready</label>
-            <button class="btn btn-ghost" id="pushTest" type="button">Test</button>
-          </div>
-          <p class="hint" id="pushHint"></p>
-        </div>
-      </section>
-
-      <section class="set-section" aria-labelledby="setAccount">
-        <h3 class="set-label" id="setAccount">Account</h3>
-        <div class="setting-group">
-          <h4><label for="nameInput">Your name</label></h4>
-          <p class="hint">Optional. The host greets you by name.</p>
-          <input type="text" id="nameInput" class="text-input" maxlength="40" autocomplete="given-name" placeholder="First name">
-        </div>
-        <div class="setting-group" id="rebuildGroup">
-          <h4>Build now</h4>
-          <p class="hint">Re-reads your sources and records a fresh briefing in this browser. Takes a few minutes.</p>
-          <button class="btn btn-primary" id="rebuildBtn"><svg><use href="#i-refresh"/></svg> Build a fresh briefing</button>
-          <div class="progress hidden" id="settingsProgress" role="status" aria-live="polite">
-            <div class="progress-bar"><span></span></div>
-            <span class="progress-label"></span>
-          </div>
-        </div>
-        <div class="setting-group">
-          <div class="setting-row">
-            <span id="accountEmail" class="account-email"></span>
-            <button class="btn btn-ghost" id="signOutBtn" type="button">Sign out</button>
-          </div>
-        </div>
-        <div class="setting-group">
-          <button class="btn btn-danger-ghost" id="deleteAccountBtn" type="button"><svg><use href="#i-trash"/></svg> Delete account</button>
-        </div>
-        <p class="legal-links"><a href="/privacy" target="_blank" rel="noopener">Privacy</a><a href="/terms" target="_blank" rel="noopener">Terms</a></p>
-      </section>
-
-      <details class="advanced how-it-works">
-        <summary>How it works</summary>
-        <ul class="limits" id="limitsList"></ul>
-      </details>
+      <p class="hint" id="confirmBody"></p>
     </div>
     <div class="sheet-foot">
       <button class="btn btn-ghost" data-close>Cancel</button>
-      <button class="btn btn-primary" id="saveSettings">Save settings</button>
+      <button class="btn btn-primary" id="confirmGo">Confirm</button>
     </div>
   </dialog>
 
