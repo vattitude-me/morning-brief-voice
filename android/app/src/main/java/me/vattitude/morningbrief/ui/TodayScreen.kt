@@ -305,6 +305,7 @@ fun TodayScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                             if (i > 0) Hairline()
                             StoryRow(
                                 card, current = card.id == current?.id, playing = playing,
+                                colorPhotos = saved.colorPhotos,
                                 modifier = Modifier.onGloballyPositioned { c ->
                                     holder[0]?.takeIf { it.isAttached && c.isAttached }
                                         ?.let { rowTops[card.id] = it.localPositionOf(c, Offset.Zero).y.roundToInt() }
@@ -425,6 +426,7 @@ private fun StoryRow(
     card: Card,
     current: Boolean,
     playing: Boolean,
+    colorPhotos: Boolean = false,
     modifier: Modifier = Modifier,
     onPlay: () -> Unit,
     onOpen: () -> Unit,
@@ -462,7 +464,7 @@ private fun StoryRow(
                 val secs = (card.end - card.start).roundToInt()
                 val meta = listOfNotNull(
                     card.source.ifBlank { null },
-                    if (secs < 60) "${secs}s" else clock(secs.toDouble()),
+                    (if (secs < 60) "${secs}s" else clock(secs.toDouble())) + " of audio",
                     card.also.size.takeIf { it > 0 }?.let { "+$it source${if (it == 1) "" else "s"}" },
                 )
                 Text(meta.joinToString(" · "), Modifier.padding(top = 5.dp), style = Type.meta, color = t.muted,
@@ -470,7 +472,8 @@ private fun StoryRow(
             }
             if (card.image != null) {
                 Spacer(Modifier.width(12.dp))
-                AsyncImage(model = card.image, contentDescription = null, contentScale = ContentScale.Crop, colorFilter = Grayscale,
+                AsyncImage(model = card.image, contentDescription = null, contentScale = ContentScale.Crop,
+                    colorFilter = if (colorPhotos) null else Grayscale,
                     modifier = Modifier.size(56.dp).clip(RoundedCornerShape(12.dp)).background(t.track))
             }
         }

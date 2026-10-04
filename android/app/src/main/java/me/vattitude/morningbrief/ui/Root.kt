@@ -141,7 +141,7 @@ fun Root(vm: AppViewModel) {
                 SaveBar(onDiscard = vm::discard, onSave = vm::save)
             }
             AnimatedVisibility(showMini && !showSave, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
-                playing?.let { MiniPlayer(it, player, onOpen = vm::openPlayer, onToggle = vm::togglePlaying, onNext = { vm.jump(true) }) }
+                playing?.let { MiniPlayer(it, player, colorPhotos = saved.colorPhotos, onOpen = vm::openPlayer, onToggle = vm::togglePlaying, onNext = { vm.jump(true) }) }
             }
             if (!keyboard) TabBar(tab) { vm.tab.value = it }
         }
@@ -164,7 +164,7 @@ private fun SaveBar(onDiscard: () -> Unit, onSave: () -> Unit) {
 
 /** The briefing that's playing, when its player card is out of sight: tap to go back to it. */
 @Composable
-private fun MiniPlayer(b: Briefing, player: PlayerState, onOpen: () -> Unit, onToggle: () -> Unit, onNext: () -> Unit) {
+private fun MiniPlayer(b: Briefing, player: PlayerState, colorPhotos: Boolean = false, onOpen: () -> Unit, onToggle: () -> Unit, onNext: () -> Unit) {
     val t = Mb.t
     val pos = player.position
     val card = b.cards.lastOrNull { pos >= it.start && pos < it.end }
@@ -176,7 +176,8 @@ private fun MiniPlayer(b: Briefing, player: PlayerState, onOpen: () -> Unit, onT
         Row(Modifier.fillMaxSize().padding(start = 8.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             val image = card?.image ?: b.cards.firstOrNull { it.image != null }?.image
             if (image != null) {
-                AsyncImage(model = image, contentDescription = null, contentScale = ContentScale.Crop, colorFilter = Grayscale,
+                AsyncImage(model = image, contentDescription = null, contentScale = ContentScale.Crop,
+                    colorFilter = if (colorPhotos) null else Grayscale,
                     modifier = Modifier.size(46.dp).clip(CircleShape).background(t.track))
             } else {
                 Box(Modifier.size(46.dp).clip(CircleShape).background(t.track), contentAlignment = Alignment.Center) {

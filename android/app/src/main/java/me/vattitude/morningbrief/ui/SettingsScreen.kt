@@ -215,6 +215,12 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Segmented(listOf("Light", "Dark", "System"), looks.indexOf(appearance).coerceAtLeast(0), height = 40.dp, glass = true) {
                 vm.setAppearance(looks[it])
             }
+            GlassGroup(Modifier.padding(top = 12.dp)) {
+                SwitchRow("Color story photos", st.colorPhotos,
+                    detail = "Thumbnails in full color; the large cover stays black and white") { on ->
+                    vm.update { it.copy(colorPhotos = on) }
+                }
+            }
 
             SectionLabel("Account")
             AccountGroup(vm)

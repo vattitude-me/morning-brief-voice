@@ -13,7 +13,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,8 +38,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.NotificationsOff
 import androidx.compose.material.icons.outlined.RecordVoiceOver
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Icon
@@ -65,25 +62,21 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import me.vattitude.morningbrief.R
-import me.vattitude.morningbrief.pipeline.KOKORO_VOICES
-import me.vattitude.morningbrief.pipeline.KokoroPack
 import me.vattitude.morningbrief.pipeline.MAX_PER_SECTION
 import me.vattitude.morningbrief.pipeline.SECTIONS
 import me.vattitude.morningbrief.pipeline.STORY_BUDGET
-import me.vattitude.morningbrief.pipeline.kokoroVoice
-import me.vattitude.morningbrief.work.Scheduler
 
-private enum class Step { Welcome, Voice, Morning, Topics, Summaries, Ready }
+private enum class Step { Welcome, Topics, Ready }
 
 /**
- * First run: hear what a briefing sounds like, then pick the voice, the morning time (and allow the
- * "it's ready" notification) and, optionally, who writes the summaries. Ends by making the first brief.
+ * First run, kept short on purpose: hear what a briefing sounds like, pick topics,
+ * then make the first brief. Voice, time, notifications and AI summaries all have
+ * sensible defaults and live in Settings.
  */
 @Composable
 fun OnboardingScreen(vm: AppViewModel) {
@@ -101,7 +94,8 @@ fun OnboardingScreen(vm: AppViewModel) {
     val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         canNotify = granted
         asked = true
-        if (step == Step.Morning) index++
+        // Asked from the last step's button: carry on to the first brief either way.
+        if (step == Step.Ready) vm.finishOnboarding()
     }
 
     BackHandler(index > 0) { index-- }
@@ -118,11 +112,8 @@ fun OnboardingScreen(vm: AppViewModel) {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 28.dp)) {
                 when (s) {
                     Step.Welcome -> Welcome(vm)
-                    Step.Voice -> VoiceStep(vm)
-                    Step.Morning -> MorningStep(vm, canNotify) { askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS) }
                     Step.Topics -> TopicsStep(vm)
-                    Step.Summaries -> SummariesStep(vm)
-                    Step.Ready -> ReadyStep(vm, canNotify)
+                    Step.Ready -> ReadyStep(vm)
                 }
             }
         }
@@ -135,13 +126,13 @@ fun OnboardingScreen(vm: AppViewModel) {
             val label = when (step) {
                 Step.Welcome -> "Get started"
                 Step.Topics -> if (topicsEmpty) "Pick at least one topic" else "Continue"
-                Step.Summaries -> if (st.summaryKey.isBlank()) "Skip for now" else "Continue"
                 Step.Ready -> "Make my first brief"
                 else -> "Continue"
             }
-            PillButton(label, filled = !(step == Step.Summaries && st.summaryKey.isBlank()), enabled = !topicsEmpty) {
+            PillButton(label, enabled = !topicsEmpty) {
                 when {
-                    step == Step.Morning && !canNotify && !asked -> askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    // Ask for the ready alert at the moment of commitment, then carry on either way.
+                    step == Step.Ready && !canNotify && !asked -> askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
                     step == Step.Ready -> vm.finishOnboarding()
                     else -> index++
                 }
@@ -215,67 +206,12 @@ private fun Feature(icon: ImageVector, title: String, detail: String) {
 }
 
 @Composable
-private fun VoiceStep(vm: AppViewModel) {
-    val st by vm.settings.collectAsState()
-    val pack by vm.packInstalled.collectAsState()
-    // Natural voices are the point of the app, so they're the starting choice.
-    LaunchedEffect(Unit) {
-        vm.loadVoices()
-        if (st.voice == null && pack == null) vm.update { it.copy(voice = KOKORO_VOICES.first().id) }
-    }
-    Title("Step 1 of 4 · Voice", "Who should read your news?",
-        "Natural voices sound like a real host and work offline once downloaded. " +
-            "The phone's own voice works right away.")
-    Glass(Modifier.fillMaxWidth()) { VoicePicker(vm, Modifier.padding(14.dp)) }
-}
-
-@Composable
-private fun MorningStep(vm: AppViewModel, canNotify: Boolean, onAllow: () -> Unit) {
-    val st by vm.settings.collectAsState()
-    val context = LocalContext.current
-    val t = Mb.t
-    val time = LocalTime.of(st.readyHour, st.readyMinute)
-    Title("Step 2 of 4 · Every morning", "When do you want your brief?",
-        "Pick when you usually wake or head out. Your brief is ready by then, every day.")
-    Glass(Modifier.fillMaxWidth().clickable {
-        TimePickerDialog(context, { _, h, m -> vm.update { it.copy(readyBy = "%02d:%02d".format(h, m)) } },
-            st.readyHour, st.readyMinute, false).show()
-    }) {
-        Column(Modifier.fillMaxWidth().padding(vertical = 22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Overline("Ready by")
-            Text(time.format(DateTimeFormatter.ofPattern("h:mm", Locale.ENGLISH)), Modifier.padding(top = 6.dp),
-                style = Type.display.copy(fontSize = 56.sp, lineHeight = 60.sp), color = t.ink)
-            Text(time.format(DateTimeFormatter.ofPattern("a", Locale.ENGLISH)), style = Type.title, color = t.muted)
-            Text("Tap to change", Modifier.padding(top = 10.dp), style = Type.meta, color = t.muted)
-        }
-    }
-    Glass(Modifier.fillMaxWidth().padding(top = 14.dp)) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(if (canNotify) Icons.Outlined.Notifications else Icons.Outlined.NotificationsOff, null,
-                Modifier.size(22.dp), tint = t.ink)
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(if (canNotify) "We'll let you know" else "Get a nudge when it's ready", style = Type.title, color = t.ink)
-                Text(if (canNotify) "One quiet notification when your brief is ready. Tap it to listen."
-                else "One quiet notification each morning, nothing else.", style = Type.meta, color = t.muted)
-            }
-            if (!canNotify) {
-                Spacer(Modifier.width(10.dp))
-                PillButton("Allow", onClick = onAllow)
-            }
-        }
-    }
-    Hint("The phone starts on it about ${Scheduler.LEAD_MINUTES} minutes before, as long as it's online.",
-        Modifier.padding(top = 14.dp, start = 4.dp))
-}
-
-@Composable
 private fun TopicsStep(vm: AppViewModel) {
     val st by vm.settings.collectAsState()
     val t = Mb.t
     val total = SECTIONS.keys.sumOf { st.stories[it] ?: 0 }
     val full = total >= STORY_BUDGET
-    Title("Step 3 of 4 · Topics", "What goes in your brief?",
+    Title("Your topics", "What goes in your brief?",
         "Twelve stories, split however you like — up to $MAX_PER_SECTION from each topic. Nothing is picked for you.")
     Glass(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp)) {
@@ -313,38 +249,25 @@ private fun TopicsStep(vm: AppViewModel) {
 }
 
 @Composable
-private fun SummariesStep(vm: AppViewModel) {
-    Title("Step 4 of 4 · Optional", "Want sharper summaries?",
-        "Your brief already works without this: the app picks the key sentences from each article. " +
-            "Add a free AI key and every story is rewritten to be heard, short and clear.")
-    Glass(Modifier.fillMaxWidth()) { SummaryPicker(vm, Modifier.padding(14.dp)) }
-    Hint("Takes about a minute. You can also skip it and add a key later in Settings, under Advanced.", Modifier.padding(top = 14.dp, start = 4.dp))
-}
-
-@Composable
-private fun ReadyStep(vm: AppViewModel, canNotify: Boolean) {
+private fun ReadyStep(vm: AppViewModel) {
     val st by vm.settings.collectAsState()
-    val pack by vm.packInstalled.collectAsState()
-    val download by vm.packDownload.collectAsState()
+    val context = LocalContext.current
     val t = Mb.t
-    Title("All set", "Your first brief is one tap away.", "Here's your setup. Change any of it later, and pick topics in Sources.")
+    Title("All set", "Your first brief is one tap away.",
+        "Made with the phone's voice, ready every morning. Tune everything later in Settings.")
     GlassGroup {
-        val voice = kokoroVoice(st.voice)
-        ListRow("Voice", value = when {
-            voice == null -> "Phone"
-            pack == null && download.running -> "${voice.name} (downloading)"
-            pack == null -> "Phone (natural not downloaded)"
-            else -> "${voice.name} · ${voice.accent}"
-        })
-        Hairline()
-        ListRow("Ready by", value = LocalTime.of(st.readyHour, st.readyMinute).format(DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)) +
-            if (canNotify) "" else ", no alert")
+        val time = LocalTime.of(st.readyHour, st.readyMinute)
+        ListRow("Ready by",
+            value = time.format(DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)),
+            caret = true,
+            onClick = {
+                TimePickerDialog(context, { _, h, m -> vm.update { it.copy(readyBy = "%02d:%02d".format(h, m)) } },
+                    st.readyHour, st.readyMinute, false).show()
+            })
         Hairline()
         val total = SECTIONS.keys.sumOf { st.stories[it] ?: 0 }
         val topics = SECTIONS.values.filter { (st.stories[it.key] ?: 0) > 0 }.joinToString(", ") { it.title }
         ListRow("Topics", detail = topics.ifEmpty { "None yet" }, value = "$total stories")
-        Hairline()
-        ListRow("Summaries", value = if (st.summaryKey.isBlank()) "Built-in" else st.provider.name)
         Hairline()
         Row(Modifier.fillMaxWidth().padding(vertical = 15.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Your name", style = Type.body, color = t.ink)
@@ -362,15 +285,8 @@ private fun ReadyStep(vm: AppViewModel, canNotify: Boolean) {
             )
         }
     }
-    if (kokoroVoice(st.voice) != null && pack == null && !download.running) {
-        Row(Modifier.padding(top = 14.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Hint("The natural voices aren't downloaded yet.", Modifier.weight(1f))
-            PillButton("Download", filled = false) { vm.downloadVoices(KokoroPack.HD) }
-        }
-    }
-    Hint(if (kokoroVoice(st.voice) != null && pack == null && download.running)
-        "Your first brief starts as soon as the natural voices finish downloading, then takes a few minutes."
-    else "Your first brief takes a few minutes. After that, a new one is waiting every morning by " +
-        LocalTime.of(st.readyHour, st.readyMinute).format(DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)) + ".",
-        Modifier.padding(top = 14.dp, start = 4.dp), color = t.muted)
+    Hint("Your first brief takes a few minutes. After that, a new one is waiting every morning.",
+        Modifier.padding(top = 14.dp, start = 4.dp))
+    Hint("Want a more natural voice? Download one later in Settings, under Voice.",
+        Modifier.padding(top = 8.dp, start = 4.dp))
 }
