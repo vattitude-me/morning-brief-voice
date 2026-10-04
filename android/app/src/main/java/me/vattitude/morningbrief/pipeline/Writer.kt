@@ -180,6 +180,7 @@ class StoryWriter(
         } catch (e: Exception) {
             notes.lastOrNull() ?: when (e.message) {
                 "rate limited" -> "$label is busy right now; the key looks fine, try again in a minute."
+                "unavailable" -> "$label's service hiccuped on $model; usually transient — try again in a minute."
                 "model gone" -> "$label doesn't offer the model $model."
                 else -> "Couldn't reach $label: ${e.message?.take(100)}"
             }
@@ -217,6 +218,9 @@ class StoryWriter(
                     throw LimitHit("auth")
                 }
                 resp.code == 429 -> throw LimitHit("rate limited")
+                // A 5xx may be transient or model-specific; the next model gets a try
+                // before the build falls back to built-in summaries.
+                resp.code == 500 || resp.code in 502..504 -> throw LimitHit("unavailable")
                 (resp.code == 400 || resp.code == 404) && "model" in text.lowercase() -> throw LimitHit("model gone")
                 resp.code >= 400 -> throw IllegalStateException("HTTP ${resp.code}")
             }
