@@ -26,7 +26,7 @@ export const VOICES = [
 
 export const LLM_PROVIDERS = {
   groq: { label: 'Groq', models: ['openai/gpt-oss-20b', 'openai/gpt-oss-120b', 'llama-3.3-70b-versatile'], keyLabel: 'Groq API key', keyUrl: 'https://console.groq.com/keys' },
-  gemini: { label: 'Gemini', models: ['gemini-2.5-flash', 'gemini-2.0-flash'], keyLabel: 'Gemini API key', keyUrl: 'https://aistudio.google.com/apikey' },
+  gemini: { label: 'Gemini', models: ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite'], keyLabel: 'Gemini API key', keyUrl: 'https://aistudio.google.com/apikey' },
   openrouter: { label: 'OpenRouter', models: ['meta-llama/llama-3.3-70b-instruct:free'], keyLabel: 'OpenRouter API key', keyUrl: 'https://openrouter.ai/keys' },
 };
 
@@ -285,10 +285,13 @@ export async function buildBriefing({ settings, builtin, customSources, catalog,
   const date = new Date();
   const dateKey = date.toLocaleDateString('en-CA');
   const counts = settings.stories || {};
+  // A model saved before a provider retired it falls back to the current default.
+  const llmProvider = settings.llm_provider || 'groq';
+  const llmModels = LLM_PROVIDERS[llmProvider]?.models || [];
   const llm = {
-    provider: settings.llm_provider || 'groq',
-    model: settings.llm_model || LLM_PROVIDERS[settings.llm_provider || 'groq'].models[0],
-    apiKey: (settings.llm_keys || {})[settings.llm_provider || 'groq'] || '',
+    provider: llmProvider,
+    model: llmModels.includes(settings.llm_model) ? settings.llm_model : llmModels[0],
+    apiKey: (settings.llm_keys || {})[llmProvider] || '',
   };
   const tts = {
     voice: VOICES.some((v) => v.id === settings.voice) ? settings.voice : 'gemini:Kore',

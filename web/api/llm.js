@@ -26,7 +26,7 @@ export default async function handler(req, res) {
   try {
     let text;
     if (provider === 'gemini') {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model || 'gemini-2.5-flash'}:generateContent`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model || 'gemini-3.8-flash'}:generateContent`;
       const contents = (messages || [])
         .filter((m) => m.role !== 'system')
         .map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
@@ -41,7 +41,8 @@ export default async function handler(req, res) {
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data?.error?.message || `Gemini error ${r.status}`);
-      text = data.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
+      // Gemini 3.x thinks out loud: keep the answer, drop the thought parts.
+      text = data.candidates?.[0]?.content?.parts?.filter((p) => !p.thought).map((p) => p.text || '').join('') || '';
     } else {
       const p = PROVIDERS[provider];
       if (!p) return res.status(400).json({ error: `Unknown provider: ${provider}` });

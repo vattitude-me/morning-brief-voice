@@ -327,10 +327,15 @@ export class SettingsSheet {
         testBtn.disabled = true;
         hint.textContent = 'Checking…';
         try {
+          // Test the model that's actually selected for summaries when this is
+          // the chosen provider; otherwise the provider's default. Reasoning
+          // models (gpt-oss, Gemini 3.x) need token headroom to think, so the
+          // tiny-budget test that used to be here came back empty.
+          const model = (k === provSel.value && modelSel.value) || LLM_PROVIDERS[k].models[0];
           const r = await fetch('/api/llm', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              provider: k, apiKey: key, model: LLM_PROVIDERS[k].models[0], maxTokens: 5, json: false,
+              provider: k, apiKey: key, model, maxTokens: 60, json: false,
               messages: [{ role: 'user', content: 'Reply with the word ok.' }],
             }),
           });
