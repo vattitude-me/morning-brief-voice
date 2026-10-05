@@ -6,6 +6,7 @@ import { WelcomeSheet, installMode, onInstallChange, promptInstall, pushSupporte
 import { SourcesPage } from './pages/sources.js';
 import { SettingsPage } from './pages/settings.js';
 import { buildBriefing, loadLocalBriefing } from './brief.js';
+import { applyPhotoMode } from './design.js';
 
 const state = {
   briefing: null,
@@ -473,6 +474,7 @@ async function start() {
     const [status, profile] = await Promise.all([api.status(), api.profile()]);
     state.status = status;
     state.profile = profile;
+    applyPhotoMode(profile?.settings?.color_photos);
     await loadArchive();
     // A briefing built on this device today wins over anything older.
     const local = await loadLocalBriefing(today).catch(() => null);

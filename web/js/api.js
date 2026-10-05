@@ -37,6 +37,7 @@ export const DEFAULT_SETTINGS = {
   longitude: -79.3832,
   weather: true,
   say_sources: false,
+  color_photos: true,
   disabled_sources: [],
 };
 

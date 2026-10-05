@@ -123,3 +123,9 @@ export function PillButton(text, { filled = true, onClick = null, iconName = nul
   if (onClick) b.addEventListener('click', onClick);
   return b;
 }
+
+/* Photo color mode: color by default; Settings -> "Color story photos" off
+   adds .bw-photos to <html>, which grayscales covers via CSS. */
+export function applyPhotoMode(colorPhotos) {
+  document.documentElement.classList.toggle('bw-photos', colorPhotos === false);
+}

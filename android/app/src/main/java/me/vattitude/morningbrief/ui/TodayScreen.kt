@@ -247,7 +247,8 @@ fun TodayScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 Column(Modifier.padding(12.dp)) {
                     if (cover != null) {
                         AsyncImage(
-                            model = cover, contentDescription = null, contentScale = ContentScale.Crop, colorFilter = Grayscale,
+                            model = cover, contentDescription = null, contentScale = ContentScale.Crop,
+                            colorFilter = if (saved.colorPhotos) null else Grayscale,
                             modifier = Modifier.fillMaxWidth().height(190.dp).clip(RoundedCornerShape(16.dp)).background(t.track),
                         )
                     }

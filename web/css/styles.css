@@ -124,7 +124,7 @@ body { padding-bottom: 132px; }
 
 /* ---------- Hero player card ---------- */
 .hero { margin-top: 22px; border-radius: 26px; overflow: hidden; }
-.hero-cover { width: 100%; height: 190px; object-fit: cover; filter: grayscale(1); background: var(--bg-2); }
+.hero-cover { width: 100%; height: 190px; object-fit: cover; background: var(--bg-2); }
 .hero-body { padding: 12px; }
 .hero-cover + .hero-body { padding-top: 16px; }
 .hero-body > .overline { padding: 6px 6px 0; display: block; }
@@ -206,7 +206,7 @@ body { padding-bottom: 132px; }
 .story-text { flex: 1; min-width: 0; }
 .story-text h3 { margin: 0; font: 500 15px/1.3 var(--font-head); }
 .story-meta { margin: 5px 0 0; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.story-thumb { width: 56px; height: 56px; flex: none; border-radius: 12px; object-fit: cover; filter: grayscale(1); background: var(--bg-2); }
+.story-thumb { width: 56px; height: 56px; flex: none; border-radius: 12px; object-fit: cover; background: var(--bg-2); }
 .story-detail { padding: 10px 0 0 52px; }
 .story-detail p.summary { margin: 0; font-size: 15px; line-height: 1.33; }
 .story-detail .also { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
@@ -245,7 +245,7 @@ body { padding-bottom: 132px; }
 }
 .mini-player:not(.show) { transform: translate(-50%, 20px); opacity: 0; visibility: hidden; }
 .mini-player.show { visibility: visible; }
-.mini-cover { width: 46px; height: 46px; border-radius: 50%; object-fit: cover; filter: grayscale(1); flex: none; background: var(--bg-2); }
+.mini-cover { width: 46px; height: 46px; border-radius: 50%; object-fit: cover; flex: none; background: var(--bg-2); }
 .mini-eq { width: 46px; height: 46px; border-radius: 50%; background: var(--bg-2); display: inline-flex; align-items: center; justify-content: center; gap: 2px; flex: none; color: var(--ink); }
 .mini-eq i { width: 3px; background: currentColor; border-radius: 2px; animation: eq .9s ease-in-out infinite; }
 .mini-eq i:nth-child(2) { animation-delay: -.3s; } .mini-eq i:nth-child(3) { animation-delay: -.6s; }
@@ -892,3 +892,8 @@ button.section-head { width: 100%; border: 0; background: transparent; cursor: p
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); visibility: visible; }
 .toast.error { background: var(--err); color: #fff; }
+
+/* Black-and-white photo mode (Settings -> Color story photos off). */
+html.bw-photos .hero-cover,
+html.bw-photos .story-thumb,
+html.bw-photos .mini-cover { filter: grayscale(1); }

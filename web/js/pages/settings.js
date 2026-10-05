@@ -4,7 +4,7 @@ import { api, h, icon, toast } from '../api.js';
 import { LLM_PROVIDERS, VOICES } from '../brief.js';
 import {
   GlassGroup, Hairline, Hint, ListRow, Overline, PillButton, PillStepper,
-  SectionLabel, Segmented, SwitchRow, Tag,
+  SectionLabel, Segmented, SwitchRow, Tag, applyPhotoMode,
 } from '../design.js';
 import { enablePush, pushSupported } from '../sheets.js';
 
@@ -52,6 +52,7 @@ export class SettingsPage {
   async save() {
     await api.saveSettings(this.draft);
     this.saved = JSON.parse(JSON.stringify(this.draft));
+    applyPhotoMode(this.draft.color_photos);
     this.markDirty();
     this.render();
     toast('Saved. Changes apply from the next briefing.');
@@ -290,8 +291,8 @@ export class SettingsPage {
         },
       });
     return h('div', { class: 'appearance-section' }, seg,
-      GlassGroup(SwitchRow('Color story photos', !!d.color_photos, {
-        detail: 'Thumbnails in full color; the large cover stays black and white',
+      GlassGroup(SwitchRow('Color story photos', d.color_photos !== false, {
+        detail: 'Cover and thumbnails in full color',
         onChange: (on) => this.set({ color_photos: on }),
       })));
   }
