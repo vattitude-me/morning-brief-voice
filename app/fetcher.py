@@ -393,7 +393,8 @@ async def enrich_items(items: list[Item], concurrency: int = 6) -> None:
                     return
             if len(art.get("text") or "") > len(item.text):
                 item.text = art["text"]
-            item.image = item.image or art.get("image")
+            # The article's og:image is a large signed URL; the feed's is a 140px thumbnail.
+            item.image = art.get("image") or item.image
             if not item.summary:
                 item.summary = clean_text(art.get("description"))
 

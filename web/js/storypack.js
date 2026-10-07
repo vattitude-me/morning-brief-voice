@@ -104,7 +104,7 @@ export function buildBriefing(rows, settings, { date, voice, notes = [], hour } 
     stories.push({
       id, section: row.section, source: row.source || 'The Guardian',
       headline: row.title, summary: row.script || '', url: row.url || null,
-      image: null, start, end,
+      image: row.image || null, start, end,
     });
     chapters.push({ id, kind: 'story', title: row.title, start, end, section: row.section });
     clips.push({

@@ -130,7 +130,8 @@ def cmd_pack(args) -> int:
             return 0 if notes else 1
         rows = asyncio.run(build(cfg, _store(cfg), day=args.day, voice=args.voice,
                                  sections=sections, per_section=args.per_section,
-                                 notes=not getattr(args, "no_notes", False)))
+                                 notes=not getattr(args, "no_notes", False),
+                                 force=getattr(args, "force", False)))
     except Exception as exc:  # noqa: BLE001 — say why and fail the run
         print(f"✗ {exc.__class__.__name__}: {exc}")
         return 1
@@ -158,6 +159,8 @@ def main() -> None:
                       help="only re-voice the greeting and section intros")
     pack.add_argument("--no-notes", action="store_true", dest="no_notes",
                       help="skip the greeting and section intros")
+    pack.add_argument("--force", action="store_true",
+                      help="re-voice every story, even ones already published")
     sub.add_parser("check", help="test the Supabase and Groq connections")
     sub.add_parser("setup", help="download the Kokoro voice model (~350 MB)")
     args = parser.parse_args()

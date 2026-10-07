@@ -98,9 +98,17 @@ export const api = {
   },
   /** The shared per-day clips every listener is merged from (see app/storypack.py). */
   async storyAudio(day) {
-    return check(await sb.from('story_audio')
-      .select('date,section,rank,voice,title,url,source,script,duration,audio_path')
-      .eq('date', day)) || [];
+    const base = 'date,section,rank,voice,title,url,source';
+    const rest = 'script,duration,audio_path';
+    try {
+      return check(await sb.from('story_audio')
+        .select(`${base},image,${rest}`).eq('date', day)) || [];
+    } catch {
+      // The image column may not exist on an older schema; a brief without
+      // thumbnails still works, so fall back rather than losing the whole brief.
+      return check(await sb.from('story_audio')
+        .select(`${base},${rest}`).eq('date', day)) || [];
+    }
   },
   async storyDates() {
     const rows = check(await sb.from('story_audio').select('date').order('date', { ascending: false }).limit(120));

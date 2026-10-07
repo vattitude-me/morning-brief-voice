@@ -245,6 +245,7 @@ create table if not exists public.story_audio (
   title      text     not null check (char_length(title) <= 500),
   url        text     check (url is null or char_length(url) <= 2000),
   source     text     check (source is null or char_length(source) <= 200),
+  image      text     check (image is null or char_length(image) <= 2000),
   script     text,
   duration   real     not null default 0 check (duration >= 0),  -- seconds
   audio_path text     not null,                                  -- briefings bucket key
@@ -252,6 +253,9 @@ create table if not exists public.story_audio (
   primary key (date, section, rank, voice)
 );
 create index if not exists story_audio_date_idx on public.story_audio (date);
+
+-- Added after the first deployments: the story's lead image (the article's og:image).
+alter table public.story_audio add column if not exists image text;
 
 alter table public.story_audio enable row level security;
 drop policy if exists "read story audio" on public.story_audio;

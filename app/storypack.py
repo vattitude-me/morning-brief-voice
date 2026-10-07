@@ -161,7 +161,8 @@ async def build_notes(cfg, store, *, day: str | None = None, voice: str | None =
 
 async def build(cfg, store, *, day: str | None = None, per_section: int | None = None,
                 sections: list[str] | None = None, voice: str | None = None,
-                voice_url: str | None = None, notes: bool = True) -> list[dict]:
+                voice_url: str | None = None, notes: bool = True,
+                force: bool = False) -> list[dict]:
     """Voice the day's stories once and publish them as shared clips.
 
     Safe to re-run: rows upsert on ``(date, section, rank, voice)``, so a retry — or a
@@ -177,16 +178,36 @@ async def build(cfg, store, *, day: str | None = None, per_section: int | None =
     scripts = await guardian.build_pack(per_section=per_section, sections=sections)
     log.info("Voicing %d stories for %s as %s", len(scripts), day, voice)
 
+    # Stories already voiced for this day are reused, so a re-run only re-renders what
+    # genuinely changed — a story that dropped out of the top five, or a new one — and
+    # metadata such as the lead image can be refreshed without paying for audio again.
+    existing = {(r["section"], r["rank"]): r for r in store.select(
+        "story_audio", {"date": f"eq.{day}", "voice": f"eq.{voice}"})}
+
     rows: list[dict] = []
     async with httpx.AsyncClient(timeout=900) as client:
         for story in scripts:
+            image = (story.get("image") or "")[:2000] or None
+            done = existing.get((story["section"], story["rank"]))
+            if not force and done and done.get("audio_path") and done.get("url") == story["url"]:
+                store.update("story_audio",
+                             {"date": f"eq.{day}", "section": f"eq.{story['section']}",
+                              "rank": f"eq.{story['rank']}", "voice": f"eq.{voice}"},
+                             {"image": image, "title": story["title"][:500],
+                              "source": (story["source"] or "")[:200], "script": story["script"]})
+                rows.append({**done, "image": image})
+                log.info("[%s #%s] %s — reused (%.1fs)", story["section"], story["rank"],
+                         story["title"][:60], done.get("duration") or 0)
+                continue
+
             audio, duration = await synthesise(client, base, story["script"], voice)
             path = f"stories/{day}/{story['section']}-{story['rank']}-{voice}.mp3"
             store.upload(path, audio, content_type="audio/mpeg", cache="max-age=86400")
             row = {
                 "date": day, "section": story["section"], "rank": story["rank"], "voice": voice,
                 "title": story["title"][:500], "url": story["url"],
-                "source": (story["source"] or "")[:200], "script": story["script"],
+                "source": (story["source"] or "")[:200], "image": image,
+                "script": story["script"],
                 "duration": round(duration, 3), "audio_path": path,
             }
             # Publish each story as it lands, so a failure part-way through still leaves
@@ -214,6 +235,8 @@ def main() -> int:
                     help="only re-voice the greeting and section intros")
     ap.add_argument("--no-notes", action="store_true", dest="no_notes",
                     help="skip the greeting and section intros")
+    ap.add_argument("--force", action="store_true",
+                    help="re-voice every story, even ones already published")
     args = ap.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -225,7 +248,8 @@ def main() -> int:
         print(f"published {len(notes)} voice notes")
         return 0 if notes else 1
     rows = asyncio.run(build(cfg, store, day=args.day, per_section=args.per_section,
-                             sections=sections, voice=args.voice, notes=not args.no_notes))
+                             sections=sections, voice=args.voice, notes=not args.no_notes,
+                             force=args.force))
     print(f"published {len(rows)} clips, {total_seconds(rows):.1f}s of audio")
     return 0 if rows else 1
 
