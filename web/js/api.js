@@ -29,7 +29,8 @@ export const DEFAULT_SETTINGS = {
   llm_provider: 'groq',
   llm_model: '',
   llm_keys: {},
-  stories: { top: 5, ai: 5, tech: 5, politics: 5, entertainment: 5, science: 5, sports: 5 },
+  // Every category starts on, at three stories, so a first brief covers all seven.
+  stories: { top: 3, ai: 3, tech: 3, politics: 3, entertainment: 3, science: 3, sports: 3 },
   city: 'Toronto',
   latitude: 43.6532,
   longitude: -79.3832,

@@ -6,6 +6,9 @@ import { CheckDot, Chip, GlassGroup, Hairline, Hint, Overline, PillButton, Secti
 const MAX_PER_SECTION = 5;
 const STORY_BUDGET = MAX_PER_SECTION * 7;
 const TOPIC_KEYS = ['top', 'ai', 'tech', 'politics', 'entertainment', 'science', 'sports'];
+// "My Sources" (links people paste in) is parked while the seven default categories settle.
+// Everything it needs is still below — flip this back to true to restore the card.
+const SHOW_MY_SOURCES = false;
 const LINK_EXAMPLES = ['cbc.ca/sports/hockey/nhl', 'theglobeandmail.com', 'techcrunch.com'];
 
 const hostOf = (url) => {
@@ -43,7 +46,10 @@ export class SourcesPage {
 
   reload() { this.loaded = false; return this.load(); }
 
-  total() { return TOPIC_KEYS.concat('custom').reduce((a, k) => a + (this.draft.stories[k] || 0), 0); }
+  total() {
+    const keys = SHOW_MY_SOURCES ? TOPIC_KEYS.concat('custom') : TOPIC_KEYS;
+    return keys.reduce((a, k) => a + (this.draft.stories[k] || 0), 0);
+  }
 
   isDirty() {
     if (!this.draft) return false;
@@ -101,7 +107,7 @@ export class SourcesPage {
       this.header(),
       this.budget(total, full),
       Hint('Tap a topic to see its sources, and use − and + to set how many stories it gets. A topic set to Off is skipped.'),
-      this.picks(full),
+      ...(SHOW_MY_SOURCES ? [this.picks(full)] : []),
       ...TOPIC_KEYS.map((k) => this.topic(k, full)),
     );
   }

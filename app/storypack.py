@@ -78,13 +78,32 @@ def total_seconds(clips: list[dict]) -> float:
     return round(sum(float(c.get("duration") or 0) for c in clips), 2)
 
 
-async def synthesise(client: httpx.AsyncClient, base: str, text: str, voice: str) -> tuple[bytes, float]:
-    """One MP3 from the voice service, plus its duration (from the response header)."""
-    resp = await client.post(f"{base}/synthesize", params={"format": "mp3"},
-                             json={"text": text, "voice": voice})
-    if resp.status_code >= 400:
-        raise RuntimeError(f"voice service {resp.status_code}: {resp.text[:200]}")
-    return resp.content, float(resp.headers.get("X-Duration") or 0.0)
+async def synthesise(client: httpx.AsyncClient, base: str, text: str, voice: str,
+                     attempts: int = 4) -> tuple[bytes, float]:
+    """One MP3 from the voice service, plus its duration (from the response header).
+
+    A long pack must not die because the service blipped or was restarted: transport
+    errors are retried with a growing back-off (a container restart needs a few seconds
+    to serve again). A 4xx/5xx answer is a real error and is raised straight away.
+    """
+    delay = 5
+    last: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            resp = await client.post(f"{base}/synthesize", params={"format": "mp3"},
+                                     json={"text": text, "voice": voice})
+        except httpx.HTTPError as exc:
+            last = exc
+            if attempt == attempts:
+                break
+            log.warning("voice service unreachable (%s); retrying in %ds", exc.__class__.__name__, delay)
+            await asyncio.sleep(delay)
+            delay *= 3
+            continue
+        if resp.status_code >= 400:
+            raise RuntimeError(f"voice service {resp.status_code}: {resp.text[:200]}")
+        return resp.content, float(resp.headers.get("X-Duration") or 0.0)
+    raise RuntimeError(f"voice service unavailable after {attempts} attempts: {last}")
 
 
 async def build(cfg, store, *, day: str | None = None, per_section: int | None = None,
@@ -111,16 +130,18 @@ async def build(cfg, store, *, day: str | None = None, per_section: int | None =
             audio, duration = await synthesise(client, base, story["script"], voice)
             path = f"stories/{day}/{story['section']}-{story['rank']}-{voice}.mp3"
             store.upload(path, audio, content_type="audio/mpeg", cache="max-age=86400")
-            rows.append({
+            row = {
                 "date": day, "section": story["section"], "rank": story["rank"], "voice": voice,
                 "title": story["title"][:500], "url": story["url"],
                 "source": (story["source"] or "")[:200], "script": story["script"],
                 "duration": round(duration, 3), "audio_path": path,
-            })
+            }
+            # Publish each story as it lands, so a failure part-way through still leaves
+            # a usable pack instead of throwing away every minute already rendered.
+            store.insert("story_audio", row, on_conflict="date,section,rank,voice")
+            rows.append(row)
             log.info("[%s #%s] %s — %.1fs", story["section"], story["rank"], story["title"][:60], duration)
 
-    if rows:
-        store.insert("story_audio", rows, on_conflict="date,section,rank,voice")
     log.info("Published %d clips (%.1fs of audio)", len(rows), total_seconds(rows))
     return rows
 
