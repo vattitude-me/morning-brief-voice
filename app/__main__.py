@@ -117,13 +117,20 @@ def cmd_pack(args) -> int:
     import asyncio
 
     from .config import load
-    from .storypack import build, total_seconds
+    from .storypack import build, build_notes, total_seconds
 
     cfg = load()
     sections = args.sections.split(",") if args.sections else None
     try:
+        if getattr(args, "notes_only", False):
+            notes = asyncio.run(build_notes(cfg, _store(cfg), day=args.day, voice=args.voice))
+            print(f"✓ Published {len(notes)} voice notes as {args.voice or cfg.story_voice}")
+            for note in notes:
+                print(f"  {note['note_key']:20} {note['text'][:52]!r} — {note['duration']:.1f}s")
+            return 0 if notes else 1
         rows = asyncio.run(build(cfg, _store(cfg), day=args.day, voice=args.voice,
-                                 sections=sections, per_section=args.per_section))
+                                 sections=sections, per_section=args.per_section,
+                                 notes=not getattr(args, "no_notes", False)))
     except Exception as exc:  # noqa: BLE001 — say why and fail the run
         print(f"✗ {exc.__class__.__name__}: {exc}")
         return 1
@@ -147,6 +154,10 @@ def main() -> None:
     pack.add_argument("--voice", help="reference clip name (default: STORY_VOICE)")
     pack.add_argument("--per-section", type=int, dest="per_section", help="stories per section (default: STORIES_PER_SECTION)")
     pack.add_argument("--sections", help="comma-separated subset (default: all seven)")
+    pack.add_argument("--notes-only", action="store_true", dest="notes_only",
+                      help="only re-voice the greeting and section intros")
+    pack.add_argument("--no-notes", action="store_true", dest="no_notes",
+                      help="skip the greeting and section intros")
     sub.add_parser("check", help="test the Supabase and Groq connections")
     sub.add_parser("setup", help="download the Kokoro voice model (~350 MB)")
     args = parser.parse_args()

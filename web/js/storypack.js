@@ -45,13 +45,31 @@ export function clipsFor(rows, wanted) {
 
 const round = (n) => Math.round(n * 100) / 100;
 
+/** Which greeting to open with, by the listener's local hour (mirrors app/storypack.py). */
+export function greetingKey(hour = new Date().getHours()) {
+  if (hour < 12) return 'greeting_morning';
+  if (hour < 17) return 'greeting_afternoon';
+  return 'greeting_evening';
+}
+
 /**
  * Turn the day's shared rows into a briefing the existing UI and player understand.
+ *
+ * `notes` are the pre-voiced greeting and section intros: the greeting opens the brief
+ * (picked from the clock) and each section's line plays before its first story, so it
+ * reads like a programme rather than a playlist. Notes become clusters on the same
+ * timeline, so they are seekable and never overlap a story.
+ *
  * Returns `null` when the listener's lineup selects nothing (or the day has no pack).
  */
-export function buildBriefing(rows, settings, { date, voice } = {}) {
+export function buildBriefing(rows, settings, { date, voice, notes = [], hour } = {}) {
   const chosen = clipsFor(rows, lineup(settings));
   if (!chosen.length) return null;
+
+  const voiceName = voice || chosen[0].voice;
+  const byKey = new Map(
+    (notes || []).filter((n) => !voiceName || n.voice === voiceName).map((n) => [n.note_key, n]),
+  );
 
   const clips = [];
   const stories = [];
@@ -59,7 +77,26 @@ export function buildBriefing(rows, settings, { date, voice } = {}) {
   const counts = new Map();
   let cursor = 0;
 
+  const sayNote = (key) => {
+    const note = byKey.get(key);
+    if (!note) return;
+    const duration = Number(note.duration) || 0;
+    const start = round(cursor);
+    const end = round(cursor + duration);
+    clips.push({ id: key, url: clipUrl(note.audio_path), duration, section: null, rank: 0,
+      title: note.text, start, end, note: true });
+    chapters.push({ id: key, kind: 'note', title: note.text, start, end });
+    cursor += duration;
+  };
+
+  sayNote(greetingKey(hour));
+
+  let currentSection = null;
   for (const row of chosen) {
+    if (row.section !== currentSection) {
+      sayNote(`intro_${row.section}`);
+      currentSection = row.section;
+    }
     const duration = Number(row.duration) || 0;
     const start = round(cursor);
     const end = round(cursor + duration);
@@ -87,7 +124,7 @@ export function buildBriefing(rows, settings, { date, voice } = {}) {
     title: 'Your briefing',
     duration: round(cursor),
     generated_at: new Date().toISOString(),
-    voice: { name: voice || chosen[0].voice || 'Cloned narrator' },
+    voice: { name: voiceName || 'Cloned narrator' },
     writer: 'guardian',
     weather: null,
     sections, chapters, stories, clips,

@@ -1,6 +1,7 @@
 """The shared story pack: the per-user lineup and the clip order both clients mirror."""
 from app import guardian
-from app.storypack import clips_for, default_lineup, lineup, total_seconds
+from app.storypack import (GREETINGS, INTROS, NOTES, clips_for, default_lineup, greeting_key,
+                           lineup, total_seconds)
 
 VOICE = "her_reference"
 
@@ -45,3 +46,18 @@ def test_clips_ignore_other_voices():
 
 def test_no_sections_means_no_audio():
     assert clips_for(_rows("top"), {key: 0 for key in guardian.SECTIONS}) == []
+
+
+def test_every_section_has_an_intro_to_voice():
+    """A new section must not silently lose its spoken framing."""
+    assert set(INTROS) == {f"intro_{key}" for key in guardian.SECTIONS}
+    assert set(NOTES) == set(GREETINGS) | set(INTROS)
+
+
+def test_the_greeting_follows_the_listeners_clock():
+    assert greeting_key(0) == "greeting_morning"
+    assert greeting_key(11) == "greeting_morning"
+    assert greeting_key(12) == "greeting_afternoon"
+    assert greeting_key(16) == "greeting_afternoon"
+    assert greeting_key(17) == "greeting_evening"
+    assert greeting_key(23) == "greeting_evening"

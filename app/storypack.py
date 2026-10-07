@@ -29,6 +29,34 @@ log = logging.getLogger(__name__)
 
 MAX_PER_SECTION = 5
 
+# Spoken framing, voiced once per day like the stories. A listener opens with the
+# greeting that matches their clock, then hears the section's line before its first
+# story. Kept short on purpose — these are punctuation, not content.
+GREETINGS = {
+    "greeting_morning": "Good morning.",
+    "greeting_afternoon": "Good afternoon.",
+    "greeting_evening": "Good evening.",
+}
+INTROS = {
+    "intro_top": "Here are the top stories.",
+    "intro_ai": "Here's the latest in AI.",
+    "intro_tech": "Now, the latest in tech.",
+    "intro_politics": "Turning to politics.",
+    "intro_entertainment": "In entertainment.",
+    "intro_science": "In science.",
+    "intro_sports": "In sports.",
+}
+NOTES: dict[str, str] = {**GREETINGS, **INTROS}
+
+
+def greeting_key(hour: int) -> str:
+    """Which greeting a listener hears, by their local hour (mirrors the client)."""
+    if hour < 12:
+        return "greeting_morning"
+    if hour < 17:
+        return "greeting_afternoon"
+    return "greeting_evening"
+
 
 def default_lineup() -> dict[str, int]:
     """Every section on, at the maximum, until the user says otherwise."""
@@ -106,9 +134,34 @@ async def synthesise(client: httpx.AsyncClient, base: str, text: str, voice: str
     raise RuntimeError(f"voice service unavailable after {attempts} attempts: {last}")
 
 
+async def build_notes(cfg, store, *, day: str | None = None, voice: str | None = None,
+                      voice_url: str | None = None, keys: list[str] | None = None) -> list[dict]:
+    """Voice the greeting and the section intros once for the day."""
+    day = day or datetime.now(ZoneInfo(cfg.timezone)).date().isoformat()
+    voice = voice or cfg.story_voice
+    base = (voice_url or cfg.voice_url or "").rstrip("/")
+    if not base:
+        raise RuntimeError("VOICE_SERVICE_URL is not set")
+
+    items = [(k, NOTES[k]) for k in NOTES if not keys or k in keys]
+    rows: list[dict] = []
+    async with httpx.AsyncClient(timeout=900) as client:
+        for key, text in items:
+            audio, duration = await synthesise(client, base, text, voice)
+            path = f"notes/{day}/{key}-{voice}.mp3"
+            store.upload(path, audio, content_type="audio/mpeg", cache="max-age=86400")
+            row = {"date": day, "voice": voice, "note_key": key, "text": text,
+                   "duration": round(duration, 3), "audio_path": path}
+            store.insert("voice_notes", row, on_conflict="date,voice,note_key")
+            rows.append(row)
+            log.info("[note] %-20s %-34s %.1fs", key, text, duration)
+    log.info("Published %d voice notes", len(rows))
+    return rows
+
+
 async def build(cfg, store, *, day: str | None = None, per_section: int | None = None,
                 sections: list[str] | None = None, voice: str | None = None,
-                voice_url: str | None = None) -> list[dict]:
+                voice_url: str | None = None, notes: bool = True) -> list[dict]:
     """Voice the day's stories once and publish them as shared clips.
 
     Safe to re-run: rows upsert on ``(date, section, rank, voice)``, so a retry — or a
@@ -143,6 +196,8 @@ async def build(cfg, store, *, day: str | None = None, per_section: int | None =
             log.info("[%s #%s] %s — %.1fs", story["section"], story["rank"], story["title"][:60], duration)
 
     log.info("Published %d clips (%.1fs of audio)", len(rows), total_seconds(rows))
+    if notes:
+        await build_notes(cfg, store, day=day, voice=voice, voice_url=base)
     return rows
 
 
@@ -155,14 +210,22 @@ def main() -> int:
     ap.add_argument("--voice", help="Reference clip name (default: STORY_VOICE)")
     ap.add_argument("--per-section", type=int, help="Stories per section (default: STORIES_PER_SECTION)")
     ap.add_argument("--sections", help="Comma-separated subset (default: all)")
+    ap.add_argument("--notes-only", action="store_true", dest="notes_only",
+                    help="only re-voice the greeting and section intros")
+    ap.add_argument("--no-notes", action="store_true", dest="no_notes",
+                    help="skip the greeting and section intros")
     args = ap.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     cfg = load()
     store = Store(cfg.supabase_url, cfg.supabase_secret_key, cfg.bucket)
     sections = args.sections.split(",") if args.sections else None
+    if args.notes_only:
+        notes = asyncio.run(build_notes(cfg, store, day=args.day, voice=args.voice))
+        print(f"published {len(notes)} voice notes")
+        return 0 if notes else 1
     rows = asyncio.run(build(cfg, store, day=args.day, per_section=args.per_section,
-                             sections=sections, voice=args.voice))
+                             sections=sections, voice=args.voice, notes=not args.no_notes))
     print(f"published {len(rows)} clips, {total_seconds(rows):.1f}s of audio")
     return 0 if rows else 1
 

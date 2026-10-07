@@ -106,6 +106,15 @@ export const api = {
     const rows = check(await sb.from('story_audio').select('date').order('date', { ascending: false }).limit(120));
     return [...new Set((rows || []).map((r) => r.date))];
   },
+  /** The day's greeting and section intros (see app/storypack.py). */
+  async voiceNotes(day) {
+    try {
+      return check(await sb.from('voice_notes')
+        .select('voice,note_key,text,duration,audio_path').eq('date', day)) || [];
+    } catch {
+      return [];  // table not created yet — a brief without framing still works
+    }
+  },
   async archive() {
     const rows = check(await sb.from('briefings').select('date').order('date', { ascending: false }));
     return { briefings: rows };

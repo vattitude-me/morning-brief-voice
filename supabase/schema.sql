@@ -260,3 +260,30 @@ create policy "read story audio" on public.story_audio for select to authenticat
 -- Everyone reads the shared clips; only the worker (secret key) writes them.
 revoke all on public.story_audio from anon, authenticated;
 grant select on public.story_audio to authenticated;
+
+-- ----------------------------------------------------------- spoken framing
+-- The greeting and the per-section intros are voiced once per day, exactly like the
+-- stories, so a brief can open with "Good morning." and say "Here are the top stories."
+-- before each section. Same rules as story_audio: shared by everyone, worker-written.
+--   greeting_morning | greeting_afternoon | greeting_evening
+--   intro_top | intro_ai | intro_tech | intro_politics | intro_entertainment |
+--   intro_science | intro_sports
+-- Object layout: /notes/<date>/<note_key>-<voice>.mp3
+create table if not exists public.voice_notes (
+  date       date not null,
+  voice      text not null,
+  note_key   text not null,
+  text       text not null,   -- the spoken line, for captions and debugging
+  duration   real not null default 0 check (duration >= 0),  -- seconds
+  audio_path text not null,
+  created_at timestamptz not null default now(),
+  primary key (date, voice, note_key)
+);
+create index if not exists voice_notes_date_idx on public.voice_notes (date);
+
+alter table public.voice_notes enable row level security;
+drop policy if exists "read voice notes" on public.voice_notes;
+create policy "read voice notes" on public.voice_notes for select to authenticated using (true);
+
+revoke all on public.voice_notes from anon, authenticated;
+grant select on public.voice_notes to authenticated;

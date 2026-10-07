@@ -320,8 +320,10 @@ async function build() {
 /** The day's shared clips assembled for this listener's lineup; null when there is no pack. */
 async function loadStoryPack(day) {
   try {
-    const [{ settings }, rows] = await Promise.all([api.settings(), api.storyAudio(day)]);
-    return buildPackBriefing(rows, settings, { date: day, voice: rows[0]?.voice });
+    const [{ settings }, rows, notes] = await Promise.all([
+      api.settings(), api.storyAudio(day), api.voiceNotes(day),
+    ]);
+    return buildPackBriefing(rows, settings, { date: day, voice: rows[0]?.voice, notes });
   } catch {
     return null;  // no pack that day, or the story_audio table isn't there yet
   }
