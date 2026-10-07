@@ -58,6 +58,40 @@ docker compose up -d --build
 docker compose exec worker python -m app check
 ```
 
+## Running the whole stack locally (Docker)
+
+[`docker-compose.deploy.yml`](docker-compose.deploy.yml) stands in for the three hosts this
+runs on in production:
+
+| Production | Compose service | Local address |
+| --- | --- | --- |
+| GPU box (Linux + CUDA) | `voice` — Chatterbox-Turbo API | <http://localhost:8090> |
+| Vercel (static hosting) | `web` — the PWA | <http://localhost:8080> |
+| NAS (Docker) | `worker` — the nightly batch | profile `worker` |
+
+```bash
+docker compose -f docker-compose.deploy.yml up --build     # voice + web
+```
+
+Open <http://localhost:8080>; the app talks to Supabase as usual, and the browser can call
+the voice API directly at <http://localhost:8090> (CORS is enabled, `VOICE_CORS_ORIGINS`).
+
+The batch is opt-in because it needs Supabase credentials. Put `SUPABASE_URL` and
+`SUPABASE_SECRET_KEY` in `.env`, then:
+
+```bash
+docker compose -f docker-compose.deploy.yml --profile worker up -d worker
+docker compose -f docker-compose.deploy.yml run --rm worker python -m app pack
+```
+
+`python -m app pack` is the single-source path: it reads The Guardian's feeds (no AI),
+voices each story once through the `voice` service, and publishes the clips to Supabase
+Storage and the `story_audio` table. Every listener is then merged from those same clips.
+
+On macOS Docker cannot reach MPS, so `voice` uses the CPU image and is slower than running
+natively; on a Linux GPU host switch to `Dockerfile`, as described in
+[`voice_service/README.md`](voice_service/README.md).
+
 ## Operations
 
 - **Build now:** `./scripts/run-now.sh [--user you@example.com] [--no-push]` clears today's brief, rebuilds it and prints the result.

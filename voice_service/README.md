@@ -71,10 +71,22 @@ entirely. It is derived data tied to the model build and lives under `data/`, so
 git-ignored; delete it (or bump `CONDS_STAMP` in `turbo_voice/engine.py`) after a model
 upgrade. Set `VOICE_CONDS_CACHE=0` to turn it off.
 
-## Running on a GPU host (Docker)
+## Running in Docker
 
-On Apple Silicon the service runs natively because MPS is unavailable inside Docker.
-On a Linux box with an NVIDIA GPU it runs in a container instead:
+Two images ship here. The service has no authentication, so run it on a trusted network.
+
+**CPU — any machine without an NVIDIA GPU, including an Apple Silicon Mac.** Docker Desktop
+on macOS cannot reach the GPU or MPS, so rendering is CPU-only and slower than running
+natively (below), but the image is self-contained and a fair stand-in for a cloud host.
+
+```sh
+docker compose up --build        # then open http://localhost:8090/docs
+```
+
+`docker compose` builds `Dockerfile.cpu`, publishes port 8090, keeps the weights in a named
+volume and bind-mounts `data/voices/` so you can drop in a voice without a rebuild.
+
+**GPU — a Linux host with an NVIDIA GPU.** Faster, and what a cloud deployment would use:
 
 ```sh
 docker build -t morning-brief-voice .
@@ -84,12 +96,40 @@ docker run --gpus all -p 8090:8090 \
   morning-brief-voice
 ```
 
-`pick_device()` picks `cuda` when a GPU is present, then `mps`, then CPU. Mount a
-volume at `HF_HOME` so the model weights and the `.conds.pt` files survive restarts.
+`pick_device()` picks `cuda` when a GPU is present, then `mps`, then CPU. Mount a volume at
+`HF_HOME` so the model weights and the `.conds.pt` files survive restarts.
+
+### Letting the web app call it
+
+The service sends CORS headers, so a page on another origin can call it directly.
+`VOICE_CORS_ORIGINS` is a comma-separated allowlist and defaults to `*` for local dev:
+
+```
+VOICE_CORS_ORIGINS=http://localhost:5173,https://your-app.vercel.app
+```
+
+```js
+const res = await fetch('http://localhost:8090/synthesize?format=mp3', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ text: 'Good morning!', voice: 'her_reference' }),
+});
+const clip = await res.blob();   // audio/mpeg; X-Duration holds the length in seconds
+```
+
 For a nightly batch, scale the service to zero and start it on a schedule — see
 `scripts/batch.py`, which voices a JSON pack of stories to one WAV each plus an
-`index.json` of durations and marks, which is exactly what the app concatenates per
-user.
+`index.json` of durations and marks, exactly what the app concatenates per user.
+
+### Without Docker (Apple Silicon, fastest)
+
+MPS is unavailable inside a container, so on a Mac the quickest route is a native venv:
+
+```sh
+uv venv --python 3.11 .venv
+uv pip install --python .venv/bin/python -e .
+.venv/bin/uvicorn --app-dir . api.app:app --host 0.0.0.0 --port 8090
+```
 
 ## Endpoints
 

@@ -1,0 +1,36 @@
+# Local "cloud server" for the voice API.
+#
+#   docker compose up --build          # then open http://localhost:8090/docs
+#
+# The named volume keeps the ~2-3 GB of model weights (and the .conds.pt cache) across
+# restarts, so only the first start is slow. The reference clips are bind-mounted so you
+# can drop in a new voice without rebuilding — the cache writes beside them, so the
+# mount is read-write.
+#
+# On an NVIDIA host, switch `dockerfile` to `Dockerfile` and uncomment the `deploy`
+# block below for GPU access.
+services:
+  voice:
+    build:
+      context: .
+      dockerfile: Dockerfile.cpu
+    image: morning-brief-voice:cpu
+    ports:
+      - "8090:8090"
+    environment:
+      # "*" is fine for local dev; set a comma-separated allowlist when deployed.
+      VOICE_CORS_ORIGINS: "*"
+    volumes:
+      - voice-models:/models
+      - ./data/voices:/app/data/voices
+    restart: unless-stopped
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+volumes:
+  voice-models:

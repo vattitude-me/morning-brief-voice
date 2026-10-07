@@ -2,6 +2,7 @@
 
     python -m app worker                         # daily batch + app requests (the Docker service)
     python -m app run [--fresh] [--user EMAIL]   # build briefings now and print them
+    python -m app pack [--voice NAME]            # voice the day's stories into the shared pack
     python -m app check                          # test the Supabase and Groq connections
     python -m app setup                          # download the Kokoro voice model
 """
@@ -111,6 +112,27 @@ def cmd_check() -> int:
     return 0 if ok else 1
 
 
+def cmd_pack(args) -> int:
+    """Voice the day's stories once and publish them as the shared daily clips."""
+    import asyncio
+
+    from .config import load
+    from .storypack import build, total_seconds
+
+    cfg = load()
+    sections = args.sections.split(",") if args.sections else None
+    try:
+        rows = asyncio.run(build(cfg, _store(cfg), day=args.day, voice=args.voice,
+                                 sections=sections, per_section=args.per_section))
+    except Exception as exc:  # noqa: BLE001 — say why and fail the run
+        print(f"✗ {exc.__class__.__name__}: {exc}")
+        return 1
+    print(f"✓ Published {len(rows)} clips ({total_seconds(rows):.1f}s of audio) as {args.voice or cfg.story_voice}")
+    for row in rows:
+        print(f"  [{row['section']} #{row['rank']}] {row['title'][:70]} — {row['duration']:.1f}s")
+    return 0 if rows else 1
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m app", description="Morning Brief Voice: daily spoken news briefing")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -120,6 +142,11 @@ def main() -> None:
                      help="start over: delete today's briefing(s), cached summaries/audio and 'used' marks on article links")
     run.add_argument("--user", action="append", metavar="EMAIL", help="only this user (repeatable); default everyone")
     run.add_argument("--no-push", action="store_true", help="don't send notifications")
+    pack = sub.add_parser("pack", help="voice the day's top stories into the shared daily pack")
+    pack.add_argument("--day", help="date to publish under (default: today)")
+    pack.add_argument("--voice", help="reference clip name (default: STORY_VOICE)")
+    pack.add_argument("--per-section", type=int, dest="per_section", help="stories per section (default: STORIES_PER_SECTION)")
+    pack.add_argument("--sections", help="comma-separated subset (default: all seven)")
     sub.add_parser("check", help="test the Supabase and Groq connections")
     sub.add_parser("setup", help="download the Kokoro voice model (~350 MB)")
     args = parser.parse_args()
@@ -135,6 +162,8 @@ def main() -> None:
         Worker(cfg, _store(cfg)).start()
     elif args.cmd == "run":
         sys.exit(cmd_run(args))
+    elif args.cmd == "pack":
+        sys.exit(cmd_pack(args))
     elif args.cmd == "check":
         sys.exit(cmd_check())
     elif args.cmd == "setup":

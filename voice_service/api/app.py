@@ -26,6 +26,7 @@ from pathlib import Path
 
 import soundfile as sf
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
@@ -36,6 +37,18 @@ from .sample import SAMPLE_STORY
 log = logging.getLogger(__name__)
 
 app = FastAPI(title="Morning Brief v2 voice", version="2.0.0")
+
+# The web app runs on a different origin (its own localhost port, or Vercel), so the
+# browser needs CORS to call this service. Comma-separated allowlist; "*" for local dev.
+CORS_ORIGINS = [o.strip() for o in os.getenv("VOICE_CORS_ORIGINS", "*").split(",") if o.strip()]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+    # Let the browser read the timing/voice headers on an audio response.
+    expose_headers=["X-Duration", "X-Voice", "X-Sample-Rate", "X-Format"],
+)
 
 CLIP_SUFFIXES = {".wav", ".mp3", ".m4a", ".aiff", ".aif", ".flac", ".ogg"}
 

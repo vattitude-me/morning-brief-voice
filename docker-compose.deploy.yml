@@ -1,0 +1,83 @@
+# The whole system on one machine — a stand-in for the three hosts production uses.
+#
+#   production                          this file
+#   ----------------------------------  ----------------------------------------------
+#   GPU box (Linux + CUDA, LAN-reachable)  voice   → Chatterbox-Turbo API     :8090
+#   Vercel (static hosting)                web     → the PWA                  :8080
+#   NAS (Docker, talks outward only)       worker  → the nightly batch     (profile: worker)
+#
+# Bring up the two internet-facing pieces:
+#
+#   docker compose -f docker-compose.deploy.yml up --build
+#
+# Then the local web app (http://localhost:8080) can call the voice API at
+# http://localhost:8090 — the service sends CORS headers, so no proxy is needed.
+#
+# The third host, the worker, needs Supabase credentials. Put them in .env
+# (SUPABASE_URL, SUPABASE_SECRET_KEY) and start it with:
+#
+#   docker compose -f docker-compose.deploy.yml --profile worker up -d worker
+#   docker compose -f docker-compose.deploy.yml run --rm worker python -m app pack
+#
+# `python -m app pack` is the new nightly path: it reads The Guardian's feeds, voices
+# each story once through the `voice` service and publishes the clips to Supabase.
+name: morning-brief
+
+services:
+  # The "GPU host". Docker on macOS cannot see MPS, so this is the CPU image; on a
+  # Linux box with an NVIDIA GPU, swap `dockerfile` to `Dockerfile` and add the
+  # `deploy.resources` block from voice_service/docker-compose.yml.
+  voice:
+    build:
+      context: ./voice_service
+      dockerfile: Dockerfile.cpu
+    image: morning-brief-voice:cpu
+    ports:
+      - "8090:8090"
+    environment:
+      VOICE_CORS_ORIGINS: "*"
+    volumes:
+      # Weights and the precomputed conditionals survive restarts.
+      - voice-models:/models
+      # Drop-in reference clips; the conditionals cache is written beside them.
+      - ./voice_service/data/voices:/app/data/voices
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8090/health').status==200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  # The static site (Vercel in production).
+  web:
+    build: ./web
+    image: morning-brief-web:local
+    ports:
+      - "8080:80"
+    depends_on:
+      - voice
+    restart: unless-stopped
+
+  # The nightly batch (the NAS worker). Opt-in: it needs Supabase credentials.
+  worker:
+    build: .
+    profiles: ["worker"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      TZ: ${BRIEFING_TIMEZONE:-America/Toronto}
+      # The worker voices the day's stories through the service above.
+      VOICE_SERVICE_URL: http://voice:8090
+      STORY_VOICE: ${STORY_VOICE:-her_reference}
+      STORIES_PER_SECTION: ${STORIES_PER_SECTION:-5}
+    volumes:
+      - ./data:/data
+    depends_on:
+      - voice
+    restart: unless-stopped
+    mem_limit: 3g
+
+volumes:
+  voice-models:
