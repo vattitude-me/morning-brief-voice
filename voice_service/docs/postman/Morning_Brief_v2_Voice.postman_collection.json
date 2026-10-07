@@ -1,0 +1,146 @@
+{
+  "info": {
+    "name": "Morning Brief v2 — Voice API",
+    "description": "Chatterbox-Turbo voice service.\n\n**Before you start:** run `GET /voices` once — it lists the reference clips and auto-selects the `voice` variable for the other requests.\n\n**Addresses**\n- Same machine: `http://127.0.0.1:8090`\n- LAN: `http://10.0.0.130:8090`\n\n**Pauses & tags** — write these straight into `text`:\n- `[[pause:0.8]]` silence for that many seconds (max 5)\n- `...` or a blank line — one beat (default 0.45s)\n- `[sigh]`, `[chuckle]`, `[laugh]`, `[cough]`, `[gasp]`, `[groan]`, `[sniffle]`, `[yawn]`\n\n**Audio requests:** use **Send and Download** in Postman to save the `.wav`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://10.0.0.130:8090",
+      "type": "string",
+      "description": "The voice service. Use http://127.0.0.1:8090 when Postman runs on the Mac itself."
+    },
+    {
+      "key": "voice",
+      "value": "her_output",
+      "type": "string",
+      "description": "Reference clip name, without the .wav extension. GET /voices sets this automatically."
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "const d = pm.response.json();",
+              "pm.test('device is mps or cpu', () => pm.expect(['mps', 'cpu']).to.include(d.device));",
+              "console.log('device:', d.device, '| default voice:', d.default_voice, '| clips:', d.clips);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] },
+        "description": "Model, device and reference status. The first call after a restart takes ~40s while the model warms up."
+      },
+      "response": []
+    },
+    {
+      "name": "Voices (run me first)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "const d = pm.response.json();",
+              "const usable = (d.clips || []).filter(c => c.usable);",
+              "pm.test('at least one usable clip', () => pm.expect(usable.length).to.be.above(0));",
+              "if (usable.length) {",
+              "  pm.collectionVariables.set('voice', usable[0].name);",
+              "  console.log('selected voice:', usable[0].name);",
+              "}",
+              "console.log(d.clips.map(c => `${c.name} — ${c.seconds}s — usable=${c.usable}`).join('\\n'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/voices", "host": ["{{baseUrl}}"], "path": ["voices"] },
+        "description": "Reference clips on disk. A clip must be longer than 5 seconds to be usable. This request sets the `voice` collection variable to the first usable clip."
+      },
+      "response": []
+    },
+    {
+      "name": "Synthesize — WAV with pauses and a tag",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"Good morning! It's Wednesday, October 8th. [[pause:0.6]] Here's what's happening. [[pause:0.5]] The port strike is over. Union leaders said a deal was reached late last night... after three days of talks. [sigh] It was a long week for everyone. [[pause:0.8]] And finally, your weather. Cloudy, with a high of 14 degrees.\",\n  \"voice\": \"{{voice}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{baseUrl}}/synthesize", "host": ["{{baseUrl}}"], "path": ["synthesize"] },
+        "description": "Returns audio/wav. Use **Send and Download** to save the file.\n\nResponse headers: `X-Duration`, `X-Voice`, `X-Sample-Rate`."
+      },
+      "response": []
+    },
+    {
+      "name": "Synthesize — short pause and tag test",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"Testing one, two, three. [[pause:0.7]] And then, [chuckle] a laugh.\",\n  \"voice\": \"{{voice}}\",\n  \"beat\": 0.3\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{baseUrl}}/synthesize", "host": ["{{baseUrl}}"], "path": ["synthesize"] },
+        "description": "The quickest check that pauses and tags work — about 4 seconds of audio. `beat` overrides the default ellipsis/paragraph pause of 0.45s."
+      },
+      "response": []
+    },
+    {
+      "name": "News sample — JSON with timings",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "const d = pm.response.json();",
+              "pm.test('has audio and marks', () => {",
+              "  pm.expect(d.spans).to.be.above(0);",
+              "  pm.expect(d.marks.length).to.equal(d.spans);",
+              "  pm.expect(d.audio_b64.length).to.be.above(1000);",
+              "});",
+              "console.log(`${d.voice} | ${d.duration}s | ${d.spans} spans | warnings: ${JSON.stringify(d.warnings)}`);",
+              "console.log(d.marks.map(m => `${m.start}-${m.end}  ${m.text.slice(0, 50)}`).join('\\n'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"voice\": \"{{voice}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{baseUrl}}/news/sample", "host": ["{{baseUrl}}"], "path": ["news/sample"] },
+        "description": "Builds the built-in sample bulletin. Returns JSON: `duration`, `spans`, `marks` (start/end per beat), `warnings`, and the audio as base64. The Test tab prints the timing table to the Postman console."
+      },
+      "response": []
+    }
+  ]
+}

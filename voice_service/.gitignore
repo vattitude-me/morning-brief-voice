@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+
+# Test / tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Generated audio output (scripts/ write here)
+/out/
+
+# macOS
+.DS_Store
+
+# Editors
+.idea/
+.vscode/
+
+# Secrets
+.env
+.env.*
+
+# Voice reference clips are app data: large, and contain a real person's voice.
+# Kept out of git, matching the parent repo, which ignores data/.
+data/

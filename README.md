@@ -28,6 +28,7 @@ and any link. Each user gets their own briefing and a phone notification every m
 - **Supabase**: row-level security keeps each user to their own data.
 - **Worker** (`app/`): makes outbound calls only, and never fetches private-network addresses from user links.
 - **Android app** (`android/`): builds and voices the briefing on the phone, with no worker needed. See [`android/README.md`](android/README.md).
+- **Voice service** (`voice_service/`): the optional Chatterbox-Turbo "cloned narrator". A separate PyTorch service for Apple Silicon (or a GPU host) that the worker can call over the LAN, keeping the model out of the worker image. See [`voice_service/README.md`](voice_service/README.md).
 
 Each morning the worker:
 1. Fetches every feed once.

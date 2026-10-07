@@ -1,0 +1,25 @@
+[project]
+name = "morning-brief-v2-voice"
+version = "2.0.0"
+description = "Server-side Chatterbox-Turbo voice API for the Morning Brief v2 briefing"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "chatterbox-tts==0.1.7",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "soundfile>=0.12",
+    "numpy>=1.26,<2.0",
+    # perth (Chatterbox's watermarker) imports pkg_resources, which setuptools
+    # removed in 81. Without this pin the model fails to load.
+    "setuptools<81",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+voice-api = "api.app:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
