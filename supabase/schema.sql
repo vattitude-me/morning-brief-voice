@@ -54,12 +54,41 @@ create table if not exists public.sources (
   unique nulls not distinct (user_id, url)
 );
 create index if not exists sources_user_idx on public.sources (user_id);
--- The sections of app/catalog/sources.json; replaced on each run so new sections can be added.
+
+-- ------------------------------------------------- single-source transition
+-- The brief is now a shared daily pack of The Guardian's stories (app/guardian.py),
+-- so a topic is no longer a bag of outlets. The old per-outlet built-ins are dropped
+-- and only the seven pack sections plus 'custom' (links people add themselves)
+-- remain. Safe to re-run: the deletes are idempotent and the update only moves rows
+-- that are still on an old section name.
+delete from public.sources where user_id is null;
+update public.sources set section = 'custom'
+  where section not in ('top', 'ai', 'tech', 'politics', 'entertainment', 'science', 'sports', 'custom');
 alter table public.sources drop constraint if exists sources_section_check;
 alter table public.sources add constraint sources_section_check check (section in
-  ('canada', 'local', 'world', 'business', 'tech', 'health', 'science', 'sports', 'entertainment', 'follow', 'custom'));
+  ('top', 'ai', 'tech', 'politics', 'entertainment', 'science', 'sports', 'custom'));
+
+-- Per-profile story counts: keep the seven pack sections (0 = section off), drop the
+-- old canada/world/business/health/local/follow keys. Idempotent — a stored count for
+-- one of the seven is preserved, anything missing (or unreadable) defaults to 5.
+create or replace function public._story_count(s jsonb, k text) returns int
+language sql immutable set search_path = '' as $$
+  select least(5, greatest(0,
+    coalesce(nullif(regexp_replace(coalesce(s->'stories'->>k, ''), '\D', '', 'g'), '')::int, 5)))
+$$;
+update public.profiles set settings = jsonb_set(settings, '{stories}', jsonb_build_object(
+  'top',           public._story_count(settings, 'top'),
+  'ai',            public._story_count(settings, 'ai'),
+  'tech',          public._story_count(settings, 'tech'),
+  'politics',      public._story_count(settings, 'politics'),
+  'entertainment', public._story_count(settings, 'entertainment'),
+  'science',       public._story_count(settings, 'science'),
+  'sports',        public._story_count(settings, 'sports')));
+drop function if exists public._story_count(jsonb, text);
 
 -- --------------------------------------------------------------- briefings
+-- Superseded by the shared story_audio pack plus the client-side merge; these
+-- per-user rows are no longer written by anything.
 create table if not exists public.briefings (
   user_id     uuid not null references auth.users (id) on delete cascade,
   date        date not null,
@@ -68,6 +97,9 @@ create table if not exists public.briefings (
   created_at  timestamptz not null default now(),
   primary key (user_id, date)
 );
+
+-- One-time cleanup: the old per-user briefings are replaced by the shared daily pack.
+delete from public.briefings;
 
 -- ------------------------------------------------------ push subscriptions
 create table if not exists public.push_subscriptions (
