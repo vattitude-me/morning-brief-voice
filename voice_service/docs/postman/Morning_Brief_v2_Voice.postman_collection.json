@@ -13,7 +13,7 @@
     },
     {
       "key": "voice",
-      "value": "her_output",
+      "value": "her_reference",
       "type": "string",
       "description": "Reference clip name, without the .wav extension. GET /voices sets this automatically."
     }

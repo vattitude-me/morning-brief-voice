@@ -1,12 +1,22 @@
 # Python
 __pycache__/
 *.py[cod]
+*.egg-info/
+build/
+dist/
 .venv/
 venv/
-.pytest_cache/
 
-# App data (database, audio, voice models)
+# Test / tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# App data (database, audio, voice models, generated clips)
 data/
+voice_service/out/
 
 # Environment
 .env

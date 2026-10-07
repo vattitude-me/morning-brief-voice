@@ -80,6 +80,34 @@ docker compose exec worker python -m app check
 | `VAPID_SUBJECT` | | `mailto:` address for push |
 | `MAX_CUSTOM_SOURCES` | `15` | Links per user each day |
 
+## Voice service (optional)
+
+`voice_service/` is a self-contained Chatterbox-Turbo "cloned narrator" API for
+Apple Silicon or a GPU host. The worker calls it over the LAN, so PyTorch stays
+out of the worker image. Full guide: [`voice_service/README.md`](voice_service/README.md).
+
+**Setup & run** (Python 3.11):
+
+```sh
+cd voice_service
+uv venv --python 3.11 .venv
+uv pip install --python .venv/bin/python -e .
+mkdir -p data/voices && cp your_voice.wav data/voices/reference.wav
+.venv/bin/uvicorn --app-dir . api.app:app --host 0.0.0.0 --port 8090
+```
+
+**Endpoints**
+
+| Method | Path | Body | Returns |
+| --- | --- | --- | --- |
+| GET | `/health` | — | device, sample rate, reference status |
+| GET | `/voices` | — | reference clips on disk |
+| POST | `/synthesize` | `{"text": "...", "voice": "her_reference"}` | `audio/wav` |
+| POST | `/news/sample` | `{"text": "..."}` or `{}` | JSON: base64 audio, timing marks |
+
+Each clip's filename (without extension) becomes a selectable voice. Interactive
+docs (Swagger UI) are at `/docs`.
+
 ## Development
 
 ```bash

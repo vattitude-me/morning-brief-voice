@@ -8,8 +8,8 @@ Endpoints::
 
     GET  /health        model, device and reference status
     GET  /voices        reference clips on disk, with durations
-    POST /synthesize    {"text": "...", "voice": "her_output"} -> audio/wav
-    POST /news/sample   {"text": "...", "voice": "her_output"} -> JSON + base64 audio
+    POST /synthesize    {"text": "...", "voice": "her_reference"} -> audio/wav
+    POST /news/sample   {"text": "...", "voice": "her_reference"} -> JSON + base64 audio
 
 Every endpoint is a plain ``def`` so FastAPI runs it in its threadpool: the model
 is CPU/GPU bound and must not block the event loop.

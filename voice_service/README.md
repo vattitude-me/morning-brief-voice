@@ -79,7 +79,7 @@ Drop any number of clips into `data/voices/`. Each becomes a selectable voice by
 its **filename without the extension**, and the caller picks one per request:
 
 ```json
-{ "text": "Hello there.", "voice": "her_output" }
+{ "text": "Hello there.", "voice": "her_reference" }
 ```
 
 `GET /voices` lists them with durations and a `usable` flag — Chatterbox requires
@@ -104,7 +104,7 @@ Interactive docs (Swagger UI, no setup needed): `http://10.0.0.130:8090/docs`
 ```json
 {
   "text": "Good morning! [[pause:0.6]] The port strike is over... [sigh] it was a long week.",
-  "voice": "her_output"
+  "voice": "her_reference"
 }
 ```
 

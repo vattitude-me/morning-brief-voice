@@ -1,6 +1,6 @@
 """Smoke-test the voice end to end without starting the API.
 
-    .venv/bin/python scripts/smoke.py [reference.wav]
+    .venv/bin/python scripts/smoke.py [her_reference.wav]
 
 Reports the device, the time each span takes against the audio it produces, and
 writes the results to ``out/``. The first run also downloads the model weights.
@@ -26,7 +26,7 @@ LINES = [
 
 
 def main() -> int:
-    reference = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "data" / "voices" / "reference.wav"
+    reference = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "data" / "voices" / "her_reference.wav"
     out = ROOT / "out"
     out.mkdir(exist_ok=True)
 
