@@ -45,6 +45,10 @@ class Config:
     vapid_subject: str = os.getenv("VAPID_SUBJECT", "mailto:admin@example.com")
     allow_private_urls: bool = _bool("ALLOW_PRIVATE_URLS")
     max_custom_sources: int = int(os.getenv("MAX_CUSTOM_SOURCES", "15"))
+    # The Cloned narrator: the LAN/GPU voice service that voices the shared daily stories.
+    voice_url: str = os.getenv("VOICE_SERVICE_URL", "").rstrip("/")
+    story_voice: str = os.getenv("STORY_VOICE", "her_reference")
+    stories_per_section: int = int(os.getenv("STORIES_PER_SECTION", "5"))
 
     @property
     def cache_dir(self) -> Path:

@@ -194,3 +194,37 @@ insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 values ('briefings', 'briefings', true, 26214400, array['audio/mpeg', 'application/json'])
 on conflict (id) do update set public = true, file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
+
+-- ------------------------------------------------- shared story audio (per day)
+-- "Generate once, merge per user": the worker voices the day's stories once and every
+-- listener hears the same clips, so TTS cost depends on stories × voices, never on the
+-- number of users. The app builds a briefing by concatenating only the clips for the
+-- sections and counts the user asked for (profiles.settings.stories, e.g.
+-- {"top":3,"ai":5,"sports":0}).
+--
+-- Object layout in the public 'briefings' bucket: /stories/<date>/<section>-<rank>-<voice>.mp3
+-- Every clip comes from the same engine and reference clip, so a plain concatenation is
+-- already seamless — no re-encoding needed.
+create table if not exists public.story_audio (
+  date       date     not null,
+  section    text     not null,
+  rank       smallint not null check (rank between 1 and 20),
+  voice      text     not null,
+  title      text     not null check (char_length(title) <= 500),
+  url        text     check (url is null or char_length(url) <= 2000),
+  source     text     check (source is null or char_length(source) <= 200),
+  script     text,
+  duration   real     not null default 0 check (duration >= 0),  -- seconds
+  audio_path text     not null,                                  -- briefings bucket key
+  created_at timestamptz not null default now(),
+  primary key (date, section, rank, voice)
+);
+create index if not exists story_audio_date_idx on public.story_audio (date);
+
+alter table public.story_audio enable row level security;
+drop policy if exists "read story audio" on public.story_audio;
+create policy "read story audio" on public.story_audio for select to authenticated using (true);
+
+-- Everyone reads the shared clips; only the worker (secret key) writes them.
+revoke all on public.story_audio from anon, authenticated;
+grant select on public.story_audio to authenticated;

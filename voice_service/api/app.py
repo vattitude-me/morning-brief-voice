@@ -9,6 +9,7 @@ Endpoints::
     GET  /health        model, device and reference status
     GET  /voices        reference clips on disk, with durations
     POST /synthesize    {"text": "...", "voice": "her_reference"} -> audio/wav
+                        ?format=mp3 -> audio/mpeg (for the shared daily clips)
     POST /news/sample   {"text": "...", "voice": "her_reference"} -> JSON + base64 audio
 
 Every endpoint is a plain ``def`` so FastAPI runs it in its threadpool: the model
@@ -24,11 +25,11 @@ import threading
 from pathlib import Path
 
 import soundfile as sf
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-from turbo_voice import SAMPLE_RATE, TurboVoice, pick_device, plain, tags
+from turbo_voice import SAMPLE_RATE, TurboVoice, pick_device, plain, tags, to_mp3
 
 from .sample import SAMPLE_STORY
 
@@ -165,25 +166,38 @@ def voices() -> dict:
 
 
 @app.post("/synthesize")
-def synthesize(req: SynthRequest) -> Response:
-    """Voice a script exactly as written, honouring pauses and tags."""
+def synthesize(req: SynthRequest, format: str = Query("wav", pattern="^(wav|mp3)$")) -> Response:
+    """Voice a script exactly as written, honouring pauses and tags.
+
+    ``?format=mp3`` returns a compressed clip — the shared story pack stores MP3s so a
+    whole day of audio stays small enough for the Supabase bucket.
+    """
     try:
         voice = get_voice()
         kwargs = {} if req.beat is None else {"beat": req.beat}
-        audio, _ = voice.render(req.text, reference=target_for(req.voice), **kwargs)
+        target = target_for(req.voice)
+        audio, _ = voice.render(req.text, reference=target, **kwargs)
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001 — report any other failure to the caller
         raise _fail(exc) from exc
     if audio.size == 0:
         raise HTTPException(status_code=400, detail="Nothing to say")
+    if format == "mp3":
+        try:
+            body, media = to_mp3(audio, SAMPLE_RATE), "audio/mpeg"
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+    else:
+        body, media = wav_bytes(audio), "audio/wav"
     return Response(
-        content=wav_bytes(audio),
-        media_type="audio/wav",
+        content=body,
+        media_type=media,
         headers={
             "X-Sample-Rate": str(SAMPLE_RATE),
             "X-Duration": f"{audio.size / SAMPLE_RATE:.2f}",
-            "X-Voice": target_for(req.voice).name,
+            "X-Voice": target.name,
+            "X-Format": format,
         },
     )
 

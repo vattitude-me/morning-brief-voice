@@ -59,7 +59,37 @@ Put a clean single-speaker recording of the voice you want in
 ```
 
 Environment: `VOICE_DIR` (default `data/voices`), `VOICE_REFERENCE` (default
-`$VOICE_DIR/reference.wav`). See `.env.example`.
+`$VOICE_DIR/reference.wav`), `VOICE_CONDS_CACHE` (default on). See `.env.example`.
+
+## Voice conditionals cache
+
+Embedding a reference clip via `prepare_conditionals()` is the only expensive
+per-voice step: it loads the WAV, loudness-normalises it and runs the voice encoder.
+The engine already keeps the result in memory, and it also writes it next to the clip
+as `<clip>.turbo-v1.conds.pt`, so a restart — or a fresh cloud container — skips it
+entirely. It is derived data tied to the model build and lives under `data/`, so it is
+git-ignored; delete it (or bump `CONDS_STAMP` in `turbo_voice/engine.py`) after a model
+upgrade. Set `VOICE_CONDS_CACHE=0` to turn it off.
+
+## Running on a GPU host (Docker)
+
+On Apple Silicon the service runs natively because MPS is unavailable inside Docker.
+On a Linux box with an NVIDIA GPU it runs in a container instead:
+
+```sh
+docker build -t morning-brief-voice .
+docker run --gpus all -p 8090:8090 \
+  -v voice-models:/models \
+  -v "$PWD/data/voices:/app/data/voices" \
+  morning-brief-voice
+```
+
+`pick_device()` picks `cuda` when a GPU is present, then `mps`, then CPU. Mount a
+volume at `HF_HOME` so the model weights and the `.conds.pt` files survive restarts.
+For a nightly batch, scale the service to zero and start it on a schedule — see
+`scripts/batch.py`, which voices a JSON pack of stories to one WAV each plus an
+`index.json` of durations and marks, which is exactly what the app concatenates per
+user.
 
 ## Endpoints
 

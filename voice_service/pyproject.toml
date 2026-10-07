@@ -9,6 +9,8 @@ dependencies = [
     "uvicorn>=0.30",
     "soundfile>=0.12",
     "numpy>=1.26,<2.0",
+    # MP3 output for the shared daily clips (ffmpeg is the fallback).
+    "lameenc>=1.7",
     # perth (Chatterbox's watermarker) imports pkg_resources, which setuptools
     # removed in 81. Without this pin the model fails to load.
     "setuptools<81",

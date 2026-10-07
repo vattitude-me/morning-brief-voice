@@ -83,8 +83,9 @@ docker compose exec worker python -m app check
 ## Voice service (optional)
 
 `voice_service/` is a self-contained Chatterbox-Turbo "cloned narrator" API for
-Apple Silicon or a GPU host. The worker calls it over the LAN, so PyTorch stays
-out of the worker image. Full guide: [`voice_service/README.md`](voice_service/README.md).
+Apple Silicon or a GPU host (native MPS, or CUDA in Docker). The worker calls it over
+the LAN, so PyTorch stays out of the worker image, and `scripts/batch.py` voices a
+whole day's story pack to one WAV per story. Full guide: [`voice_service/README.md`](voice_service/README.md).
 
 **Setup & run** (Python 3.11):
 
