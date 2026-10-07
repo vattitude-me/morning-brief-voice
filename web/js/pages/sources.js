@@ -3,9 +3,9 @@
 import { SECTIONS, api, h, icon, toast } from '../api.js';
 import { CheckDot, Chip, GlassGroup, Hairline, Hint, Overline, PillButton, SectionLabel, StoryStepper } from '../design.js';
 
-const STORY_BUDGET = 12;
-const MAX_PER_SECTION = 4;
-const TOPIC_KEYS = ['canada', 'local', 'world', 'business', 'tech', 'health', 'science', 'sports', 'entertainment'];
+const MAX_PER_SECTION = 5;
+const STORY_BUDGET = MAX_PER_SECTION * 7;
+const TOPIC_KEYS = ['top', 'ai', 'tech', 'politics', 'entertainment', 'science', 'sports'];
 const LINK_EXAMPLES = ['cbc.ca/sports/hockey/nhl', 'theglobeandmail.com', 'techcrunch.com'];
 
 const hostOf = (url) => {
@@ -123,7 +123,7 @@ export class SourcesPage {
       ticks,
       Hint(full
         ? 'Your brief is full. Lower one topic to make room for another.'
-        : `Up to ${MAX_PER_SECTION} from each topic and ${STORY_BUDGET} in all, so a brief stays near five minutes.`));
+        : `Up to ${MAX_PER_SECTION} stories from each topic — change any of them any time.`));
   }
 
   picks(full) {

@@ -6,6 +6,7 @@ import { WelcomeSheet, installMode, onInstallChange, promptInstall, pushSupporte
 import { SourcesPage } from './pages/sources.js';
 import { SettingsPage } from './pages/settings.js';
 import { buildBriefing, loadLocalBriefing } from './brief.js';
+import { buildBriefing as buildPackBriefing } from './storypack.js';
 import { applyPhotoMode } from './design.js';
 
 const state = {
@@ -141,6 +142,12 @@ async function selectDate(date) {
         displayBriefing();
         return;
       }
+    }
+    const pack = await loadStoryPack(date);
+    if (pack) {
+      state.briefing = pack;
+      displayBriefing();
+      return;
     }
     const { briefing } = await api.briefing(date);
     state.briefing = briefing;
@@ -309,9 +316,20 @@ async function build() {
   }
 }
 
+/* ------------------------------------------------------- shared story pack */
+/** The day's shared clips assembled for this listener's lineup; null when there is no pack. */
+async function loadStoryPack(day) {
+  try {
+    const [{ settings }, rows] = await Promise.all([api.settings(), api.storyAudio(day)]);
+    return buildPackBriefing(rows, settings, { date: day, voice: rows[0]?.voice });
+  } catch {
+    return null;  // no pack that day, or the story_audio table isn't there yet
+  }
+}
+
 /* ----------------------------------------------------------------- loading */
 function setFootnote() {
-  const WRITER = { groq: 'Summaries by AI (Groq)', mixed: 'Summaries by AI + built-in summarizer', 'built-in': 'Built-in summaries', ai: 'Summaries by your AI key' };
+  const WRITER = { groq: 'Summaries by AI (Groq)', mixed: 'Summaries by AI + built-in summarizer', 'built-in': 'Built-in summaries', ai: 'Summaries by your AI key', guardian: 'The Guardian · built-in summaries' };
   const writer = WRITER[state.briefing?.writer] || 'Summarized in your browser';
   $('footnote').textContent = state.briefing
     ? `${writer} · voiced by ${state.briefing.voice?.name || 'Default'} · built ${timeAgo(state.briefing.generated_at)}`
@@ -330,8 +348,11 @@ function displayBriefing() {
 
 async function loadArchive() {
   try {
-    const { briefings } = await api.archive();
-    state.archiveDates = briefings.map((b) => b.date);
+    const [{ briefings }, storyDates] = await Promise.all([
+      api.archive(),
+      api.storyDates().catch(() => []),
+    ]);
+    state.archiveDates = [...new Set([...briefings.map((b) => b.date), ...storyDates])].sort().reverse();
   } catch { state.archiveDates = []; }
   renderDateChips();
 }
@@ -476,15 +497,14 @@ async function start() {
     state.profile = profile;
     applyPhotoMode(profile?.settings?.color_photos);
     await loadArchive();
-    // A briefing built on this device today wins over anything older.
+    // Precedence: a brief built on this device today, then today's shared pack, then the newest briefing row.
     const local = await loadLocalBriefing(today).catch(() => null);
     if (local?.briefing && local?.audio) {
       state.briefing = local.briefing;
       state.briefing.audio_url = URL.createObjectURL(local.audio);
       if (!state.archiveDates.includes(today)) state.archiveDates = [today, ...state.archiveDates];
     } else {
-      const { briefing } = await api.latest();
-      state.briefing = briefing;
+      state.briefing = (await loadStoryPack(today)) || (await api.latest()).briefing;
     }
     displayBriefing();
   } catch (err) {

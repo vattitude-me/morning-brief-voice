@@ -1,11 +1,21 @@
 // Audio player: APK-style hero with segmented progress, chapters, lock-screen
-// controls and resume. One audio file per briefing; segments = story chapters.
+// controls and resume.
+//
+// Two sources are supported:
+//   * one file per briefing (briefing.audio_url) — the on-device build;
+//   * a playlist of shared daily clips (briefing.clips[]) — the single-source pack,
+//     played back to back with the next clip pre-buffered so the joins are seamless.
 import { fmtTime, h, store } from './api.js';
 
 export class Player extends EventTarget {
   constructor() {
     super();
-    this.audio = document.getElementById('audio');
+    // Two <audio> elements: the active one plays, the idle one pre-buffers the next clip.
+    this.buffers = [document.getElementById('audio'), new Audio()];
+    this.buffers[1].preload = 'auto';
+    this.audio = this.buffers[0];
+    this.clips = null;
+    this.index = 0;
     this.hero = document.getElementById('hero');
     this.el = {
       play: document.getElementById('playBtn'),
@@ -34,7 +44,7 @@ export class Player extends EventTarget {
   }
 
   bind() {
-    const { audio, el } = this;
+    const { el } = this;
     el.play.addEventListener('click', () => this.toggle());
     document.getElementById('miniPlay').addEventListener('click', () => this.toggle());
     el.prev.addEventListener('click', () => this.prevChapter());
@@ -45,7 +55,7 @@ export class Player extends EventTarget {
     const seekToEvent = (e) => {
       const r = el.seg.getBoundingClientRect();
       const f = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
-      if (audio.duration) audio.currentTime = f * audio.duration;
+      this.seekTo(f * (this.total || 0));
       el.seg.setAttribute('aria-valuenow', String(Math.round(f * 100)));
     };
     let dragging = false;
@@ -59,53 +69,126 @@ export class Player extends EventTarget {
       e.preventDefault();
     });
 
-    audio.addEventListener('timeupdate', () => this.tick());
-    audio.addEventListener('loadedmetadata', () => {
-      audio.playbackRate = this.speed;
-      this.tick();
-    });
-    audio.addEventListener('play', () => this.setPlaying(true));
-    audio.addEventListener('pause', () => this.setPlaying(false));
+    // Both elements share the same handlers; the idle one is ignored.
+    for (const buf of this.buffers) {
+      buf.addEventListener('timeupdate', () => { if (buf === this.audio) this.tick(); });
+      buf.addEventListener('loadedmetadata', () => {
+        if (buf !== this.audio) return;
+        buf.playbackRate = this.speed;
+        this.tick();
+      });
+      buf.addEventListener('play', () => { if (buf === this.audio) this.setPlaying(true); });
+      buf.addEventListener('pause', () => { if (buf === this.audio) this.setPlaying(false); });
+      buf.addEventListener('ended', () => { if (buf === this.audio) this.onEnded(); });
+    }
     // A cover that fails to load hides itself instead of showing a broken icon.
     el.cover.addEventListener('error', () => el.cover.classList.add('hidden'));
     el.miniCover.addEventListener('error', () => { el.miniCover.classList.add('hidden'); el.miniEq.classList.remove('hidden'); });
-    audio.addEventListener('ended', () => {
-      this.setPlaying(false);
-      store.set(`pos-${this.briefing?.date}`, 0);
-      el.state.textContent = 'Finished';
-      el.title.textContent = "That's today's briefing. Have a great day!";
-    });
 
     // Show the floating mini player once the hero scrolls away.
     new IntersectionObserver(([entry]) => {
-      const show = !entry.isIntersecting && this.briefing && (this.isPlaying || audio.currentTime > 0);
+      const show = !entry.isIntersecting && this.briefing && (this.isPlaying || this.position > 0);
       el.mini.classList.toggle('show', !!show);
       el.mini.setAttribute('aria-hidden', show ? 'false' : 'true');
     }, { threshold: 0.05 }).observe(this.hero);
 
     if ('mediaSession' in navigator) {
       const ms = navigator.mediaSession;
-      ms.setActionHandler('play', () => audio.play());
-      ms.setActionHandler('pause', () => audio.pause());
+      ms.setActionHandler('play', () => this.audio.play());
+      ms.setActionHandler('pause', () => this.audio.pause());
       ms.setActionHandler('previoustrack', () => this.prevChapter());
       ms.setActionHandler('nexttrack', () => this.nextChapter());
-      try { ms.setActionHandler('seekto', (d) => { audio.currentTime = d.seekTime; }); } catch { /* unsupported */ }
+      try { ms.setActionHandler('seekto', (d) => { this.seekTo(d.seekTime); }); } catch { /* unsupported */ }
     }
   }
 
   get isPlaying() { return !this.audio.paused && !this.audio.ended; }
+
+  /** Seconds into the whole briefing (not the current clip). */
+  get position() {
+    if (!this.clips) return this.audio.currentTime || 0;
+    return (this.clips[this.index]?.start || 0) + (this.audio.currentTime || 0);
+  }
+
+  /** Total briefing length. */
+  get total() {
+    if (!this.clips) return this.audio.duration || this.briefing?.duration || 0;
+    return this.clips.length ? this.clips[this.clips.length - 1].end : 0;
+  }
+
+  clipIndexAt(t) {
+    let found = 0;
+    for (let i = 0; i < this.clips.length; i += 1) { if (t >= this.clips[i].start - 0.02) found = i; }
+    return found;
+  }
+
+  /** Make clip `i` active, optionally seeking within it, and pre-buffer the next one. */
+  loadClip(i, { seek = 0, autoplay = null } = {}) {
+    const play = autoplay === null ? this.isPlaying : autoplay;
+    const clip = this.clips[i];
+    if (!clip) return;
+    this.index = i;
+    const el = this.audio;
+    if (el.dataset.clip !== String(i)) {
+      el.dataset.clip = String(i);
+      el.src = clip.url;
+    }
+    const applySeek = () => { try { el.currentTime = seek; } catch { /* not seekable yet */ } };
+    if (el.readyState >= 1) applySeek();
+    else el.addEventListener('loadedmetadata', applySeek, { once: true });
+    el.playbackRate = this.speed;
+    if (play) el.play().catch(() => {});
+    this.preloadNext();
+  }
+
+  /** Buffer the following clip into the idle element so the join is seamless. */
+  preloadNext() {
+    if (!this.clips) return;
+    const next = this.clips[this.index + 1];
+    if (!next) return;
+    const idle = this.buffers.find((b) => b !== this.audio);
+    if (idle.dataset.clip !== String(this.index + 1)) {
+      idle.dataset.clip = String(this.index + 1);
+      idle.src = next.url;
+      idle.load();
+    }
+  }
+
+  /** A clip finished: swap to the pre-buffered element, or stop at the end of the day. */
+  onEnded() {
+    if (this.clips && this.index + 1 < this.clips.length) {
+      this.audio = this.buffers.find((b) => b !== this.audio);
+      this.index += 1;
+      this.audio.playbackRate = this.speed;
+      this.audio.play().catch(() => {});
+      this.preloadNext();
+      this.tick();
+      return;
+    }
+    this.setPlaying(false);
+    store.set(`pos-${this.briefing?.date}`, 0);
+    this.el.state.textContent = 'Finished';
+    this.el.title.textContent = "That's today's briefing. Have a great day!";
+  }
 
   load(briefing) {
     if (!briefing) return;
     this.briefing = briefing;
     this.chapters = (briefing.chapters || []).filter((c) => c.kind !== 'section');
     this.current = null;
-    this.audio.src = briefing.audio_url;
+    this.clips = briefing.clips && briefing.clips.length ? briefing.clips : null;
+    this.index = 0;
+    for (const buf of this.buffers) {
+      buf.pause();
+      delete buf.dataset.clip;
+      buf.removeAttribute('src');
+    }
+    this.audio = this.buffers[0];
+    if (this.clips) this.loadClip(0);
+    else this.audio.src = briefing.audio_url;
     this.buildSegments();
     const saved = store.get(`pos-${briefing.date}`, 0);
-    if (saved > 5 && saved < briefing.duration - 5) {
-      this.audio.addEventListener('loadedmetadata', () => { this.audio.currentTime = saved; }, { once: true });
-    }
+    if (saved > 5 && (!briefing.duration || saved < briefing.duration - 5)) this.seekTo(saved);
     this.tick();
   }
 
@@ -131,7 +214,7 @@ export class Player extends EventTarget {
     return this.briefing?.sections.find((s) => s.key === story?.section)?.title || '';
   }
 
-  currentChapter(t = this.audio.currentTime) {
+  currentChapter(t = this.position) {
     let found = null;
     for (const c of this.chapters) { if (t >= c.start - 0.05) found = c; }
     return found;
@@ -145,7 +228,7 @@ export class Player extends EventTarget {
 
   skip(sec) {
     if (!this.briefing) return;
-    this.audio.currentTime = Math.min(Math.max(0, this.audio.currentTime + sec), this.audio.duration || 0);
+    this.seekTo(this.position + sec);
   }
 
   playChapter(id) {
@@ -157,7 +240,23 @@ export class Player extends EventTarget {
 
   seekTo(seconds) {
     if (!this.briefing) return;
-    this.audio.currentTime = Math.min(Math.max(0, seconds), this.audio.duration || this.briefing.duration || 0);
+    const limit = this.total || this.briefing.duration || 0;
+    const t = Math.max(0, Math.min(seconds, limit));
+    if (this.clips) {
+      const i = this.clipIndexAt(t);
+      if (i !== this.index) {
+        this.loadClip(i, { seek: t - this.clips[i].start });
+      } else {
+        const local = t - this.clips[i].start;
+        if (this.audio.readyState >= 1) this.audio.currentTime = local;
+        else this.audio.addEventListener('loadedmetadata', () => { this.audio.currentTime = local; }, { once: true });
+        this.preloadNext();
+      }
+    } else if (this.audio.readyState >= 1) {
+      this.audio.currentTime = t;
+    } else {
+      this.audio.addEventListener('loadedmetadata', () => { this.audio.currentTime = t; }, { once: true });
+    }
     this.tick();
   }
 
@@ -170,13 +269,13 @@ export class Player extends EventTarget {
   prevChapter() {
     const ch = this.currentChapter();
     const i = this.chapters.indexOf(ch);
-    if (ch && this.audio.currentTime - ch.start > 3) this.playChapter(ch.id);
+    if (ch && this.position - ch.start > 3) this.playChapter(ch.id);
     else if (i > 0) this.playChapter(this.chapters[i - 1].id);
   }
 
   setRate(rate) {
     this.speed = rate;
-    this.audio.playbackRate = rate;
+    this.buffers.forEach((buf) => { buf.playbackRate = rate; });
     store.set('rate', rate);
   }
 
@@ -189,11 +288,11 @@ export class Player extends EventTarget {
   }
 
   tick() {
-    const { audio, el } = this;
+    const { el } = this;
     const b = this.briefing;
     if (!b) return;
-    const dur = audio.duration || b.duration || 0;
-    const t = audio.currentTime || 0;
+    const dur = this.total || b.duration || 0;
+    const t = this.position;
     if (t > 0 && Math.round(t) % 5 === 0) store.set(`pos-${b.date}`, t);
 
     // Segments + thumb.

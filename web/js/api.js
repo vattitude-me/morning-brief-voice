@@ -6,22 +6,20 @@ export const sb = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
 });
 
-/** Briefing sections in reading order, as in app/catalog/sources.json. */
+/** Briefing sections in reading order — the seven Guardian categories (app/guardian.py). */
 export const SECTIONS = {
-  canada: { title: 'Top stories', emoji: '🇨🇦' },
-  local: { title: 'Local', emoji: '📍' },
-  world: { title: 'World', emoji: '🌍' },
-  business: { title: 'Business', emoji: '💼' },
-  tech: { title: 'AI & Tech', emoji: '🤖' },
-  health: { title: 'Health', emoji: '🩺' },
-  science: { title: 'Science', emoji: '🔬' },
-  sports: { title: 'Sports', emoji: '🏒' },
+  top: { title: 'Top stories', emoji: '📰' },
+  ai: { title: 'AI', emoji: '🤖' },
+  tech: { title: 'Tech', emoji: '💻' },
+  politics: { title: 'Politics', emoji: '🏛️' },
   entertainment: { title: 'Entertainment', emoji: '🎬' },
-  follow: { title: 'Following', emoji: '📌' },
+  science: { title: 'Science', emoji: '🔬' },
+  sports: { title: 'Sports', emoji: '🏅' },
+  // Not part of the narrated pack: the Sources tab's user-pasted links keep their own bucket.
   custom: { title: 'My Sources', emoji: '⭐' },
 };
 
-export const sectionLabel = (key) => { const s = SECTIONS[key] || SECTIONS.custom; return `${s.emoji} ${s.title}`; };
+export const sectionLabel = (key) => { const s = SECTIONS[key] || SECTIONS.top; return `${s.emoji} ${s.title}`; };
 
 export const DEFAULT_SETTINGS = {
   name: '',
@@ -31,7 +29,7 @@ export const DEFAULT_SETTINGS = {
   llm_provider: 'groq',
   llm_model: '',
   llm_keys: {},
-  stories: { canada: 6, tech: 6, follow: 3, custom: 4 },
+  stories: { top: 5, ai: 5, tech: 5, politics: 5, entertainment: 5, science: 5, sports: 5 },
   city: 'Toronto',
   latitude: 43.6532,
   longitude: -79.3832,
@@ -96,6 +94,16 @@ export const api = {
   async briefing(day) {
     const rows = check(await sb.from('briefings').select('data').eq('date', day).limit(1));
     return { briefing: rows[0]?.data || null };
+  },
+  /** The shared per-day clips every listener is merged from (see app/storypack.py). */
+  async storyAudio(day) {
+    return check(await sb.from('story_audio')
+      .select('date,section,rank,voice,title,url,source,script,duration,audio_path')
+      .eq('date', day)) || [];
+  },
+  async storyDates() {
+    const rows = check(await sb.from('story_audio').select('date').order('date', { ascending: false }).limit(120));
+    return [...new Set((rows || []).map((r) => r.date))];
   },
   async archive() {
     const rows = check(await sb.from('briefings').select('date').order('date', { ascending: false }));
