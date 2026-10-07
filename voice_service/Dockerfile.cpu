@@ -19,9 +19,10 @@ ENV PYTHONUNBUFFERED=1 \
     VOICE_DIR=/app/data/voices \
     VOICE_CORS_ORIGINS=*
 
-# libsndfile for soundfile; ffmpeg for librosa inputs and the MP3 fallback.
+# libsndfile for soundfile; ffmpeg for librosa inputs and the MP3 fallback;
+# build-essential + git because a few Chatterbox dependencies are source-only.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends libsndfile1 ffmpeg \
+ && apt-get install -y --no-install-recommends libsndfile1 ffmpeg build-essential git \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
