@@ -2,6 +2,7 @@
 // The tab appears for the admin account only. Every action is checked again server-side:
 // row-level security on `build_requests`, then the worker, then the batch lock.
 import { SECTIONS, VOICES, api, h, toast } from '../api.js';
+import { READY_KEY } from '../storypack.js';
 import {
   CheckDot, GlassGroup, Hairline, Hint, ListRow, Overline, PillButton, SectionLabel, SwitchRow,
 } from '../design.js';
@@ -182,12 +183,16 @@ export class AdminPage {
       const have = new Set(mine.map((c) => c.section));
       const missing = wanted.filter((k) => !have.has(k));
       const seconds = mine.reduce((n, c) => n + (Number(c.duration) || 0), 0);
-      const count = notes.filter((n) => n.voice === v.id).length;
+      // The readiness marker is a row in the notes table, not something anybody hears.
+      const count = notes.filter((n) => n.voice === v.id && n.note_key !== READY_KEY).length;
+      const published = notes.some((n) => n.voice === v.id && n.note_key === READY_KEY);
       return [
         ListRow({
           label: v.name,
           value: `${mine.length} clips · ${minutes(seconds)}`,
-          detail: `${count} ${count === 1 ? 'note' : 'notes'} · ${missing.length ? `missing ${missing.map((k) => SECTIONS[k].title).join(', ')}` : 'every section covered'}`,
+          detail: published
+            ? `${count} ${count === 1 ? 'note' : 'notes'} · ${missing.length ? `missing ${missing.map((k) => SECTIONS[k].title).join(', ')}` : 'every section covered'}`
+            : `still recording · ${count} ${count === 1 ? 'note' : 'notes'} so far`,
         }),
         Hairline(),
       ];

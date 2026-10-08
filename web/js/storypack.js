@@ -67,6 +67,12 @@ const round = (n) => Math.round(n * 100) / 100;
 export const BREATH = 0.8;
 const GAP_URL = '/audio/gap.mp3';
 
+/**
+ * The marker note a narrator's day carries once every clip and every spoken note is published
+ * (app/storypack.py). A day without it is still being recorded, so its audio must not be played.
+ */
+export const READY_KEY = 'pack_ready';
+
 /** Which greeting to open with, by the listener's local hour (mirrors app/storypack.py). */
 export function greetingKey(hour = new Date().getHours()) {
   if (hour < 12) return 'greeting_morning';

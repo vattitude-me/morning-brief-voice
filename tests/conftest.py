@@ -152,6 +152,9 @@ class FakeStore:
             if self._match(row, params):
                 row.update(values)
 
+    def delete(self, table, params):
+        self.tables[table] = [r for r in self.tables.get(table, []) if not self._match(r, params)]
+
     def reset_consumed(self, user_ids, since):
         for s in self.sources_:
             if s["user_id"] in user_ids and s["consumed_at"] and s["consumed_at"] >= since:

@@ -2,10 +2,11 @@
 import asyncio
 import dataclasses
 
+import pytest
+
 from app import guardian, storypack
 from app.storypack import (GREETINGS, INTROS, NOTES, clips_for, default_lineup, greeting_key,
                            lineup, total_seconds)
-
 VOICE = "her_reference"
 
 
@@ -110,3 +111,54 @@ def test_build_forces_the_notes_along_with_the_stories(cfg, store, monkeypatch):
     asyncio.run(storypack.build(cfg, store, day=DAY, voice="him_reference", force=True))
 
     assert seen["force"] is True
+
+
+SCRIPT = {"id": "a", "section": "top", "rank": 1, "title": "Rate held steady",
+          "source": "The Guardian", "url": "https://example.test/1", "published": None,
+          "image": None, "script": "The Bank of Canada held its key rate steady this morning."}
+
+
+def _one_story(monkeypatch, seconds: float = 3.0):
+    async def fake_pack(per_section=5, sections=None, max_words=60):
+        return [SCRIPT]
+
+    async def fake_synthesise(client, base, text, voice, *args, **kwargs):
+        return b"mp3\x00", seconds
+
+    monkeypatch.setattr(guardian, "build_pack", fake_pack)
+    monkeypatch.setattr(storypack, "synthesise", fake_synthesise)
+
+
+def test_a_finished_day_is_marked_playable(cfg, store, monkeypatch):
+    """Clients refuse a day without this marker, so a half-rendered pack never reaches a listener."""
+    cfg = dataclasses.replace(cfg, voice_url="http://voice.test")
+    _one_story(monkeypatch)
+
+    assert not storypack.ready(store, day=DAY, voice="him_reference")
+    asyncio.run(storypack.build(cfg, store, day=DAY, voice="him_reference"))
+
+    assert storypack.ready(store, day=DAY, voice="him_reference")
+    marker = [n for n in store.tables["voice_notes"] if n["note_key"] == storypack.PACK_READY][0]
+    assert marker["text"] == "1 clip, 10 notes"
+    assert (marker["date"], marker["voice"]) == (DAY, "him_reference")
+
+
+def test_a_forced_re_render_takes_the_day_off_the_air_first(cfg, store, monkeypatch, ):
+    """While a narrator is being re-recorded, the old clips must stop being offered."""
+    cfg = dataclasses.replace(cfg, voice_url="http://voice.test")
+    storypack.mark_ready(store, day=DAY, voice="him_reference", clips=35, notes=len(NOTES))
+    assert storypack.ready(store, day=DAY, voice="him_reference")
+
+    async def fake_pack(per_section=5, sections=None, max_words=60):
+        return [SCRIPT]
+
+    async def broken(client, base, text, voice, *args, **kwargs):
+        raise RuntimeError("voice service is down")
+
+    monkeypatch.setattr(guardian, "build_pack", fake_pack)
+    monkeypatch.setattr(storypack, "synthesise", broken)
+
+    with pytest.raises(RuntimeError):
+        asyncio.run(storypack.build(cfg, store, day=DAY, voice="him_reference", force=True))
+
+    assert not storypack.ready(store, day=DAY, voice="him_reference")

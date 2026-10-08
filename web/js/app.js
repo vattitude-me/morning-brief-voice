@@ -6,7 +6,7 @@ import { WelcomeSheet, installMode, onInstallChange, promptInstall, pushSupporte
 import { SourcesPage } from './pages/sources.js';
 import { SettingsPage } from './pages/settings.js';
 import { AdminPage } from './pages/admin.js';
-import { buildBriefing as buildPackBriefing } from './storypack.js';
+import { buildBriefing as buildPackBriefing, READY_KEY } from './storypack.js';
 import { applyPhotoMode } from './design.js';
 
 const state = {
@@ -306,7 +306,11 @@ async function loadStoryPack(day) {
     if (!rows.length) return null;
     const notes = await api.voiceNotes(date);
     const briefing = buildPackBriefing(rows, settings, { date, voice: settings.voice, notes });
-    if (briefing) briefing.fresh = date === today;
+    if (!briefing) return null;
+    // A day is playable only once its narrator's clips and framing are all published. Without this
+    // a pack that is mid-recording, or being re-recorded, plays two voices inside one brief.
+    if (!notes.some((n) => n.note_key === READY_KEY && n.voice === briefing.voice.id)) return null;
+    briefing.fresh = date === today;
     return briefing;
   } catch {
     return null;  // no pack that day, or the story_audio table isn't there yet

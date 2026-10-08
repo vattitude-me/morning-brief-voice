@@ -115,13 +115,33 @@ def cmd_check() -> int:
 def cmd_pack(args) -> int:
     """Voice the day's stories once and publish them as the shared daily clips."""
     import asyncio
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
 
     from .config import load
-    from .storypack import build, build_notes, publish_showcase, total_seconds, write_sample_bundle
+    from .storypack import NOTES, build, build_notes, mark_ready, publish_showcase, total_seconds, write_sample_bundle
 
     cfg = load()
     sections = args.sections.split(",") if args.sections else None
     try:
+        if getattr(args, "mark_ready", False):
+            # Days published before the completeness marker existed are otherwise unplayable. Marks
+            # a narrator's day only when its clips and all of its framing are actually there.
+            store = _store(cfg)
+            day = args.day or datetime.now(ZoneInfo(cfg.timezone)).date().isoformat()
+            names = [args.voice] if args.voice else list(cfg.story_voices or ())
+            done: list[str] = []
+            for name in names:
+                clips = store.select("story_audio", {"date": f"eq.{day}", "voice": f"eq.{name}"})
+                have = {n["note_key"] for n in store.select("voice_notes", {"date": f"eq.{day}", "voice": f"eq.{name}"})}
+                missing = sorted(set(NOTES) - have)
+                if not clips or missing:
+                    print(f"✗ {name}: {len(clips)} clips, missing {missing or 'nothing'} — not marked ready")
+                    continue
+                mark_ready(store, day=day, voice=name, clips=len(clips), notes=len(NOTES))
+                print(f"✓ {name}: {len(clips)} clips, {len(NOTES)} notes — ready for {day}")
+                done.append(name)
+            return 0 if done else 1
         if getattr(args, "sample_bundle", None):
             brief = asyncio.run(write_sample_bundle(cfg, _store(cfg), args.sample_bundle,
                                                    day=args.day, voice=args.voice))["briefing"]
@@ -178,6 +198,8 @@ def main() -> None:
                       help="skip the greeting and section intros")
     pack.add_argument("--force", action="store_true",
                       help="re-voice everything, including clips and notes already published")
+    pack.add_argument("--mark-ready", action="store_true", dest="mark_ready",
+                      help="mark a finished day playable (for packs published before the marker)")
     sub.add_parser("check", help="test the Supabase and Groq connections")
     sub.add_parser("setup", help="download the Kokoro voice model (~350 MB)")
     args = parser.parse_args()

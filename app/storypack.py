@@ -83,6 +83,33 @@ INTROS = {
 }
 NOTES: dict[str, str] = {**GREETINGS, **INTROS}
 
+# A marker row in voice_notes meaning "this narrator's day is complete": the greeting, the intros
+# and every story are published. Clients refuse to play a day without it, so a pack that is still
+# being recorded, or being re-recorded, never plays two voices in one brief. Never spoken: the
+# clients only ever look up greeting_* and intro_* keys.
+PACK_READY = "pack_ready"
+
+
+def ready(store, *, day: str, voice: str) -> bool:
+    """Whether every clip and note for this narrator's day is published."""
+    return bool(store.select("voice_notes", {"date": f"eq.{day}", "voice": f"eq.{voice}",
+                                              "note_key": f"eq.{PACK_READY}"}))
+
+
+def mark_ready(store, *, day: str, voice: str, clips: int, notes: int) -> None:
+    """Publish the completeness marker for one narrator's day."""
+    store.insert("voice_notes", {
+        "date": day, "voice": voice, "note_key": PACK_READY,
+        "text": f"{clips} clip{'s' if clips != 1 else ''}, {notes} note{'s' if notes != 1 else ''}",
+        "duration": 0,
+        "audio_path": f"notes/{day}/{PACK_READY}-{voice}.mp3",
+    }, on_conflict="date,voice,note_key")
+
+
+def clear_ready(store, *, day: str, voice: str) -> None:
+    """Take a day off the air for a narrator whose clips are about to be replaced."""
+    store.delete("voice_notes", {"date": f"eq.{day}", "voice": f"eq.{voice}", "note_key": f"eq.{PACK_READY}"})
+
 
 def greeting_key(hour: int) -> str:
     """Which greeting a listener hears, by their local hour (mirrors the client)."""
@@ -419,15 +446,22 @@ async def build(cfg, store, *, day: str | None = None, per_section: int | None =
 
     rows: list[dict] = []
     for name in voices:
-        rows += await voice_scripts(
+        # A forced re-render is not a usable brief until it finishes, so the marker goes first: a
+        # listener hears the old recording or nothing, never half of each.
+        if force:
+            clear_ready(store, day=day, voice=name)
+        mine = await voice_scripts(
             store, scripts, day=day, voice=name, base=base, force=force,
             on_clip=lambda story, who=name: tick(f"{voice_name(who)}: {story['section']} #{story['rank']}"))
-
-    log.info("Published %d clips (%.1fs of audio)", len(rows), total_seconds(rows))
-    if notes:
-        for name in voices:
+        if notes:
             await build_notes(cfg, store, day=day, voice=name, voice_url=base, force=force,
                               on_note=lambda key, who=name: tick(f"{voice_name(who)}: {key}"))
+        # Only a day with its stories and its framing is playable, so the marker waits for both.
+        if notes and mine:
+            mark_ready(store, day=day, voice=name, clips=len(mine), notes=len(NOTES))
+        rows += mine
+
+    log.info("Published %d clips (%.1fs of audio)", len(rows), total_seconds(rows))
     # The landing page's sample rides along with the pack, so it can't quietly go stale.
     try:
         await publish_showcase(cfg, store, day=day, voice=voices[0])

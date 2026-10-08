@@ -26,6 +26,13 @@ data class Clip(
  */
 const val BREATH = 0.8
 
+/**
+ * The marker note a narrator's day carries once every clip and every spoken note is published
+ * (app/storypack.py). Without it the day is still being recorded and must not be played: half a
+ * day's clips in one voice and half in another is worse than waiting.
+ */
+const val PACK_READY = "pack_ready"
+
 /** A listener's briefing, assembled from the shared day's clips. */
 data class Pack(val briefing: Briefing, val clips: List<Clip>, val version: String)
 
@@ -77,8 +84,11 @@ object StoryPack {
         val spokenBy = pickPackVoice(every.map { it.optString("voice") }, voice)
         val all = if (spokenBy == null) every else every.filter { it.optString("voice") == spokenBy }
         val notes = runCatching { supabase.voiceNotes(day) }.getOrDefault(JSONArray())
+        // Playable only once the narrator's clips and framing are all published.
+        val noteRows = notes.objects()
+        if (noteRows.none { it.optString("note_key") == PACK_READY && it.optString("voice") == spokenBy }) return null
         val wanted = lineup(stories)
-        val noteByKey = notes.objects().filter { it.optString("voice") == spokenBy }
+        val noteByKey = noteRows.filter { it.optString("voice") == spokenBy }
             .associateBy { it.optString("note_key") }
 
         val clips = mutableListOf<Clip>()
