@@ -135,7 +135,7 @@ export class Landing {
 
   storyRow(s) {
     const dot = h('button', { class: 'play-dot', type: 'button', 'aria-label': `Play from: ${s.headline}` },
-      icon('play'), h('span', { class: 'i-eq', 'aria-hidden': 'true' }, h('i'), h('i'), h('i')));
+      icon('play', 'i-play'), icon('pause', 'i-pause'));
     const row = h('article', { class: 'story-row', dataset: { id: s.id } },
       h('div', { class: 'story-main' },
         h('div', { class: 'play-col' }, dot, h('span', { class: 't' }, fmtTime(s.start || 0))),

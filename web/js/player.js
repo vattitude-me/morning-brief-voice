@@ -17,6 +17,7 @@ export class Player extends EventTarget {
     this.clips = null;
     this.index = 0;
     this.hero = document.getElementById('hero');
+    this.heroInView = true;
     this.el = {
       play: document.getElementById('playBtn'),
       prev: document.getElementById('prevChapter'),
@@ -87,9 +88,8 @@ export class Player extends EventTarget {
 
     // Show the floating mini player once the hero scrolls away.
     new IntersectionObserver(([entry]) => {
-      const show = !entry.isIntersecting && this.briefing && (this.isPlaying || this.position > 0);
-      el.mini.classList.toggle('show', !!show);
-      el.mini.setAttribute('aria-hidden', show ? 'false' : 'true');
+      this.heroInView = entry.isIntersecting;
+      this.showMini();
     }, { threshold: 0.05 }).observe(this.hero);
 
     if ('mediaSession' in navigator) {
@@ -103,6 +103,17 @@ export class Player extends EventTarget {
   }
 
   get isPlaying() { return !this.audio.paused && !this.audio.ended; }
+
+  /**
+   * The floating player shows whenever the hero card is off screen and there is
+   * something to resume. Kept in one place because the observer only fires when the
+   * card crosses the viewport, not when the tab or the briefing changes underneath it.
+   */
+  showMini() {
+    const show = !!this.briefing && !this.heroInView && (this.isPlaying || this.position > 0);
+    this.el.mini.classList.toggle('show', show);
+    this.el.mini.setAttribute('aria-hidden', show ? 'false' : 'true');
+  }
 
   /** Seconds into the whole briefing (not the current clip). */
   get position() {
@@ -319,7 +330,10 @@ export class Player extends EventTarget {
       ? `Ready · ${b.stories.length} ${b.stories.length === 1 ? 'story' : 'stories'}`
       : [this.isPlaying ? 'Now playing' : 'Paused', section].filter(Boolean).join(' · ');
     el.title.textContent = story?.headline || ch?.title || b.title;
-    const img = story?.image || b.stories.find((s) => s.image)?.image;
+    // A greeting or a section intro has no picture of its own, so the cover shows what
+    // is about to be read instead of jumping back to the first story of the brief.
+    const upNext = story ? null : this.chapters.find((c) => c.kind === 'story' && c.start >= t - 0.01);
+    const img = (story || this.storyFor(upNext))?.image || b.stories.find((s) => s.image)?.image;
     if (img && el.cover.dataset.src !== img) { el.cover.dataset.src = img; el.cover.src = img; el.cover.classList.remove('hidden'); }
     else if (!img) el.cover.classList.add('hidden');
 

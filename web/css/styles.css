@@ -197,10 +197,10 @@ body { padding-bottom: 132px; }
   background: var(--bg-2); color: var(--ink); transition: background .15s;
 }
 .play-dot svg { width: 16px; height: 16px; }
-.play-dot .i-eq { display: none; }
+.play-dot .i-pause { display: none; }
 .story-row.current .play-dot { background: var(--ink); color: var(--on-ink); }
 .story-row.current.playing-now .play-dot .i-play { display: none; }
-.story-row.current.playing-now .play-dot .i-eq { display: block; }
+.story-row.current.playing-now .play-dot .i-pause { display: block; }
 .play-col .t { margin-top: 4px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .story-row.current .play-col .t { color: var(--ink); }
 .story-text { flex: 1; min-width: 0; }

@@ -140,8 +140,13 @@ function audioLen(story) {
 function storyRow(story) {
   const row = h('article', { class: 'story-row', dataset: { id: story.id } });
   const dot = h('button', { class: 'play-dot', type: 'button', 'aria-label': `Play from: ${story.headline}` },
-    icon('play'), h('span', { class: 'i-eq', 'aria-hidden': 'true' }, h('i'), h('i'), h('i')));
-  dot.addEventListener('click', (e) => { e.stopPropagation(); player.playChapter(story.id); });
+    icon('play', 'i-play'), icon('pause', 'i-pause'));
+  dot.addEventListener('click', (e) => {
+    e.stopPropagation();
+    // The dot is this story's own play/pause: tapping the one already being read stops it.
+    if (player.current === story.id) player.toggle();
+    else player.playChapter(story.id);
+  });
 
   const main = h('div', { class: 'story-main' },
     h('div', { class: 'play-col' }, dot, h('span', { class: 't' }, fmtTime(story.start || 0))),
@@ -195,6 +200,7 @@ function renderSections() {
     return [head, group];
   }));
   syncPlaying();
+  followChapter();
 }
 
 function syncPlaying() {
@@ -203,13 +209,35 @@ function syncPlaying() {
     const on = row.dataset.id === id;
     row.classList.toggle('current', on);
     row.classList.toggle('playing-now', on && player.isPlaying);
+    const dot = row.querySelector('.play-dot');
+    if (!dot) return;
+    const label = on && player.isPlaying ? 'Pause' : `Play from: ${row.querySelector('h3')?.textContent || ''}`;
+    dot.setAttribute('aria-label', label);
   });
+}
+
+/**
+ * Reading along: the story being read stays open and in view, unless the listener is
+ * scrolling themselves — then we keep our hands off the page for a few seconds.
+ */
+function followChapter() {
+  const id = player.current;
+  let row = null;
+  document.querySelectorAll('.story-row').forEach((r) => {
+    const mine = r.dataset.id === id;
+    if (mine) row = r;
+    r.querySelector('.story-detail')?.classList.toggle('hidden', !mine);
+  });
+  if (!id || !row || !player.isPlaying || Date.now() - lastScroll < 8000) return;
+  window.scrollTo({ top: row.getBoundingClientRect().top + window.scrollY - 96, behavior: 'smooth' });
 }
 
 /* ------------------------------------------------------------------ report */
 const REPORT_REASONS = [['inaccurate', 'Wrong or misleading'], ['offensive', 'Offensive or harmful'], ['broken', "Doesn't match the article"], ['other', 'Something else']];
 let reportStory = null;
 let reportReason = null;
+/** When the listener last scrolled, so follow-along can stay out of their way. */
+let lastScroll = 0;
 
 function openReport(story, btn) {
   reportStory = story;
@@ -330,19 +358,16 @@ async function switchTab(tab) {
     });
     try { await settingsPage.load(); } catch (err) { toast(err.message, { error: true }); }
   }
-  const mini = $('miniPlayer');
-  if (tab === 'today') {
-    // Hero is back in view; its scroll observer resumes control from here.
-    mini.classList.remove('show');
-    mini.setAttribute('aria-hidden', 'true');
-  }
+  // Back on Today the hero card takes over; the floating player returns when it scrolls away.
+  if (tab === 'today') player.showMini();
   syncMini();
   syncSaveBar();
 }
 
 /** APK mini-player rule: on other tabs it shows whenever there's something to resume. */
 function syncMini() {
-  if (currentTab === 'today') return;
+  // On Today the hero card owns it: the floating player waits until the card is out of view.
+  if (currentTab === 'today') return player.showMini();
   const show = !!player.briefing && (player.isPlaying || player.audio.currentTime > 0);
   const mini = $('miniPlayer');
   mini.classList.toggle('show', show);
@@ -391,9 +416,13 @@ function bindEvents() {
   wireSheet($('reportSheet'));
 
   player.addEventListener('chapter', syncPlaying);
+  player.addEventListener('chapter', followChapter);
   player.addEventListener('chapter', syncMini);
   player.addEventListener('state', syncPlaying);
   player.addEventListener('state', syncMini);
+  // Follow-along stands down for a moment whenever the listener scrolls the page.
+  const noteScroll = () => { lastScroll = Date.now(); };
+  for (const ev of ['scroll', 'wheel', 'touchstart']) window.addEventListener(ev, noteScroll, { passive: true });
 
   document.addEventListener('keydown', (e) => {
     if (e.target.closest('input, textarea, select, dialog[open]') || e.metaKey || e.ctrlKey) return;
