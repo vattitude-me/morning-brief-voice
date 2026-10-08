@@ -2,7 +2,11 @@
 import { SECTIONS, api, h, icon, toast } from './api.js';
 import { SUPABASE_URL } from '../config.js';
 
-// Written by the worker after each admin briefing; refetched at most hourly.
+// The sample the site ships with, built by `python -m app pack --sample-bundle`: the
+// day's own clips joined into one file, so the player works on the first tap for anyone.
+const SAMPLE_URL = '/sample/sample.json';
+
+// The same sample as published by the pack. Only used if the bundled copy is missing.
 const DEMO_URL = `${SUPABASE_URL}/storage/v1/object/public/briefings/showcase/sample.json`;
 
 const MAILBOXES = [
@@ -39,12 +43,12 @@ export class Landing {
     $('lgGreeting').textContent = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
     this.checkLinkError();
     let data = {};
-    for (const url of [`${DEMO_URL}?h=${Math.floor(Date.now() / 3600000)}`, '/sample/sample.json']) {
+    for (const url of [SAMPLE_URL, `${DEMO_URL}?h=${Math.floor(Date.now() / 3600000)}`]) {
       try {
         const res = await fetch(url);
         if (res.ok) data = await res.json();
-      } catch { /* not published yet or offline: try the next one */ }
-      // A playable sample is either the day's clips or, on older payloads, one file.
+      } catch { /* missing or offline: try the next one */ }
+      // A playable sample is either one joined file or, from the published copy, clips.
       if (data.briefing?.clips?.length || data.briefing?.audio_url) break;
     }
     this.render(data);

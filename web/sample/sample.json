@@ -1,1 +1,153 @@
-{"briefing":{"date":"2026-10-07","title":"Your briefing","duration":142.56,"audio_url":"","clips":[{"url":"https://oohbmeffdncyzujmeqcz.supabase.co/storage/v1/object/public/briefings/notes/2026-10-07/greeting_morning-her_reference.mp3","duration":1.2,"start":0.0,"end":1.2},{"url":"https://oohbmeffdncyzujmeqcz.supabase.co/storage/v1/object/public/briefings/notes/2026-10-07/intro_top-her_reference.mp3","duration":1.92,"start":1.2,"end":3.12},{"url":"https://oohbmeffdncyzujmeqcz.supabase.co/storage/v1/object/public/briefings/stories/2026-10-07/top-1-her_reference.mp3","duration":26.08,"start":3.12,"end":29.2},{"url":"https://oohbmeffdncyzujmeqcz.supabase.co/storage/v1/object/public/briefings/stories/2026-10-07/top-2-her_reference.mp3","duration":20.2,"start":29.2,"end":49.4},{"url":"https://oohbmeffdncyzujmeqcz.supabase.co/storage/v1/object/public/briefings/stories/2026-10-07/top-3-her_reference.mp3","duration":20.24,"start":49.4,"end":69.64},{"url":"https://oohbmeffdncyzujmeqcz.supabase.co/storage/v1/object/public/briefings/notes/2026-10-07/intro_ai-her_reference.mp3","duration":2.4,"start":69.64,"end":72.04},{"url":"https://oohbmeffdncyzujmeqcz.supabase.co/storage/v1/object/public/briefings/stories/2026-10-07/ai-1-her_reference.mp3","duration":18.76,"start":72.04,"end":90.8},{"url":"https://oohbmeffdncyzujmeqcz.supabase.co/storage/v1/object/public/briefings/stories/2026-10-07/ai-2-her_reference.mp3","duration":24.96,"start":90.8,"end":115.76},{"url":"https://oohbmeffdncyzujmeqcz.supabase.co/storage/v1/object/public/briefings/stories/2026-10-07/ai-3-her_reference.mp3","duration":26.8,"start":115.76,"end":142.56}],"chapters":[{"id":"greeting","kind":"note","title":"Good morning.","start":0.0,"end":1.2},{"id":"intro-top","kind":"note","title":"Here are the top stories.","start":1.2,"end":3.12},{"id":"top-1","kind":"story","title":"‘He was devastatingly sexy’: Frasier’s Jane Leeves and David Hyde Pierce on the love between Daphne and Niles","start":3.12,"end":29.2},{"id":"top-2","kind":"story","title":"‘Take out’ Los Angeles and San Diego? Trump is beyond irresponsible | Ted Widmer","start":29.2,"end":49.4},{"id":"top-3","kind":"story","title":"Separatists win in Quebec – but does that bring separation from Canada any closer?","start":49.4,"end":69.64},{"id":"intro-ai","kind":"note","title":"Here's the latest in AI.","start":69.64,"end":72.04},{"id":"ai-1","kind":"story","title":"The AI industry is booming. Women are getting left behind","start":72.04,"end":90.8},{"id":"ai-2","kind":"story","title":"OpenAI’s release of mathematical findings draws concerns from experts","start":90.8,"end":115.76},{"id":"ai-3","kind":"story","title":"Mumsnet denies using AI for content after prompt appears on message board","start":115.76,"end":142.56}],"stories":[{"id":"top-1","section":"top","headline":"‘He was devastatingly sexy’: Frasier’s Jane Leeves and David Hyde Pierce on the love between Daphne and Niles","summary":"“Dr Crane, your glockenspiel has sprung to life!” The psychiatrist Niles Crane (snooty, conflict-avoidant, married to a high-society wife with a fear of buffets) fell for his father’s physio, Daphne Moon (working class, Mancunian, reckons she’s a bit psychic) the moment he met her in his brother’s Seattle apartment. DHP: It was as it is now.","source":"The Guardian · Top stories","url":"https://www.theguardian.com/tv-and-radio/2026/oct/07/frasier-jane-leeves-david-hyde-pierce-interview-daphne-niles-love-story","image":"https://i.guim.co.uk/img/media/cfbcbc5b28d64e94758cbca2408009331763b49c/414_518_1393_1114/master/1393.jpg?width=1200&height=630&quality=85&auto=format&fit=crop&precrop=40:21,offset-x50,offset-y0&overlay-align=bottom%2Cleft&overlay-width=100p&overlay-base64=L2ltZy9zdGF0aWMvb3ZlcmxheXMvdGctZGVmYXVsdC5wbmc&enable=upscale&s=3b1d6adb8f145d599b5b601850a1e832","start":3.12,"end":29.2},{"id":"top-2","section":"top","headline":"‘Take out’ Los Angeles and San Diego? Trump is beyond irresponsible | Ted Widmer","summary":"Donald Trump was in Nebraska on Monday, and though his long rally speech had elements of a performance, this was no Bruce Springsteen album. The president drew fury when he suggested that Iran could launch a nuclear attack and “take out” Los Angeles or San Diego. Let them take, let it, let them take out Los Angeles.","source":"The Guardian · Top stories","url":"https://www.theguardian.com/commentisfree/2026/oct/07/trump-speech-los-angeles-san-diego","image":"https://i.guim.co.uk/img/media/56b56989e26c96c0212ba275467ab74bf65a18b5/1376_0_6880_5504/master/6880.jpg?width=1200&height=630&quality=85&auto=format&fit=crop&precrop=40:21,offset-x50,offset-y0&overlay-align=bottom%2Cleft&overlay-width=100p&overlay-base64=L2ltZy9zdGF0aWMvb3ZlcmxheXMvdGctb3BpbmlvbnMucG5n&enable=upscale&s=09c8c9501af1b3b2662de454f564772f","start":29.2,"end":49.4},{"id":"top-3","section":"top","headline":"Separatists win in Quebec – but does that bring separation from Canada any closer?","summary":"The victory of the Parti Québécois in Monday’s election in Quebec might seem to bring its signature goal, of separating the French-speaking province from Canada, much closer – but Canadian unity may not be nearly as threatened as may first seem. The PQ’s victory was both impressive and disappointing.","source":"The Guardian · Top stories","url":"https://www.theguardian.com/world/2026/oct/07/quebec-election-canada-separatists-analysis","image":"https://i.guim.co.uk/img/media/aa64b4e47580dd1fb652fde22f7eec6463f21ef2/808_0_6880_5504/master/6880.jpg?width=1200&height=630&quality=85&auto=format&fit=crop&precrop=40:21,offset-x50,offset-y0&overlay-align=bottom%2Cleft&overlay-width=100p&overlay-base64=L2ltZy9zdGF0aWMvb3ZlcmxheXMvdGctZGVmYXVsdC5wbmc&enable=upscale&s=b5c578f404c88a6a17e6dc878c9033a7","start":49.4,"end":69.64},{"id":"ai-1","section":"ai","headline":"The AI industry is booming. Women are getting left behind","summary":"There’s a common fear among people who work in Silicon Valley: snag one of the fast-growing, high-paying jobs in artificial intelligence, or get trapped in the “permanent underclass”, a phrase describing the fate of those who won’t have upward mobility in the age of AI. But for women in tech, it’s starting to look like the present.","source":"The Guardian · AI","url":"https://www.theguardian.com/technology/2026/oct/04/women-ai-jobs-inequality","image":"https://i.guim.co.uk/img/media/887a4a342690f7c675f7ae9e721933650383125d/0_0_3000_2400/master/3000.jpg?width=1200&height=630&quality=85&auto=format&fit=crop&precrop=40:21,offset-x50,offset-y0&overlay-align=bottom%2Cleft&overlay-width=100p&overlay-base64=L2ltZy9zdGF0aWMvb3ZlcmxheXMvdGctZGVmYXVsdC5wbmc&enable=upscale&s=060263602fa1d9f43531fdab27dd7730","start":72.04,"end":90.8},{"id":"ai-2","section":"ai","headline":"OpenAI’s release of mathematical findings draws concerns from experts","summary":"OpenAI has astounded mathematicians after releasing hundreds of new mathematical findings on Tuesday. The company published over 370 mathematical results across a variety of topics such as algebra, theoretical computer science and mathematical logic, showcasing what some of its most advanced artificial intelligence models are capable of. “We believe that human understanding of mathematics remains of paramount importance.","source":"The Guardian · AI","url":"https://www.theguardian.com/technology/2026/oct/07/openai-mathematical-findings-concerns","image":"https://i.guim.co.uk/img/media/01ef491cddca9dbad5f1f62da12fa75e84a55605/1065_0_6464_5172/master/6464.jpg?width=1200&height=630&quality=85&auto=format&fit=crop&precrop=40:21,offset-x50,offset-y0&overlay-align=bottom%2Cleft&overlay-width=100p&overlay-base64=L2ltZy9zdGF0aWMvb3ZlcmxheXMvdGctZGVmYXVsdC5wbmc&enable=upscale&s=4cb91084db460a6c78202ccd0a47640c","start":90.8,"end":115.76},{"id":"ai-3","section":"ai","headline":"Mumsnet denies using AI for content after prompt appears on message board","summary":"Mumsnet has denied using AI to produce content after detailed instructions to help an AI model write one of its popular “am I being unreasonable” (AIBU) posts appeared on a Mumsnet message board. Again users were unconvinced and speculated the prompt must have leaked from Mumsnet’s internal system. “Mumsnet works because the people on it are real,” Roberts said.","source":"The Guardian · AI","url":"https://www.theguardian.com/media/2026/oct/07/mumsnet-denies-using-ai-for-content-message-board-prompt","image":"https://i.guim.co.uk/img/media/dc2a9c3e8a5f2b681f722120348fbee20c59c9f3/1014_0_6830_5464/master/6830.jpg?width=1200&height=630&quality=85&auto=format&fit=crop&precrop=40:21,offset-x50,offset-y0&overlay-align=bottom%2Cleft&overlay-width=100p&overlay-base64=L2ltZy9zdGF0aWMvb3ZlcmxheXMvdGctZGVmYXVsdC5wbmc&enable=upscale&s=bb3e4a32839f451a837b6aab99f4cd6c","start":115.76,"end":142.56}],"sections":[{"key":"top","title":"Top stories","count":3},{"key":"ai","title":"AI","count":3}]}}
+{
+ "briefing": {
+  "date": "2026-10-07",
+  "title": "Your briefing",
+  "duration": 143.04,
+  "audio_url": "/sample/sample.mp3",
+  "chapters": [
+   {
+    "id": "greeting",
+    "kind": "note",
+    "title": "Good morning.",
+    "start": 0.0,
+    "end": 1.2
+   },
+   {
+    "id": "intro-top",
+    "kind": "note",
+    "title": "Here are the top stories.",
+    "start": 1.2,
+    "end": 3.12
+   },
+   {
+    "id": "top-1",
+    "kind": "story",
+    "title": "‘He was devastatingly sexy’: Frasier’s Jane Leeves and David Hyde Pierce on the love between Daphne and Niles",
+    "start": 3.12,
+    "end": 29.2
+   },
+   {
+    "id": "top-2",
+    "kind": "story",
+    "title": "‘Take out’ Los Angeles and San Diego? Trump is beyond irresponsible | Ted Widmer",
+    "start": 29.2,
+    "end": 49.4
+   },
+   {
+    "id": "top-3",
+    "kind": "story",
+    "title": "Separatists win in Quebec – but does that bring separation from Canada any closer?",
+    "start": 49.4,
+    "end": 69.64
+   },
+   {
+    "id": "intro-ai",
+    "kind": "note",
+    "title": "Here's the latest in AI.",
+    "start": 69.64,
+    "end": 72.04
+   },
+   {
+    "id": "ai-1",
+    "kind": "story",
+    "title": "The AI industry is booming. Women are getting left behind",
+    "start": 72.04,
+    "end": 90.8
+   },
+   {
+    "id": "ai-2",
+    "kind": "story",
+    "title": "OpenAI’s release of mathematical findings draws concerns from experts",
+    "start": 90.8,
+    "end": 115.76
+   },
+   {
+    "id": "ai-3",
+    "kind": "story",
+    "title": "Mumsnet denies using AI for content after prompt appears on message board",
+    "start": 115.76,
+    "end": 142.56
+   }
+  ],
+  "stories": [
+   {
+    "id": "top-1",
+    "section": "top",
+    "headline": "‘He was devastatingly sexy’: Frasier’s Jane Leeves and David Hyde Pierce on the love between Daphne and Niles",
+    "summary": "“Dr Crane, your glockenspiel has sprung to life!” The psychiatrist Niles Crane (snooty, conflict-avoidant, married to a high-society wife with a fear of buffets) fell for his father’s physio, Daphne Moon (working class, Mancunian, reckons she’s a bit psychic) the moment he met her in his brother’s Seattle apartment. DHP: It was as it is now.",
+    "source": "The Guardian · Top stories",
+    "url": "https://www.theguardian.com/tv-and-radio/2026/oct/07/frasier-jane-leeves-david-hyde-pierce-interview-daphne-niles-love-story",
+    "image": "https://i.guim.co.uk/img/media/cfbcbc5b28d64e94758cbca2408009331763b49c/414_518_1393_1114/master/1393.jpg?width=1200&height=630&quality=85&auto=format&fit=crop&precrop=40:21,offset-x50,offset-y0&overlay-align=bottom%2Cleft&overlay-width=100p&overlay-base64=L2ltZy9zdGF0aWMvb3ZlcmxheXMvdGctZGVmYXVsdC5wbmc&enable=upscale&s=3b1d6adb8f145d599b5b601850a1e832",
+    "start": 3.12,
+    "end": 29.2
+   },
+   {
+    "id": "top-2",
+    "section": "top",
+    "headline": "‘Take out’ Los Angeles and San Diego? Trump is beyond irresponsible | Ted Widmer",
+    "summary": "Donald Trump was in Nebraska on Monday, and though his long rally speech had elements of a performance, this was no Bruce Springsteen album. The president drew fury when he suggested that Iran could launch a nuclear attack and “take out” Los Angeles or San Diego. Let them take, let it, let them take out Los Angeles.",
+    "source": "The Guardian · Top stories",
+    "url": "https://www.theguardian.com/commentisfree/2026/oct/07/trump-speech-los-angeles-san-diego",
+    "image": "https://i.guim.co.uk/img/media/56b56989e26c96c0212ba275467ab74bf65a18b5/1376_0_6880_5504/master/6880.jpg?width=1200&height=630&quality=85&auto=format&fit=crop&precrop=40:21,offset-x50,offset-y0&overlay-align=bottom%2Cleft&overlay-width=100p&overlay-base64=L2ltZy9zdGF0aWMvb3ZlcmxheXMvdGctb3BpbmlvbnMucG5n&enable=upscale&s=09c8c9501af1b3b2662de454f564772f",
+    "start": 29.2,
+    "end": 49.4
+   },
+   {
+    "id": "top-3",
+    "section": "top",
+    "headline": "Separatists win in Quebec – but does that bring separation from Canada any closer?",
+    "summary": "The victory of the Parti Québécois in Monday’s election in Quebec might seem to bring its signature goal, of separating the French-speaking province from Canada, much closer – but Canadian unity may not be nearly as threatened as may first seem. The PQ’s victory was both impressive and disappointing.",
+    "source": "The Guardian · Top stories",
+    "url": "https://www.theguardian.com/world/2026/oct/07/quebec-election-canada-separatists-analysis",
+    "image": "https://i.guim.co.uk/img/media/aa64b4e47580dd1fb652fde22f7eec6463f21ef2/808_0_6880_5504/master/6880.jpg?width=1200&height=630&quality=85&auto=format&fit=crop&precrop=40:21,offset-x50,offset-y0&overlay-align=bottom%2Cleft&overlay-width=100p&overlay-base64=L2ltZy9zdGF0aWMvb3ZlcmxheXMvdGctZGVmYXVsdC5wbmc&enable=upscale&s=b5c578f404c88a6a17e6dc878c9033a7",
+    "start": 49.4,
+    "end": 69.64
+   },
+   {
+    "id": "ai-1",
+    "section": "ai",
+    "headline": "The AI industry is booming. Women are getting left behind",
+    "summary": "There’s a common fear among people who work in Silicon Valley: snag one of the fast-growing, high-paying jobs in artificial intelligence, or get trapped in the “permanent underclass”, a phrase describing the fate of those who won’t have upward mobility in the age of AI. But for women in tech, it’s starting to look like the present.",
+    "source": "The Guardian · AI",
+    "url": "https://www.theguardian.com/technology/2026/oct/04/women-ai-jobs-inequality",
+    "image": "https://i.guim.co.uk/img/media/887a4a342690f7c675f7ae9e721933650383125d/0_0_3000_2400/master/3000.jpg?width=1200&height=630&quality=85&auto=format&fit=crop&precrop=40:21,offset-x50,offset-y0&overlay-align=bottom%2Cleft&overlay-width=100p&overlay-base64=L2ltZy9zdGF0aWMvb3ZlcmxheXMvdGctZGVmYXVsdC5wbmc&enable=upscale&s=060263602fa1d9f43531fdab27dd7730",
+    "start": 72.04,
+    "end": 90.8
+   },
+   {
+    "id": "ai-2",
+    "section": "ai",
+    "headline": "OpenAI’s release of mathematical findings draws concerns from experts",
+    "summary": "OpenAI has astounded mathematicians after releasing hundreds of new mathematical findings on Tuesday. The company published over 370 mathematical results across a variety of topics such as algebra, theoretical computer science and mathematical logic, showcasing what some of its most advanced artificial intelligence models are capable of. “We believe that human understanding of mathematics remains of paramount importance.",
+    "source": "The Guardian · AI",
+    "url": "https://www.theguardian.com/technology/2026/oct/07/openai-mathematical-findings-concerns",
+    "image": "https://i.guim.co.uk/img/media/01ef491cddca9dbad5f1f62da12fa75e84a55605/1065_0_6464_5172/master/6464.jpg?width=1200&height=630&quality=85&auto=format&fit=crop&precrop=40:21,offset-x50,offset-y0&overlay-align=bottom%2Cleft&overlay-width=100p&overlay-base64=L2ltZy9zdGF0aWMvb3ZlcmxheXMvdGctZGVmYXVsdC5wbmc&enable=upscale&s=4cb91084db460a6c78202ccd0a47640c",
+    "start": 90.8,
+    "end": 115.76
+   },
+   {
+    "id": "ai-3",
+    "section": "ai",
+    "headline": "Mumsnet denies using AI for content after prompt appears on message board",
+    "summary": "Mumsnet has denied using AI to produce content after detailed instructions to help an AI model write one of its popular “am I being unreasonable” (AIBU) posts appeared on a Mumsnet message board. Again users were unconvinced and speculated the prompt must have leaked from Mumsnet’s internal system. “Mumsnet works because the people on it are real,” Roberts said.",
+    "source": "The Guardian · AI",
+    "url": "https://www.theguardian.com/media/2026/oct/07/mumsnet-denies-using-ai-for-content-message-board-prompt",
+    "image": "https://i.guim.co.uk/img/media/dc2a9c3e8a5f2b681f722120348fbee20c59c9f3/1014_0_6830_5464/master/6830.jpg?width=1200&height=630&quality=85&auto=format&fit=crop&precrop=40:21,offset-x50,offset-y0&overlay-align=bottom%2Cleft&overlay-width=100p&overlay-base64=L2ltZy9zdGF0aWMvb3ZlcmxheXMvdGctZGVmYXVsdC5wbmc&enable=upscale&s=bb3e4a32839f451a837b6aab99f4cd6c",
+    "start": 115.76,
+    "end": 142.56
+   }
+  ],
+  "sections": [
+   {
+    "key": "top",
+    "title": "Top stories",
+    "count": 3
+   },
+   {
+    "key": "ai",
+    "title": "AI",
+    "count": 3
+   }
+  ]
+ }
+}
