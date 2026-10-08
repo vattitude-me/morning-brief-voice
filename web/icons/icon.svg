@@ -1,18 +1,46 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="108" height="108" role="img" aria-label="Morning Brief">
+  <title>Morning Brief</title>
+  <!-- The Android launcher icon (res/drawable/ic_launcher_background.xml and
+       ic_launcher_foreground.xml), same paths and same gradients, so the PWA and the
+       app show one logo. A glass disc holding the sun on the horizon, its rays drawn
+       as sound waves, on the app's soft grey backdrop. -->
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#ff7a45"/><stop offset=".6" stop-color="#f7b733"/><stop offset="1" stop-color="#ff5e62"/>
+    <linearGradient id="bg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="108" y2="108">
+      <stop offset="0" stop-color="#F6F6F3"/>
+      <stop offset="1" stop-color="#D6D6D1"/>
     </linearGradient>
-    <clipPath id="sky"><rect width="64" height="37"/></clipPath>
+    <radialGradient id="glow" gradientUnits="userSpaceOnUse" cx="28" cy="26" r="40">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity=".95"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="shade" gradientUnits="userSpaceOnUse" cx="86" cy="88" r="38">
+      <stop offset="0" stop-color="#BDBDB7" stop-opacity=".8"/>
+      <stop offset="1" stop-color="#BDBDB7" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="disc-shadow" gradientUnits="userSpaceOnUse" cx="54" cy="58" r="33">
+      <stop offset=".72" stop-color="#000000" stop-opacity=".16"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="disc" gradientUnits="userSpaceOnUse" x1="54" y1="27" x2="54" y2="81">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity=".92"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity=".45"/>
+    </linearGradient>
+    <linearGradient id="disc-edge" gradientUnits="userSpaceOnUse" x1="54" y1="27" x2="54" y2="81">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity=".35"/>
+    </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
-  <circle cx="32" cy="37" r="12.5" fill="#fff4e0" clip-path="url(#sky)"/>
-  <g stroke="#fff4e0" stroke-width="3.2" stroke-linecap="round">
-    <path d="M32 13v5M16.5 20.5l3.5 3.5M47.5 20.5 44 24M10 34h5M49 34h5"/>
-  </g>
-  <g fill="#1d1410">
-    <rect x="17" y="42" width="3.6" height="9" rx="1.8"/><rect x="23.6" y="40" width="3.6" height="13" rx="1.8"/>
-    <rect x="30.2" y="43.5" width="3.6" height="6" rx="1.8"/><rect x="36.8" y="39" width="3.6" height="15" rx="1.8"/>
-    <rect x="43.4" y="42" width="3.6" height="9" rx="1.8"/>
-  </g>
+
+  <rect width="108" height="108" fill="url(#bg)"/>
+  <rect width="108" height="108" fill="url(#glow)"/>
+  <rect width="108" height="108" fill="url(#shade)"/>
+
+  <circle cx="54" cy="58" r="33" fill="url(#disc-shadow)"/>
+  <circle cx="54" cy="54" r="27" fill="url(#disc)"/>
+  <circle cx="54" cy="54" r="26.4" fill="none" stroke="url(#disc-edge)" stroke-width="1.2"/>
+
+  <path d="M46 62A8 8 0 0 1 62 62Z" fill="#0D0D0D"/>
+  <path d="M35.3 65.3H72.7M41.31 56.08A14 14 0 0 1 66.69 56.08M36.8 49.95A21 21 0 0 1 71.2 49.95"
+        fill="none" stroke="#0D0D0D" stroke-width="2.6" stroke-linecap="round"/>
 </svg>
+
