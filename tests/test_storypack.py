@@ -52,10 +52,10 @@ def test_no_sections_means_no_audio():
     assert clips_for(_rows("top"), {key: 0 for key in guardian.SECTIONS}) == []
 
 
-def test_every_section_has_an_intro_to_voice():
-    """A new section must not silently lose its spoken framing."""
+def test_the_framing_is_a_greeting_intros_and_a_sign_off():
+    """A new section must not silently lose its spoken framing, and a brief needs an ending."""
     assert set(INTROS) == {f"intro_{key}" for key in guardian.SECTIONS}
-    assert set(NOTES) == set(GREETINGS) | set(INTROS)
+    assert set(NOTES) == set(GREETINGS) | set(INTROS) | {storypack.OUTRO_KEY}
 
 
 def test_the_greeting_follows_the_listeners_clock():
@@ -139,7 +139,7 @@ def test_a_finished_day_is_marked_playable(cfg, store, monkeypatch):
 
     assert storypack.ready(store, day=DAY, voice="him_reference")
     marker = [n for n in store.tables["voice_notes"] if n["note_key"] == storypack.PACK_READY][0]
-    assert marker["text"] == "1 clip, 10 notes"
+    assert marker["text"] == "1 clip, 11 notes"
     assert (marker["date"], marker["voice"]) == (DAY, "him_reference")
 
 

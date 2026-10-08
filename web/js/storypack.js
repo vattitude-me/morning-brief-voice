@@ -155,6 +155,9 @@ export function buildBriefing(rows, settings, { date, voice, notes = [], hour } 
     cursor += duration;
   }
 
+  // The sign-off, after a breath, so the brief does not stop dead on the last story.
+  sayNote('outro');
+
   const sections = SECTION_ORDER
     .filter((key) => counts.has(key))
     .map((key) => ({ key, title: SECTIONS[key].title, count: counts.get(key) }));

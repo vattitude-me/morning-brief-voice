@@ -142,6 +142,8 @@ object StoryPack {
                 cursor += duration
             }
         }
+        // The sign-off, so a brief does not stop dead on the last story's final word.
+        sayNote("outro")
         if (clips.isEmpty()) return null
 
         val version = all.map { it.optString("created_at") }.maxOrNull().orEmpty()

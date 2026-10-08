@@ -284,7 +284,9 @@ grant select on public.story_audio to authenticated;
 -- before each section. Same rules as story_audio: shared by everyone, worker-written.
 --   greeting_morning | greeting_afternoon | greeting_evening
 --   intro_top | intro_ai | intro_tech | intro_politics | intro_entertainment |
---   intro_science | intro_sports
+--   intro_science | intro_sports | outro
+-- plus one marker row per narrator, note_key 'pack_ready', written when a day's clips and framing
+-- are all published. It is never spoken: clients only look up the keys above.
 -- Object layout: /notes/<date>/<note_key>-<voice>.mp3
 create table if not exists public.voice_notes (
   date       date not null,

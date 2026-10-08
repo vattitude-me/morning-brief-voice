@@ -81,7 +81,12 @@ INTROS = {
     "intro_science": "In science.",
     "intro_sports": "In sports.",
 }
-NOTES: dict[str, str] = {**GREETINGS, **INTROS}
+
+# The sign-off. Without it a brief stops dead on the last story's final word.
+OUTRO_KEY = "outro"
+OUTRO = "That's the morning brief. Have a good day."
+
+NOTES: dict[str, str] = {**GREETINGS, **INTROS, OUTRO_KEY: OUTRO}
 
 # A marker row in voice_notes meaning "this narrator's day is complete": the greeting, the intros
 # and every story are published. Clients refuse to play a day without it, so a pack that is still
@@ -225,6 +230,11 @@ def showcase_payload(rows: list[dict], notes: list[dict], url_for, *, day: str,
                 "start": round(start, 3), "end": round(end, 3),
             })
             counts[key] = counts.get(key, 0) + 1
+
+    outro = note_by_key.get(OUTRO_KEY)
+    if outro:
+        add(float(outro.get("duration") or 0), OUTRO_KEY, "note",
+            outro.get("text") or "", outro["audio_path"])
 
     return {"briefing": {
         "date": day,
