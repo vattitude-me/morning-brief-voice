@@ -73,6 +73,7 @@ class FakeStore:
         self.requests = []
         self.status = {}
         self.source_updates = []
+        self.tables = {}          # table name -> rows, for the shared story pack
 
     # helpers used by tests
     def add_user(self, email, **settings):
@@ -132,6 +133,24 @@ class FakeStore:
     def update_source(self, sid, values):
         self.source_updates.append((sid, values))
         self.source(sid).update(values)
+
+    # Generic table access, for the tables the story pack writes itself.
+    def select(self, table, params=None):
+        return [dict(r) for r in self.tables.get(table, []) if self._match(r, params or {})]
+
+    def insert(self, table, values, on_conflict=None):
+        rows = self.tables.setdefault(table, [])
+        keys = [k.strip() for k in on_conflict.split(",")] if on_conflict else []
+        for row in rows:
+            if keys and all(str(row.get(k)) == str(values.get(k)) for k in keys):
+                row.update(values)
+                return
+        rows.append(dict(values))
+
+    def update(self, table, params, values):
+        for row in self.tables.get(table, []):
+            if self._match(row, params):
+                row.update(values)
 
     def reset_consumed(self, user_ids, since):
         for s in self.sources_:

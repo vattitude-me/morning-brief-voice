@@ -1,10 +1,11 @@
 // Morning Brief: main UI (APK Today layout, tab pages).
-import { api, fmtTime, h, icon, sb, store, timeAgo, toast } from './api.js';
+import { api, fmtTime, h, icon, isAdmin, sb, store, timeAgo, toast } from './api.js';
 import { Player } from './player.js';
 import { Landing } from './landing.js';
 import { WelcomeSheet, installMode, onInstallChange, promptInstall, pushSupported, wireSheet } from './sheets.js';
 import { SourcesPage } from './pages/sources.js';
 import { SettingsPage } from './pages/settings.js';
+import { AdminPage } from './pages/admin.js';
 import { buildBriefing as buildPackBriefing } from './storypack.js';
 import { applyPhotoMode } from './design.js';
 
@@ -20,10 +21,17 @@ const $ = (id) => document.getElementById(id);
 const player = new Player();
 let sourcesPage = null;
 let settingsPage = null;
+let adminPage = null;
 let currentTab = 'today';
 const welcome = new WelcomeSheet({
-  onDone: async () => { try { state.profile = await api.profile(); } catch { /* keep the old one */ } renderHeader(); },
+  onDone: async () => { try { state.profile = await api.profile(); } catch { /* keep the old one */ } syncAdminTab(); renderHeader(); },
 });
+
+/** The admin tab shows for the admin account. The worker and the database check it again. */
+function syncAdminTab() {
+  const tab = $('adminTab');
+  if (tab) tab.classList.toggle('hidden', !isAdmin(state.profile));
+}
 
 /* ------------------------------------------------------------------ header */
 function syncInstallBtn() {
@@ -335,13 +343,14 @@ async function loadArchive() {
 
 /* ------------------------------------------------------------ tab pages */
 async function switchTab(tab) {
+  if (tab === 'admin' && !isAdmin(state.profile)) return;
   currentTab = tab;
   document.querySelectorAll('#tabbar .tab').forEach((t) => {
     const on = t.dataset.tab === tab;
     t.classList.toggle('active', on);
     if (on) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
   });
-  for (const p of ['today', 'sources', 'settings']) {
+  for (const p of ['today', 'sources', 'settings', 'admin']) {
     document.getElementById(`page-${p}`).classList.toggle('hidden', p !== tab);
   }
   window.scrollTo({ top: 0 });
@@ -357,6 +366,10 @@ async function switchTab(tab) {
       setRate: (rate) => player.setRate(rate),
     });
     try { await settingsPage.load(); } catch (err) { toast(err.message, { error: true }); }
+  }
+  if (tab === 'admin' && !adminPage) {
+    adminPage = new AdminPage();
+    try { await adminPage.load(); } catch (err) { toast(err.message, { error: true, ms: 9000 }); }
   }
   // Back on Today the hero card takes over; the floating player returns when it scrolls away.
   if (tab === 'today') player.showMini();
@@ -460,6 +473,7 @@ async function enterApp() {
     try { await api.saveSettings({ voice }); state.profile = await api.profile(); } catch { /* keep default */ }
   }
   store.set('pending-voice', null);
+  syncAdminTab();
   const st = state.profile?.settings || {};
   if (state.profile && !st.onboarded && !st.name) welcome.open(state.status);
   else if (state.profile && !st.push_offered && pushSupported() && Notification.permission === 'default') welcome.open(state.status, { askName: false });
@@ -473,6 +487,7 @@ async function start() {
     const [status, profile] = await Promise.all([api.status(), api.profile()]);
     state.status = status;
     state.profile = profile;
+    syncAdminTab();
     applyPhotoMode(profile?.settings?.color_photos);
     await loadArchive();
     // The shared pack *is* the briefing now. When today's hasn't been published yet,
@@ -500,11 +515,12 @@ async function init() {
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', syncThemeIcon);
   bindEvents();
   syncInstallBtn();
+  syncAdminTab();
   renderHeader();
   renderNotice();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
   sb.auth.onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_OUT') { started = false; showLanding(); }
+    if (event === 'SIGNED_OUT') { started = false; state.profile = null; syncAdminTab(); showLanding(); }
     else if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) setTimeout(enterApp, 0);
   });
   let session = null;

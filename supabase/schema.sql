@@ -111,21 +111,27 @@ create table if not exists public.push_subscriptions (
 );
 
 -- ---------------------------------------------------------- build requests
--- 'push_test' and 'delete_account' are open to everyone; 'build' (ad-hoc rebuild) is admin-only for now.
+-- 'push_test' and 'delete_account' are open to everyone. 'build' (one listener's briefing)
+-- and 'pack' (the shared daily audio every listener hears) are admin-only.
 -- 'delete_account': the worker removes the user's MP3s, then their sign-in, which cascades to every row.
+-- 'pack' carries its options in payload, the same switches `python -m app pack` takes:
+--   {"day": "2026-10-07", "voices": ["her_reference"], "notes_only": false, "force": false}
 create table if not exists public.build_requests (
   id           bigint generated always as identity primary key,
   user_id      uuid not null default auth.uid() references auth.users (id) on delete cascade,
-  kind         text not null default 'build' check (kind in ('build', 'push_test', 'delete_account')),
+  kind         text not null default 'build' check (kind in ('build', 'push_test', 'delete_account', 'pack')),
   status       text not null default 'queued' check (status in ('queued', 'running', 'done', 'error')),
   message      text,
+  payload      jsonb,
   created_at   timestamptz not null default now(),
   finished_at  timestamptz
 );
 -- Projects created before 'delete_account' existed: widen the check.
 alter table public.build_requests drop constraint if exists build_requests_kind_check;
 alter table public.build_requests add constraint build_requests_kind_check
-  check (kind in ('build', 'push_test', 'delete_account'));
+  check (kind in ('build', 'push_test', 'delete_account', 'pack'));
+-- Projects created before the admin page existed: add the options column.
+alter table public.build_requests add column if not exists payload jsonb;
 
 -- -------------------------------------------------------------- app status
 -- One shared row the worker keeps up to date: schedule, last run, voices, push key.
@@ -193,6 +199,14 @@ create policy "own push subscriptions" on public.push_subscriptions for all to a
 
 drop policy if exists "read own requests" on public.build_requests;
 create policy "read own requests" on public.build_requests for select to authenticated using (user_id = auth.uid());
+-- An admin sees the whole queue: who asked for what, and how it ended.
+drop policy if exists "admins read requests" on public.build_requests;
+create policy "admins read requests" on public.build_requests for select to authenticated
+  using (public.is_admin());
+-- The web admin page is gated the same way. Flag the account that owns it:
+--   update public.profiles set is_admin = true where lower(email) = 'vatsakrish@gmail.com';
+-- ADMIN_EMAILS on the worker does the same job for the rebuild itself, without the database.
+-- 'build' and 'pack' need public.is_admin(); the other two are open to everyone.
 drop policy if exists "create requests" on public.build_requests;
 create policy "create requests" on public.build_requests for insert to authenticated
   with check (user_id = auth.uid() and status = 'queued' and (kind in ('push_test', 'delete_account') or public.is_admin()));
@@ -211,8 +225,7 @@ grant select on public.profiles, public.sources, public.briefings, public.push_s
                 public.build_requests, public.app_status to authenticated;
 grant update (settings) on public.profiles to authenticated;
 grant insert (user_id, name, url, section, enabled) on public.sources to authenticated;
-grant insert (reason, note, headline, summary, url, source, writer, app) on public.content_reports to anon, authenticated;
-grant update (name, section, enabled) on public.sources to authenticated;
+grant insert (reason, note, headline, summary, url, source, writer, app) on public.content_reports to anon, authenticated;grant update (name, section, enabled) on public.sources to authenticated;
 grant delete on public.sources to authenticated;
 grant insert (endpoint, user_id, p256dh, auth) on public.push_subscriptions to authenticated;
 grant delete on public.push_subscriptions to authenticated;

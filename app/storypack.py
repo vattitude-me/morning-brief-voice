@@ -22,6 +22,7 @@ import logging
 import shutil
 import subprocess
 import tempfile
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -341,7 +342,7 @@ async def synthesise(client: httpx.AsyncClient, base: str, text: str, voice: str
 
 async def build_notes(cfg, store, *, day: str | None = None, voice: str | None = None,
                       voice_url: str | None = None, keys: list[str] | None = None,
-                      force: bool = False) -> list[dict]:
+                      force: bool = False, on_note: Callable[[str], None] | None = None) -> list[dict]:
     """Voice the greeting and the section intros once for the day.
 
     A note whose text hasn't changed is left alone, so re-running the pack — or adding a
@@ -359,6 +360,8 @@ async def build_notes(cfg, store, *, day: str | None = None, voice: str | None =
     rows: list[dict] = []
     async with httpx.AsyncClient(timeout=900) as client:
         for key, text in items:
+            if on_note:
+                on_note(key)
             have = done.get(key)
             if not force and have and have.get("text") == text and have.get("audio_path"):
                 rows.append(have)
@@ -379,13 +382,17 @@ async def build_notes(cfg, store, *, day: str | None = None, voice: str | None =
 async def build(cfg, store, *, day: str | None = None, per_section: int | None = None,
                 sections: list[str] | None = None, voice: str | None = None,
                 voice_url: str | None = None, notes: bool = True,
-                force: bool = False) -> list[dict]:
+                force: bool = False,
+                on_step: Callable[[str, float], None] | None = None) -> list[dict]:
     """Voice the day's stories once and publish them as shared clips.
 
     Every configured voice is rendered unless one is named: a listener hears the voice
     they picked, and every listener of that voice shares the same clips. Safe to re-run —
     rows upsert on ``(date, section, rank, voice)``, so a retry or a new voice simply adds
     to the day's pack.
+
+    ``on_step(text, fraction)`` is called as the work moves, which is how the admin page
+    shows a long rebuild while it runs.
     """
     day = day or datetime.now(ZoneInfo(cfg.timezone)).date().isoformat()
     base = (voice_url or cfg.voice_url or "").rstrip("/")
@@ -397,24 +404,38 @@ async def build(cfg, store, *, day: str | None = None, per_section: int | None =
     scripts = await guardian.build_pack(per_section=per_section, sections=sections)
     log.info("Voicing %d stories for %s as %s", len(scripts), day, ", ".join(voices))
 
+    # Every clip is one unit of work, so the fraction means something to a waiting admin.
+    units = len(scripts) * len(voices) + (len(NOTES) * len(voices) if notes else 0) + 1
+    seen = {"n": 0}
+
+    def tick(text: str) -> None:
+        seen["n"] += 1
+        if on_step:
+            on_step(text, min(0.99, seen["n"] / units))
+
     rows: list[dict] = []
     for name in voices:
-        rows += await voice_scripts(store, scripts, day=day, voice=name, base=base, force=force)
+        rows += await voice_scripts(
+            store, scripts, day=day, voice=name, base=base, force=force,
+            on_clip=lambda story, who=name: tick(f"{voice_name(who)}: {story['section']} #{story['rank']}"))
 
     log.info("Published %d clips (%.1fs of audio)", len(rows), total_seconds(rows))
     if notes:
         for name in voices:
-            await build_notes(cfg, store, day=day, voice=name, voice_url=base)
+            await build_notes(cfg, store, day=day, voice=name, voice_url=base,
+                              on_note=lambda key, who=name: tick(f"{voice_name(who)}: {key}"))
     # The landing page's sample rides along with the pack, so it can't quietly go stale.
     try:
         await publish_showcase(cfg, store, day=day, voice=voices[0])
+        tick("landing sample")
     except Exception as exc:  # noqa: BLE001 — a sample is worth having, a pack is not
         log.warning("Could not publish the landing sample: %s", exc)
     return rows
 
 
 async def voice_scripts(store, scripts: list[dict], *, day: str, voice: str,
-                        base: str, force: bool = False) -> list[dict]:
+                        base: str, force: bool = False,
+                        on_clip: Callable[[dict], None] | None = None) -> list[dict]:
     """Voice one voice's worth of the day's stories. Extracted so a second voice costs
     one more pass over the same scripts, with the same reuse rules."""
     # Stories already voiced for this day are reused, so a re-run only re-renders what
@@ -426,6 +447,8 @@ async def voice_scripts(store, scripts: list[dict], *, day: str, voice: str,
     rows: list[dict] = []
     async with httpx.AsyncClient(timeout=900) as client:
         for story in scripts:
+            if on_clip:
+                on_clip(story)
             image = (story.get("image") or "")[:2000] or None
             done = existing.get((story["section"], story["rank"]))
             if not force and done and done.get("audio_path") and done.get("url") == story["url"]:

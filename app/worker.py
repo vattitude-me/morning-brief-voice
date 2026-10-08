@@ -7,7 +7,9 @@
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -129,7 +131,7 @@ class Worker:
                         self.store.delete_push_subscription(endpoint)
                     message = f"Sent to {sent} device(s)" if sent else "No devices are subscribed yet"
                 elif req["kind"] == "build":
-                    if not (profile.get("is_admin") or (profile.get("email") or "").lower() in self.cfg.admin_emails):
+                    if not self._is_admin(profile):
                         raise PermissionError("Only admins can rebuild on demand for now")
                     report = self.run_batch("adhoc", emails=[req["user_id"]], fresh=True, scheduled=False)
                     if report is None:
@@ -137,6 +139,10 @@ class Worker:
                     else:
                         status = "done" if report.ok else "error"
                         message = report.summary()
+                elif req["kind"] == "pack":
+                    if not self._is_admin(profile):
+                        raise PermissionError("Only admins can rebuild the audio")
+                    status, message = self.run_pack(req.get("payload") or {}, profile)
             except Exception as exc:  # noqa: BLE001
                 log.exception("Request %s failed", req["id"])
                 status, message = "error", str(exc)[:300]
@@ -144,6 +150,67 @@ class Worker:
                 self.store.update_request(req["id"], {"status": status, "message": message, "finished_at": now_iso()})
             except StoreError as exc:
                 log.warning("Couldn't update request %s: %s", req["id"], exc)
+
+    def _is_admin(self, profile: dict) -> bool:
+        """Admins are flagged in the database, or listed in ADMIN_EMAILS on the server."""
+        return bool(profile.get("is_admin") or (profile.get("email") or "").lower() in self.cfg.admin_emails)
+
+    def run_pack(self, options: dict, profile: dict | None = None) -> tuple[str, str]:
+        """Re-voice the shared pack on request from the admin page.
+
+        The options mirror ``python -m app pack``: a day, which voices, notes only, and
+        whether to re-voice clips that are already published. Returns the request status
+        and the line the admin reads back. Runs under the batch lock, so a rebuild and
+        the nightly run never overlap.
+        """
+        from . import storypack
+
+        if not self.lock.acquire():
+            return "error", "A build is already running. Try again in a few minutes."
+        try:
+            day = (options.get("day") or "").strip() or datetime.now(self.tz).date().isoformat()
+            chosen = [v for v in (options.get("voices") or []) if v in storypack.VOICES]
+            notes_only = bool(options.get("notes_only"))
+            force = bool(options.get("force"))
+            started = now_iso()
+            clock = time.monotonic()
+
+            def progress(text: str, fraction: float) -> None:
+                log.info("[pack %3d%%] %s", int(fraction * 100), text)
+                self.publish(step=text, progress=round(fraction, 3))
+
+            self.publish(running=True, step="Reading the day's stories", progress=0, trigger="pack")
+            if notes_only:
+                clips: list[dict] = []
+                for name in chosen or list(self.cfg.story_voices or ()):
+                    clips += asyncio.run(storypack.build_notes(self.cfg, self.store, day=day,
+                                                              voice=name, force=force))
+                detail = f"{len(clips)} voice notes re-recorded for {day}"
+            else:
+                clips = []
+                for name in chosen or [None]:
+                    clips += asyncio.run(storypack.build(self.cfg, self.store, day=day, voice=name,
+                                                       force=force, on_step=progress))
+                minutes = storypack.total_seconds(clips) / 60
+                voices = ", ".join(storypack.voice_name(v) for v in (chosen or list(self.cfg.story_voices or ())))
+                detail = f"{len(clips)} clips for {day}, {minutes:.1f} min of audio ({voices})"
+
+            self.publish(running=False, step=None, progress=1, last_pack={
+                "day": day, "voices": chosen or list(self.cfg.story_voices or ()), "notes_only": notes_only,
+                "force": force, "detail": detail, "seconds": round(time.monotonic() - clock, 1),
+                "started_at": started, "at": now_iso(), "ok": True, "by": (profile or {}).get("email"),
+            })
+            log.info("Pack rebuilt: %s", detail)
+            return "done", detail
+        except Exception as exc:  # noqa: BLE001 - the request row carries the reason
+            log.exception("Pack rebuild failed")
+            self.publish(running=False, step=None, progress=0, last_pack={
+                "error": f"{exc.__class__.__name__}: {exc}"[:300], "at": now_iso(), "ok": False,
+                "by": (profile or {}).get("email"),
+            })
+            return "error", f"{exc.__class__.__name__}: {exc}"[:300]
+        finally:
+            self.lock.release()
 
     def delete_account(self, user_id: str, profile: dict) -> None:
         """Remove the user's MP3s, then their sign-in (every table row cascades with it)."""

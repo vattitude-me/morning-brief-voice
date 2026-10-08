@@ -35,6 +35,14 @@ export const VOICES = [
 export const voiceFor = (id) => VOICES.find((v) => v.id === id) || VOICES[0];
 export const voiceName = (id) => voiceFor(id).name;
 
+/**
+ * Who gets the admin tab. This only decides what the page shows: every admin action is
+ * checked again by row-level security and by the worker, so a forged flag gets nowhere.
+ */
+export const ADMIN_EMAILS = ['vatsakrish@gmail.com'];
+export const isAdmin = (profile) =>
+  !!profile && (profile.is_admin === true || ADMIN_EMAILS.includes((profile.email || '').toLowerCase()));
+
 export const DEFAULT_SETTINGS = {
   name: '',
   voice: 'her_reference',
@@ -141,6 +149,32 @@ export const api = {
   async status() {
     const rows = check(await sb.from('app_status').select('data').eq('id', 1).limit(1));
     return rows[0]?.data || {};
+  },
+
+  // ------------------------------------------------------------------ admin
+  /** One day of the shared pack: every clip and note, so the admin page can summarise it. */
+  async packState(day) {
+    const [clips, notes] = await Promise.all([
+      check(await sb.from('story_audio').select('section,rank,voice,duration').eq('date', day)) || [],
+      check(await sb.from('voice_notes').select('voice,note_key,duration').eq('date', day)) || [],
+    ]);
+    return { clips, notes };
+  },
+  /** Recent requests. Shows only the admin's own rows until the admin read policy is applied. */
+  async packRequests(limit = 15) {
+    const rows = check(await sb.from('build_requests')
+      .select('id,kind,status,message,created_at,finished_at').order('id', { ascending: false }).limit(limit));
+    return rows || [];
+  },
+  /** Asks the worker to re-voice the pack. The options mirror `python -m app pack`. */
+  async queuePack({ day = null, voices = [], notesOnly = false, force = false } = {}) {
+    const payload = { day, voices, notes_only: notesOnly, force };
+    try {
+      const row = check(await sb.from('build_requests').insert({ kind: 'pack', payload }).select('id').single());
+      return row.id;
+    } catch (err) {
+      throw new Error(`${err.message} The database needs the admin section of supabase/schema.sql first.`);
+    }
   },
 
   // -------------------------------------------------------------- requests

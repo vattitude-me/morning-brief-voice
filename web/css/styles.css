@@ -833,6 +833,14 @@ select.pill-field { appearance: auto; }
 button.section-head { width: 100%; border: 0; background: transparent; cursor: pointer; font: inherit; text-align: left; }
 .fresh-wrap { padding: 22px 0 8px; display: flex; }
 .pill-btn.wide { flex: 1; }
+
+/* ---------- Admin page ---------- */
+/* The narrator rows are buttons, so they need the row look back. */
+button.list-row {
+  background: transparent; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.admin-actions { display: flex; gap: 8px; padding: 14px 0 4px; }
+.admin-actions .pill-btn { flex: 1; }
 .glass-btn.wide { justify-content: center; }
 
 /* APK-style snackbar toast */

@@ -166,16 +166,13 @@ export class SourcesPage {
     const sec = SECTIONS[key];
     const n = this.draft.stories[key] || 0;
     const items = this.sources.filter((s) => s.section === key);
-    const onCount = items.filter((s) => this.on(s)).length;
     const open = this.expanded.has(key);
     const city = (this.city || '').split(',')[0].trim();
     const label = key === 'local' && city ? `${sec.title} · ${city}` : sec.title;
 
     const head = h('button', { type: 'button', class: 'topic-head', 'aria-expanded': String(open) },
       h('span', { class: 'emoji-circle', 'aria-hidden': 'true' }, sec.emoji),
-      h('span', { class: 'topic-titles' },
-        h('span', { class: 'topic-title' }, label),
-        h('span', { class: 'tiny' }, `${items.length} source${items.length === 1 ? '' : 's'} · ${onCount} on`)),
+      h('span', { class: 'topic-titles' }, h('span', { class: 'topic-title' }, label)),
       StoryStepper(n, true, MAX_PER_SECTION, (v) => this.setStories(key, v)),
       h('span', { class: 'caret' + (open ? ' open' : ''), 'aria-hidden': 'true' }, icon(open ? 'chev-d' : 'chev-r')));
     head.addEventListener('click', (e) => {
