@@ -440,6 +440,11 @@ body.signed-out > :not(.landing):not(.toast):not(svg) { display: none; }
 .landing .display em { font-style: italic; }
 .landing .subtitle { max-width: 46ch; }
 .landing .overline-row img { border-radius: 7px; }
+/* The app mark, the same size it reads on the phone's first screen. */
+.landing .landing-mark {
+  width: 88px; height: 88px; display: block; margin: 20px 0 4px; border-radius: 24px;
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--ink) 18%, transparent);
+}
 .landing .pill-btn.sm { height: 36px; padding: 0 16px; font-size: 13.5px; }
 .landing .hero { margin-top: 24px; }
 .landing .section-head { padding-top: 18px; }

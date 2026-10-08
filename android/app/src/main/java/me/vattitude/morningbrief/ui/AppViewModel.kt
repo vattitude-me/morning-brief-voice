@@ -81,6 +81,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val _settings = MutableStateFlow(repo.settings)
     val settings: StateFlow<Settings> = _settings
     val signedInEmail = MutableStateFlow(repo.email)
+    /** True once the draft differs from what's saved, so the Save bar only appears after a real edit. */
+    val dirty = MutableStateFlow(false)
 
     val dates = MutableStateFlow<List<String>>(emptyList())
     val selected = MutableStateFlow<String?>(null)
@@ -101,6 +103,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val packs = mutableMapOf<String, Pack?>()
     /** The pack the player is on, so positions can be read across the whole playlist. */
     private var currentPack: Pack? = null
+    /** Where to carry on after the narrator changes: the second we were at, and whether it was playing. */
+    private var resumeAt: Double? = null
+    private var resumePlaying = false
 
     val sources = MutableStateFlow<List<Source>>(emptyList())
     val sourcesNote = MutableStateFlow<String?>(null)
@@ -145,10 +150,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---- Lifecycle ------------------------------------------------------------------------
 
     fun onOpen() {
-        val today = LocalDate.now().toString()
-        // Before setup is done there's nothing to build with yet; setup makes the first brief itself.
-        if (repo.prefs.onboarded) Scheduler.catchUp(getApplication(), repo.settings, repo.briefings.load(today) != null,
-            repo.prefs.lastBuild.optString("day").ifEmpty { null })
         refreshBriefings()
         connectPlayer()
         packInstalled.value = KokoroPack.current(getApplication())
@@ -170,6 +171,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             repo.saveSettings(new)
             _saved.value = repo.settings
+            dirty.value = false
             // Still scheduled: the same worker posts the quiet "your brief is ready" alert.
             Scheduler.schedule(getApplication(), new)
             repo.prefs.onboarded = true
@@ -320,8 +322,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             if (pack != null && selected.value == date) {
                 nowPlayingTried = null
                 briefing.value = pack.briefing
-                load(date)
+                val c = load(date)
                 tick()
+                // A narrator switch keeps the listener where they were.
+                resumeAt?.let { at ->
+                    if (c != null) seekGlobal(c, at, play = resumePlaying)
+                    resumeAt = null
+                }
             }
         }
     }
@@ -464,6 +471,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 c.setMediaItem(item)
             }
             c.prepare()
+            c.setPlaybackSpeed(_settings.value.speed.coerceIn(0.8f, 1.3f))
         }
         return c
     }
@@ -587,6 +595,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Changes the draft; nothing is kept until [save]. */
     fun update(change: (Settings) -> Settings) {
         _settings.value = change(_settings.value)
+        dirty.value = true
     }
 
     /** Changes the draft and keeps it right away; for flows with no Save button. */
@@ -596,6 +605,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             repo.saveSettings(new)
             _saved.value = repo.settings
+            dirty.value = false
         }
     }
 
@@ -609,20 +619,39 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 repo.setEnabled(src, switches.getValue(src.id))
             }
             pendingEnabled.value = emptyMap()
+            dirty.value = false
             if (old.daily != new.daily || old.readyBy != new.readyBy) Scheduler.schedule(getApplication(), new)
             _saved.value = repo.settings
             if (switches.isNotEmpty() || old.localCity != new.localCity) loadSources()
-            val today = briefing.value?.takeIf { it.date == LocalDate.now().toString() }
-            message.value = problem ?: switchProblem ?: if (old.voice != new.voice && today != null && voiceChanged(today)) {
-                "Saved. You can re-record today's brief in the new voice on the Today page."
-            } else "Saved. Your next brief uses these."
+            // Both of these can be heard straight away, so they don't wait for the next brief.
+            if (old.voice != new.voice) switchNarrator()
+            controller?.setPlaybackSpeed(new.speed.coerceIn(0.8f, 1.3f))
+            message.value = problem ?: switchProblem ?: when {
+                old.voice != new.voice -> "Saved. Now read by ${packVoice(new.voice).name}."
+                else -> "Saved. Your next brief uses these."
+            }
         }
+    }
+
+    /**
+     * Moves the day over to the newly chosen narrator. The clips are a different recording, so the
+     * playlist is rebuilt; playback pauses for the swap and carries on from the same second.
+     */
+    private fun switchNarrator() {
+        val c = controller
+        val date = selected.value ?: LocalDate.now().toString()
+        resumeAt = c?.let { globalPosition(it) } ?: 0.0
+        resumePlaying = c?.isPlaying == true
+        c?.pause()
+        packs.remove(date)
+        fetchPack(date)
     }
 
     fun discard() {
         val cityChanged = _settings.value.localCity != _saved.value.localCity
         _settings.value = _saved.value
         pendingEnabled.value = emptyMap()
+        dirty.value = false
         if (cityChanged) loadSources()
     }
 

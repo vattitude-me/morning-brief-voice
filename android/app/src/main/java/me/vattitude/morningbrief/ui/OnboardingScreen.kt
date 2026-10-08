@@ -1,7 +1,6 @@
 package me.vattitude.morningbrief.ui
 
 import android.Manifest
-import android.app.TimePickerDialog
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.BackHandler
@@ -32,7 +31,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
@@ -55,34 +53,30 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import java.time.LocalTime
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 import me.vattitude.morningbrief.R
 import me.vattitude.morningbrief.pipeline.MAX_PER_SECTION
 import me.vattitude.morningbrief.pipeline.SECTIONS
 import me.vattitude.morningbrief.pipeline.briefMinutes
 
-private enum class Step { Welcome, Topics, Ready }
+private enum class Step { Welcome, SignIn, Topics }
 
 /**
- * First run, kept short on purpose: hear what a briefing sounds like, pick topics, then start
- * listening. There is nothing to build — the day's brief is recorded once for everyone — so voice,
- * time and notifications all keep sensible defaults and live in Settings.
+ * First run, kept short on purpose: hear what a briefing sounds like, sign in, then pick topics.
+ * Signing in is what lets the morning brief find you: the day's audio is recorded once for
+ * everyone and published to the account, so there is nothing to build on the phone.
  */
 @Composable
 fun OnboardingScreen(vm: AppViewModel) {
     var index by rememberSaveable { mutableIntStateOf(0) }
     val step = Step.entries[index]
     val st by vm.settings.collectAsState()
+    val email by vm.signedInEmail.collectAsState()
     val context = LocalContext.current
     val t = Mb.t
 
@@ -95,11 +89,13 @@ fun OnboardingScreen(vm: AppViewModel) {
         canNotify = granted
         asked = true
         // Asked from the last step's button: carry on to the brief either way.
-        if (step == Step.Ready) vm.finishOnboarding()
+        if (step == Step.Topics) vm.finishOnboarding()
     }
 
     BackHandler(index > 0) { index-- }
     LaunchedEffect(step) { if (step != Step.Welcome) vm.stopDemo() }
+    // Sign-in finishes in the browser tab, so move the flow on when the account appears.
+    LaunchedEffect(email) { if (email != null && step == Step.SignIn) index++ }
 
     Column(Modifier.fillMaxSize().backdrop(t).statusBarsPadding().navigationBarsPadding().imePadding()) {
         // Progress: one dash per step.
@@ -112,8 +108,8 @@ fun OnboardingScreen(vm: AppViewModel) {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 28.dp)) {
                 when (s) {
                     Step.Welcome -> Welcome(vm)
+                    Step.SignIn -> SignInStep(vm)
                     Step.Topics -> TopicsStep(vm)
-                    Step.Ready -> ReadyStep(vm)
                 }
             }
         }
@@ -123,17 +119,18 @@ fun OnboardingScreen(vm: AppViewModel) {
             Spacer(Modifier.weight(1f))
             val totalStories = SECTIONS.keys.sumOf { st.stories[it] ?: 0 }
             val topicsEmpty = step == Step.Topics && totalStories == 0
+            val signedIn = email != null
             val label = when (step) {
                 Step.Welcome -> "Get started"
-                Step.Topics -> if (topicsEmpty) "Pick at least one topic" else "Continue"
-                Step.Ready -> "Start listening"
+                Step.SignIn -> if (signedIn) "Continue" else "Sign in to continue"
+                Step.Topics -> if (topicsEmpty) "Pick at least one topic" else "Start listening"
                 else -> "Continue"
             }
-            PillButton(label, enabled = !topicsEmpty) {
+            PillButton(label, enabled = !topicsEmpty && (step != Step.SignIn || signedIn)) {
                 when {
                     // Ask for the ready alert at the moment of commitment, then carry on either way.
-                    step == Step.Ready && !canNotify && !asked -> askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    step == Step.Ready -> vm.finishOnboarding()
+                    step == Step.Topics && !canNotify && !asked -> askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    step == Step.Topics -> vm.finishOnboarding()
                     else -> index++
                 }
             }
@@ -174,7 +171,7 @@ private fun Welcome(vm: AppViewModel) {
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text("Hear how it sounds", style = Type.title, color = t.ink)
-                Text("The start of a real brief, read by Heart", Modifier.padding(top = 2.dp),
+                Text("The start of a real brief, read by Alice", Modifier.padding(top = 2.dp),
                     style = Type.meta, color = t.muted)
                 Box(Modifier.padding(top = 10.dp).fillMaxWidth().height(3.dp).clip(CircleShape).background(t.track)) {
                     Box(Modifier.fillMaxWidth(demo ?: 0f).fillMaxHeight().background(t.ink))
@@ -226,10 +223,6 @@ private fun TopicsStep(vm: AppViewModel) {
             if (i > 0) Hairline()
             val n = st.stories[s.key] ?: 0
             Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(32.dp).clip(CircleShape).background(t.glass), contentAlignment = Alignment.Center) {
-                    Text(s.emoji, style = Type.body)
-                }
-                Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(s.title, style = Type.body, color = t.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("Up to $MAX_PER_SECTION stories", Modifier.padding(top = 2.dp), style = Type.tiny, color = t.muted)
@@ -243,43 +236,33 @@ private fun TopicsStep(vm: AppViewModel) {
 }
 
 @Composable
-private fun ReadyStep(vm: AppViewModel) {
-    val st by vm.settings.collectAsState()
-    val context = LocalContext.current
+private fun SignInStep(vm: AppViewModel) {
+    val email by vm.signedInEmail.collectAsState()
     val t = Mb.t
-    Title("All set", "Tomorrow's brief is already recorded.",
-        "Your narrator reads it before you wake, so there's nothing to build or download. " +
-            "Tune everything later in Settings.")
-    GlassGroup {
-        val time = LocalTime.of(st.readyHour, st.readyMinute)
-        ListRow("Ready by",
-            value = time.format(DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)),
-            caret = true,
-            onClick = {
-                TimePickerDialog(context, { _, h, m -> vm.update { it.copy(readyBy = "%02d:%02d".format(h, m)) } },
-                    st.readyHour, st.readyMinute, false).show()
-            })
-        Hairline()
-        val total = SECTIONS.keys.sumOf { st.stories[it] ?: 0 }
-        val topics = SECTIONS.values.filter { (st.stories[it.key] ?: 0) > 0 }.joinToString(", ") { it.title }
-        ListRow("Topics", detail = topics.ifEmpty { "None yet" }, value = "$total stories")
-        Hairline()
-        Row(Modifier.fillMaxWidth().padding(vertical = 15.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Your name", style = Type.body, color = t.ink)
-            Spacer(Modifier.width(16.dp))
-            BasicTextField(
-                st.name, { v -> vm.update { it.copy(name = v.take(40)) } }, Modifier.weight(1f), singleLine = true,
-                textStyle = Type.value.copy(color = t.ink, textAlign = TextAlign.End),
-                cursorBrush = SolidColor(t.ink),
-                decorationBox = { inner ->
-                    Box(contentAlignment = Alignment.CenterEnd) {
-                        if (st.name.isEmpty()) Text("Optional", style = Type.value, color = t.muted)
-                        inner()
-                    }
-                },
-            )
+    Title("Your account", "Sign in to hear the brief",
+        "The day's news is recorded once each morning and published to your account, so the same brief " +
+            "reaches every device you sign in to.")
+    Glass(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(18.dp)) {
+            val who = email
+            if (who != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CheckDot(true)
+                    Spacer(Modifier.width(12.dp))
+                    Text(who, style = Type.body, color = t.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                Text("Your topics and settings follow you between the phone and the web app.",
+                    Modifier.padding(top = 10.dp), style = Type.meta, color = t.muted)
+            } else {
+                Text("One tap with Google. There is no password to remember.", style = Type.meta, color = t.muted)
+                GoogleSignInButton(vm, Modifier.padding(top = 16.dp))
+            }
         }
     }
-    Hint("The day's brief is recorded once each morning and appears here on its own. There's nothing to build or download.",
-        Modifier.padding(top = 14.dp, start = 4.dp))
+    Column(Modifier.padding(top = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Feature(Icons.Outlined.RecordVoiceOver, "The same brief everywhere",
+            "Sign in on the web app and your topics are already there")
+        Feature(Icons.Outlined.Schedule, "Ready before your alarm",
+            "It appears on its own each morning, with nothing to build")
+    }
 }

@@ -11,7 +11,6 @@ class SourcesTest {
             SECTIONS.keys.toList(),
         )
         assertTrue(SECTIONS.values.all { it.isCategory })
-        assertEquals(BUILTIN_SOURCES.size, BUILTIN_SOURCES.map { it.url }.toSet().size)
     }
 
     @Test fun localNewsUsesCityOutletsAndGoogleForAnywhere() {

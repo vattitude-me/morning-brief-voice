@@ -95,6 +95,7 @@ fun Root(vm: AppViewModel) {
     val message by vm.message.collectAsState()
     val st by vm.settings.collectAsState()
     val saved by vm.saved.collectAsState()
+    val edited by vm.dirty.collectAsState()
     val pending by vm.pendingEnabled.collectAsState()
     val player by vm.player.collectAsState()
     val playing by vm.nowPlaying.collectAsState()
@@ -110,8 +111,9 @@ fun Root(vm: AppViewModel) {
     val density = LocalDensity.current
     var inset by remember { mutableStateOf(120.dp) }
     val keyboard = WindowInsets.isImeVisible
-    val dirty = st != saved || pending.isNotEmpty()
-    val showSave = dirty && tab != Tab.Today && !keyboard
+    // Only a real edit raises the bar: comparing the draft with the saved copy made it appear on
+    // its own when the two differed for reasons the user never touched.
+    val showSave = (edited || pending.isNotEmpty()) && tab != Tab.Today && !keyboard
     val showMini = playing != null && player.date == playing?.date && (tab != Tab.Today || !heroVisible) && !keyboard
     Box(Modifier.fillMaxSize().backdrop(t)) {
         CompositionLocalProvider(LocalBottomInset provides inset) {

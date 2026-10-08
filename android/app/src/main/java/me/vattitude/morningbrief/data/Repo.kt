@@ -1,7 +1,6 @@
 package me.vattitude.morningbrief.data
 
 import android.content.Context
-import me.vattitude.morningbrief.pipeline.BUILTIN_SOURCES
 import me.vattitude.morningbrief.pipeline.Detection
 import me.vattitude.morningbrief.pipeline.Fetcher
 import me.vattitude.morningbrief.pipeline.Source
@@ -62,7 +61,7 @@ class Repo(context: Context) {
         }
         // Signed in, a catalog source takes its Supabase id, so switching it off also reaches the web app.
         val ids = rows.filter { it.builtin }.associate { it.url to it.id }
-        val catalog = (BUILTIN_SOURCES + localSources(st.localCity)).map { s ->
+        val catalog = localSources(st.localCity).map { s ->
             val id = ids[s.url] ?: s.id
             s.copy(id = id, enabled = s.url !in st.disabledUrls && id !in st.disabledSources)
         }

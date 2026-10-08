@@ -472,20 +472,29 @@ private fun AccountGroup(vm: AppViewModel) {
             return@GlassGroup
         }
         ListRow("Not signed in",
-            detail = "Optional: sign in with the Google account you use on the web app to sync sources and settings")
+            detail = "Sign in with the Google account you use on the web app to sync sources and settings")
         signIn.error?.let { Hint(it, Modifier.padding(bottom = 10.dp), color = t.error) }
-        Row(
-            Modifier.padding(bottom = 14.dp).height(44.dp).clip(CircleShape).background(t.ink)
-                .clickable(enabled = !signIn.busy) { openPage(context, vm.googleSignInUrl()) }.padding(horizontal = 20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (signIn.busy) CircularProgressIndicator(Modifier.size(16.dp), color = t.onInk, strokeWidth = 2.dp)
-            else Box(Modifier.size(22.dp).clip(CircleShape).background(Color.White), contentAlignment = Alignment.Center) {
-                Icon(painterResource(R.drawable.ic_google), null, Modifier.size(14.dp), tint = Color.Unspecified)
-            }
-            Spacer(Modifier.width(10.dp))
-            Text("Continue with Google", style = Type.value.copy(fontWeight = FontWeight.Medium), color = t.onInk)
+        GoogleSignInButton(vm, Modifier.padding(bottom = 14.dp))
+    }
+}
+
+/** The Google button, shared by Settings and the sign-in step of the first run. */
+@Composable
+internal fun GoogleSignInButton(vm: AppViewModel, modifier: Modifier = Modifier) {
+    val signIn by vm.signIn.collectAsState()
+    val context = LocalContext.current
+    val t = Mb.t
+    Row(
+        modifier.height(44.dp).clip(CircleShape).background(t.ink)
+            .clickable(enabled = !signIn.busy) { openPage(context, vm.googleSignInUrl()) }.padding(horizontal = 20.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (signIn.busy) CircularProgressIndicator(Modifier.size(16.dp), color = t.onInk, strokeWidth = 2.dp)
+        else Box(Modifier.size(22.dp).clip(CircleShape).background(Color.White), contentAlignment = Alignment.Center) {
+            Icon(painterResource(R.drawable.ic_google), null, Modifier.size(14.dp), tint = Color.Unspecified)
         }
+        Spacer(Modifier.width(10.dp))
+        Text("Continue with Google", style = Type.value.copy(fontWeight = FontWeight.Medium), color = t.onInk)
     }
 }
 

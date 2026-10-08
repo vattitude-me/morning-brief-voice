@@ -166,27 +166,23 @@ private fun Topic(
     local: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
 ) {
     val t = Mb.t
-    val onCount = sources.count(on)
+    val openable = sources.isNotEmpty()
     Glass(Modifier.fillMaxWidth().padding(top = 12.dp)) {
         Column {
             Row(
-                Modifier.fillMaxWidth().clickable(onClick = onExpand).padding(horizontal = 14.dp, vertical = 10.dp),
+                Modifier.fillMaxWidth().clickable(enabled = openable, onClick = onExpand)
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(Modifier.size(36.dp).clip(CircleShape).background(t.glass), contentAlignment = Alignment.Center) {
-                    Text(section.emoji, style = Type.body)
-                }
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(label, style = Type.title, color = t.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("${sources.size} source${if (sources.size == 1) "" else "s"} · $onCount on",
-                        Modifier.padding(top = 2.dp), style = Type.tiny, color = t.muted, maxLines = 1)
-                }
+                Text(label, Modifier.weight(1f), style = Type.title, color = t.ink, maxLines = 1,
+                    overflow = TextOverflow.Ellipsis)
                 StoryStepper(n, canRaise, MAX_PER_SECTION, onChange)
-                Spacer(Modifier.width(4.dp))
-                Icon(if (open) Icons.Outlined.KeyboardArrowDown else Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                    if (open) "Hide ${section.title}" else "Show ${section.title}",
-                    Modifier.size(20.dp), tint = t.muted)
+                if (openable) {
+                    Spacer(Modifier.width(4.dp))
+                    Icon(if (open) Icons.Outlined.KeyboardArrowDown else Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                        if (open) "Hide ${section.title}" else "Show ${section.title}",
+                        Modifier.size(20.dp), tint = t.muted)
+                }
             }
             AnimatedVisibility(open, enter = expandVertically(), exit = shrinkVertically()) {
                 Column {

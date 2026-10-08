@@ -86,17 +86,11 @@ fun fitBudget(stories: Map<String, Int>): Map<String, Int> {
     return withPicks(out, picksCount(stories).coerceIn(0, MAX_PER_SECTION))
 }
 
-/** The catalog's sources. Their ids are negative and stable; signed in, the Supabase row's id replaces it. */
-val BUILTIN_SOURCES: List<Source> by lazy {
-    val arr = CATALOG.getJSONArray("sources")
-    (0 until arr.length()).map { i ->
-        val j = arr.getJSONObject(i)
-        Source(-100_000L - i, j.getString("name"), j.getString("url"), j.getString("section"), j.optDouble("weight", 1.0),
-            feedUrl = j.getString("url"), builtin = true)
-    }
-}
-
-/** News for a city: its own outlets where the catalog knows them, and Google News for anywhere. */
+/**
+ * News for a city: its own outlets where the catalog knows them, and Google News for anywhere.
+ * The catalog no longer lists sources per pack section: the morning brief takes each section from
+ * one feed server-side, so there is nothing per-outlet left to switch on or off.
+ */
 fun localSources(city: String): List<Source> {
     val name = city.substringBefore(',').trim()
     if (name.isEmpty()) return emptyList()
