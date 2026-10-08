@@ -61,6 +61,31 @@ Put a clean single-speaker recording of the voice you want in
 Environment: `VOICE_DIR` (default `data/voices`), `VOICE_REFERENCE` (default
 `$VOICE_DIR/reference.wav`), `VOICE_CONDS_CACHE` (default on). See `.env.example`.
 
+## Adding or replacing a voice
+
+Every clip in `data/voices/` is a voice, and its filename is the id callers ask for with
+`?voice=`. So a new narrator is one file plus three registrations: drop it in, then name
+it where the pack is built (`app/storypack.py`), in the PWA (`web/js/api.js`), and in the
+Android app (`pipeline/Voices.kt`). Adding the id to `STORY_VOICES` is what makes the
+nightly pack render it.
+
+```sh
+python scripts/add-voice.py --id nora_reference --name Nora --gender female --audio clip.m4a
+```
+
+The helper resamples to mono 24 kHz, trims the silence at each end, checks the length
+(Chatterbox refuses anything at or under 5 seconds, and 8–30 seconds clones best), clears
+the stale `.conds.pt` embedding, and prints the exact registration lines.
+
+Replacing the voice behind an existing narrator — a different reference for Alice, say —
+is the same command with `--id her_reference --force`. Nothing re-records by itself
+afterwards: the pack reuses a clip whose article URL has not changed, so re-voice with
+`python -m app pack --voice her_reference --force`. On the deployment the directory is
+bind-mounted, so the new clip needs no image rebuild. A re-voice writes the same storage
+path, which is uploaded with a day-long cache header, so a listener may hear the old
+recording for up to a day (the day being re-voiced is usually the current one, which is
+already fresh).
+
 ## Voice conditionals cache
 
 Embedding a reference clip via `prepare_conditionals()` is the only expensive
