@@ -428,61 +428,41 @@ input[type="url"]:focus, .text-input:focus, .time-input:focus { outline: none; b
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
-/* ---- Signed-out landing ------------------------------------------------------- */
+/* ---- Signed-out landing --------------------------------------------------- */
+/* The landing wears the app's own clothes: the same .screen column, .screen-header
+   type, .hero player card, .section-head labels and .glass-group panels, so a
+   visitor sees the product rather than a brochure. */
 body.signed-out { padding-bottom: 0; }
 body.signed-out > :not(.landing):not(.toast):not(svg) { display: none; }
-.landing { max-width: 1080px; margin: 0 auto; padding: 0 var(--gutter) 48px; }
-.landing-top { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; }
-.landing-top .brand { display: flex; align-items: center; gap: 10px; }
-.landing-hero {
-  position: relative; overflow: hidden; isolation: isolate; border-radius: 28px;
-  padding: clamp(24px, 5vw, 56px); color: var(--hero-ink); box-shadow: var(--shadow-lg);
-  background: linear-gradient(135deg, var(--hero-a) 0%, var(--hero-b) 55%, var(--hero-c) 110%);
-}
-.landing-hero h1 { margin: 0; font: 600 clamp(32px, 6vw, 58px)/1.04 var(--font-head); letter-spacing: -.025em; max-width: 16ch; }
-.landing-hero h1 em { font-style: italic; }
-.landing-hero .lead { margin: 16px 0 0; font-size: clamp(16px, 2vw, 18.5px); max-width: 52ch; opacity: .9; }
-.sample-player {
-  margin-top: 28px; display: grid; grid-template-columns: auto 1fr; gap: 12px 16px; align-items: center; max-width: 620px;
-  padding: 14px 18px 14px 14px; border-radius: 22px;
-  background: rgba(255, 255, 255, .26); border: 1px solid rgba(255, 255, 255, .38); backdrop-filter: blur(8px);
-}
-:root[data-theme="dark"] .sample-player { background: rgba(255, 255, 255, .07); border-color: rgba(255, 255, 255, .14); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .sample-player { background: rgba(255, 255, 255, .07); border-color: rgba(255, 255, 255, .14); } }
-.sample-player .play-btn { width: 64px; height: 64px; }
-.sample-player .play-btn .i-pause, .sample-player.playing .play-btn .i-play { display: none; }
-.sample-player.playing .play-btn .i-pause { display: block; }
-.sample-player.playing .play-btn { animation: pulse 2.4s ease-in-out infinite; }
-@keyframes pulse { 50% { box-shadow: 0 0 0 10px rgba(255, 255, 255, .18), 0 12px 26px -10px rgba(0, 0, 0, .55); } }
-.sample-player.disabled { opacity: .7; }
-.sample-bar { grid-column: 1 / -1; height: 4px; border-radius: 4px; background: rgba(0, 0, 0, .12); overflow: hidden; }
-.sample-bar span { display: block; height: 100%; width: 0; background: currentColor; transition: width .25s linear; }
-.landing-cta { margin-top: 26px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
-.landing-cta .hint { margin: 0; color: inherit; opacity: .8; }
-.landing-hero .btn-primary { background: #1d1410; color: #fff; border-color: transparent; }
-:root[data-theme="dark"] .landing-hero .btn-primary { background: #fff4ea; color: #1d1410; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .landing-hero .btn-primary { background: #fff4ea; color: #1d1410; } }
+.landing { padding-bottom: 40px; }
+.landing .screen { padding-bottom: 8px; }
+.landing .display { margin-top: 12px; font-size: clamp(28px, 4.6vw, 40px); }
+.landing .display em { font-style: italic; }
+.landing .subtitle { max-width: 46ch; }
+.landing .overline-row img { border-radius: 7px; }
+.landing .pill-btn.sm { height: 36px; padding: 0 16px; font-size: 13.5px; }
+.landing .hero { margin-top: 24px; }
+.landing .section-head { padding-top: 18px; }
+.landing-section { margin-top: 0; }
+.landing-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 16px 4px 0; }
+.landing-cta .hint { margin: 0; }
 
-.landing-section { margin-top: 44px; }
-.landing-section h2, .landing-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; }
-.landing-heading .hint { margin: 0 0 14px; }
-.sample-cards {
-  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(260px, 300px); gap: 14px;
-  overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 2px 14px; margin: 0 -2px;
-  overscroll-behavior-x: contain;
+/* A row of copy with a line icon, matching a GlassGroup list row */
+.feature-row { display: flex; gap: 12px; align-items: flex-start; padding: 15px 0; }
+.feature-icon {
+  width: 34px; height: 34px; flex: none; border-radius: 50%; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--ink);
 }
-.sample-card {
-  scroll-snap-align: start; display: flex; flex-direction: column; overflow: hidden;
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-sm);
-  transition: transform .2s ease, box-shadow .2s, border-color .2s;
-}
-.sample-card .card-media { aspect-ratio: 16 / 9; }
-.sample-card .card-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
-.sample-card h3 { margin: 0; font: 600 17px/1.3 var(--font-head); }
-.sample-card p { margin: 0; font-size: 14px; color: var(--ink-2); display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
-.sample-card .meta { font-size: 12.5px; color: var(--muted); }
-.sample-card.reading { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent), var(--shadow); transform: translateY(-3px); }
-.sample-card.reading .meta::after { content: " · Reading now"; color: var(--accent); font-weight: 600; }
+.feature-icon svg { width: 18px; height: 18px; }
+.feature-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.feature-text b { font: 500 15px/1.3 var(--font-head); color: var(--ink); }
+.feature-text .meta { white-space: normal; line-height: 1.45; }
+
+/* The sample's story rows behave like the app's: tap one to hear it */
+.landing .story-main { cursor: pointer; }
+.landing .story-row:not(.current):hover .story-text h3 { color: var(--ink-2); }
+.landing .footnote a { color: var(--muted); }
+.landing .footnote a:hover { color: var(--ink); }
 
 .voice-chips { display: flex; flex-wrap: wrap; gap: 10px; }
 .voice-chip {
@@ -496,10 +476,7 @@ body.signed-out > :not(.landing):not(.toast):not(svg) { display: none; }
 .voice-chip small { display: block; font-size: 12px; color: var(--muted); }
 .voice-chip.playing { border-color: var(--accent); }
 .voice-chip.playing .avatar { animation: pulse 1.6s ease-in-out infinite; }
-
-.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
-.steps li { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; color: var(--ink-2); font-size: 15px; }
-.steps b { display: block; color: var(--ink); font-size: 16px; margin-bottom: 6px; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 10px rgba(255, 255, 255, .18), 0 12px 26px -10px rgba(0, 0, 0, .55); } }
 
 .signin {
   position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px;
@@ -654,28 +631,13 @@ body::before {
 /* First-brief banner: glass, not sunrise */
 .first-brief { background: var(--glass); border: 1px solid var(--glass-line); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
 
-/* Landing: same glass hero treatment */
-.landing-hero {
-  background: var(--glass);
-  border: 1px solid var(--glass-line);
-  backdrop-filter: blur(22px) saturate(1.3);
-  -webkit-backdrop-filter: blur(22px) saturate(1.3);
-  color: var(--ink);
-  box-shadow: var(--shadow);
-}
-.landing-hero .btn-primary { background: var(--ink); color: var(--on-ink); border-color: transparent; }
-.sample-player { background: var(--glass); border: 1px solid var(--glass-line); color: var(--ink); }
-.sample-player .play-btn { background: var(--ink); color: var(--on-ink); }
-.sample-bar { background: color-mix(in srgb, var(--ink) 12%, transparent); }
-.sample-bar span { background: var(--ink); }
-.sample-card.reading { border-color: var(--ink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 15%, transparent), var(--shadow); }
-.sample-card.reading .meta::after { color: var(--ink); }
+/* Landing: the sample is the app's own hero card and story rows, so it already
+   carries the glass treatment — nothing extra to override here. */
 .voice-chip.playing { border-color: var(--ink); }
 .source-chip { border-color: var(--ink); background: color-mix(in srgb, var(--ink) 6%, var(--surface)); }
 .source-chip::before { color: var(--ink); }
 .chip-btn.active { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
 .chip-row .chip-btn.active { background: var(--ink); }
-@keyframes pulse { 50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--ink) 12%, transparent), 0 12px 26px -10px rgba(0, 0, 0, .4); } }
 
 /* ==========================================================================
    APK-ported pages: shared Design.kt primitives

@@ -117,11 +117,17 @@ def cmd_pack(args) -> int:
     import asyncio
 
     from .config import load
-    from .storypack import build, build_notes, total_seconds
+    from .storypack import build, build_notes, publish_showcase, total_seconds
 
     cfg = load()
     sections = args.sections.split(",") if args.sections else None
     try:
+        if getattr(args, "showcase_only", False):
+            brief = asyncio.run(publish_showcase(cfg, _store(cfg), day=args.day,
+                                                 voice=args.voice))["briefing"]
+            print(f"✓ Published the landing sample: {len(brief['clips'])} clips, "
+                  f"{brief['duration']:.1f}s ({len(brief['stories'])} stories)")
+            return 0
         if getattr(args, "notes_only", False):
             notes = asyncio.run(build_notes(cfg, _store(cfg), day=args.day, voice=args.voice))
             print(f"✓ Published {len(notes)} voice notes as {args.voice or cfg.story_voice}")
@@ -157,6 +163,8 @@ def main() -> None:
     pack.add_argument("--sections", help="comma-separated subset (default: all seven)")
     pack.add_argument("--notes-only", action="store_true", dest="notes_only",
                       help="only re-voice the greeting and section intros")
+    pack.add_argument("--showcase-only", action="store_true", dest="showcase_only",
+                      help="only republish the landing page's sample of the day's pack")
     pack.add_argument("--no-notes", action="store_true", dest="no_notes",
                       help="skip the greeting and section intros")
     pack.add_argument("--force", action="store_true",

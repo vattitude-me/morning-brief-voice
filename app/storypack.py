@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -28,6 +29,15 @@ from . import guardian
 log = logging.getLogger(__name__)
 
 MAX_PER_SECTION = 5
+
+# The landing page has to play something for people who aren't signed in, and
+# `story_audio` is not readable without a session. So every pack also publishes a
+# small public slice of itself: the greeting, a couple of sections' intros, and
+# their top stories, carrying the same clip timeline the clients assemble. No second
+# render, no extra voice work — the sample is literally the day's own clips.
+SHOWCASE_KEY = "showcase/sample.json"
+SHOWCASE_SECTIONS: tuple[str, ...] = ("top", "ai")
+SHOWCASE_PER_SECTION = 3
 
 # Spoken framing, voiced once per day like the stories. A listener opens with the
 # greeting that matches their clock, then hears the section's line before its first
@@ -104,6 +114,94 @@ def clips_for(rows: list[dict], wanted: dict[str, int], voice: str | None = None
 
 def total_seconds(clips: list[dict]) -> float:
     return round(sum(float(c.get("duration") or 0) for c in clips), 2)
+
+
+def showcase_payload(rows: list[dict], notes: list[dict], url_for, *, day: str,
+                     voice: str | None = None,
+                     sections: tuple[str, ...] = SHOWCASE_SECTIONS,
+                     per_section: int = SHOWCASE_PER_SECTION) -> dict:
+    """The public sample of a day's pack, in the shape both clients already read.
+
+    ``clips`` carry a running timeline so the landing page can play the greeting, each
+    section's line and the top stories back to back, and ``chapters``/``stories`` tell
+    it which story is playing at any moment.
+    """
+    note_by_key = {n["note_key"]: n for n in notes if not voice or n.get("voice") == voice}
+    by_section: dict[str, list[dict]] = {}
+    for row in rows:
+        if voice and row.get("voice") != voice:
+            continue
+        by_section.setdefault(row["section"], []).append(row)
+
+    clips: list[dict] = []
+    chapters: list[dict] = []
+    stories: list[dict] = []
+    counts: dict[str, int] = {}
+    cursor = 0.0
+
+    def add(duration: float, cid: str, kind: str, title: str, path: str) -> tuple[float, float]:
+        nonlocal cursor
+        start, end = cursor, cursor + duration
+        clips.append({"url": url_for(path), "duration": round(duration, 3),
+                      "start": round(start, 3), "end": round(end, 3)})
+        chapters.append({"id": cid, "kind": kind, "title": title,
+                         "start": round(start, 3), "end": round(end, 3)})
+        cursor = end
+        return start, end
+
+    greeting = note_by_key.get("greeting_morning")
+    if greeting:
+        add(float(greeting.get("duration") or 0), "greeting", "note",
+            greeting.get("text") or "Good morning.", greeting["audio_path"])
+
+    for key in sections:
+        chosen = sorted(by_section.get(key, []), key=lambda r: r.get("rank", 0))[:per_section]
+        if not chosen:
+            continue
+        intro = note_by_key.get(f"intro_{key}")
+        if intro:
+            add(float(intro.get("duration") or 0), f"intro-{key}", "note",
+                intro.get("text") or "", intro["audio_path"])
+        for row in chosen:
+            cid = f"{key}-{row['rank']}"
+            start, end = add(float(row.get("duration") or 0), cid, "story",
+                             row.get("title") or "", row["audio_path"])
+            stories.append({
+                "id": cid, "section": key, "headline": row.get("title") or "",
+                "summary": row.get("script") or "", "source": row.get("source") or "",
+                "url": row.get("url") or "", "image": row.get("image") or "",
+                "start": round(start, 3), "end": round(end, 3),
+            })
+            counts[key] = counts.get(key, 0) + 1
+
+    return {"briefing": {
+        "date": day,
+        "title": "Your briefing",
+        "duration": round(cursor, 2),
+        "audio_url": "",  # the sample is the clips below, played back to back
+        "clips": clips,
+        "chapters": chapters,
+        "stories": stories,
+        "sections": [{"key": k, "title": guardian.SECTIONS[k]["title"], "count": n}
+                     for k, n in counts.items()],
+    }}
+
+
+async def publish_showcase(cfg, store, *, day: str | None = None, voice: str | None = None,
+                           sections: tuple[str, ...] = SHOWCASE_SECTIONS,
+                           per_section: int = SHOWCASE_PER_SECTION) -> dict:
+    """Publish the public sample of the day's pack, for the signed-out landing page."""
+    day = day or datetime.now(ZoneInfo(cfg.timezone)).date().isoformat()
+    voice = voice or cfg.story_voice
+    rows = store.select("story_audio", {"date": f"eq.{day}", "voice": f"eq.{voice}"})
+    notes = store.select("voice_notes", {"date": f"eq.{day}", "voice": f"eq.{voice}"})
+    payload = showcase_payload(rows, notes, store.public_url, day=day, voice=voice,
+                              sections=sections, per_section=per_section)
+    body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode()
+    store.upload(SHOWCASE_KEY, body, content_type="application/json", cache="max-age=300")
+    log.info("Published the landing sample: %d clips, %.1fs",
+             len(payload["briefing"]["clips"]), payload["briefing"]["duration"])
+    return payload
 
 
 async def synthesise(client: httpx.AsyncClient, base: str, text: str, voice: str,
@@ -219,6 +317,11 @@ async def build(cfg, store, *, day: str | None = None, per_section: int | None =
     log.info("Published %d clips (%.1fs of audio)", len(rows), total_seconds(rows))
     if notes:
         await build_notes(cfg, store, day=day, voice=voice, voice_url=base)
+    # The landing page's sample rides along with the pack, so it can't quietly go stale.
+    try:
+        await publish_showcase(cfg, store, day=day, voice=voice)
+    except Exception as exc:  # noqa: BLE001 — a sample is worth having, a pack is not
+        log.warning("Could not publish the landing sample: %s", exc)
     return rows
 
 
@@ -235,6 +338,8 @@ def main() -> int:
                     help="only re-voice the greeting and section intros")
     ap.add_argument("--no-notes", action="store_true", dest="no_notes",
                     help="skip the greeting and section intros")
+    ap.add_argument("--showcase-only", action="store_true", dest="showcase_only",
+                    help="only republish the landing page's sample of the day's pack")
     ap.add_argument("--force", action="store_true",
                     help="re-voice every story, even ones already published")
     args = ap.parse_args()
@@ -243,6 +348,11 @@ def main() -> int:
     cfg = load()
     store = Store(cfg.supabase_url, cfg.supabase_secret_key, cfg.bucket)
     sections = args.sections.split(",") if args.sections else None
+    if args.showcase_only:
+        payload = asyncio.run(publish_showcase(cfg, store, day=args.day, voice=args.voice))
+        brief = payload["briefing"]
+        print(f"published the landing sample: {len(brief['clips'])} clips, {brief['duration']:.1f}s")
+        return 0
     if args.notes_only:
         notes = asyncio.run(build_notes(cfg, store, day=args.day, voice=args.voice))
         print(f"published {len(notes)} voice notes")

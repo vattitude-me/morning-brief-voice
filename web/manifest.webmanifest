@@ -1,7 +1,7 @@
 {
   "name": "Morning Brief",
   "short_name": "Brief",
-  "description": "Canadian and AI & tech news on cards, read aloud every morning.",
+  "description": "The day's news from seven sections, read aloud by one warm narrator every morning.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f7f4ef",

@@ -3,8 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Morning Brief</title>
-  <meta name="description" content="Your daily Canadian and AI & tech news, summarized on cards and read aloud by a natural voice.">
+  <title>Morning Brief — the day's news, read aloud every morning</title>
+  <meta name="description" content="Seven sections of the day's news, summarized and read aloud by the same warm narrator. Recorded before you wake — free, no ads, no algorithm.">
+  <meta property="og:title" content="Morning Brief">
+  <meta property="og:description" content="Seven sections of the day's news in one warm voice, recorded before you wake. Listen to today's briefing before you sign up.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
   <meta name="theme-color" content="#E9E9E5" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#121211" media="(prefers-color-scheme: dark)">
   <link rel="manifest" href="/manifest.webmanifest">
@@ -55,59 +59,95 @@
 
   <a class="skip-link" href="#sections">Skip to stories</a>
 
-  <!-- Signed-out landing: a sample briefing first, sign-in second -->
+  <!-- Signed-out landing: the day's real clips in the app's own player, then sign-in -->
   <div class="landing hidden" id="login">
-    <header class="landing-top">
-      <div class="brand">
-        <img src="/icons/icon.svg" alt="" width="32" height="32">
-        <span class="brand-name">Morning Brief</span>
-      </div>
-      <button class="btn btn-ghost" type="button" data-signin>Sign in</button>
-    </header>
-
-    <section class="landing-hero">
-      <div class="hero-glow" aria-hidden="true"></div>
-      <p class="eyebrow" id="lgGreeting">Good morning</p>
-      <h1>Your news, <em>read aloud</em> before your coffee's ready.</h1>
-      <p class="lead">Top stories, AI, tech, politics and more — summarised and read by a warm
-        narrator. Recorded once each morning, waiting when you wake.</p>
-
-      <div class="sample-player" id="samplePlayer">
-        <button class="play-btn" id="samplePlay" aria-label="Play the sample briefing">
-          <svg class="i-play"><use href="#i-play"/></svg>
-          <svg class="i-pause"><use href="#i-pause"/></svg>
-        </button>
-        <div class="now-playing">
-          <span class="np-label" id="sampleLabel">Sample briefing</span>
-          <span class="np-title" id="sampleTitle">Tap play to hear a real morning brief</span>
+    <div class="screen">
+      <header class="screen-header">
+        <div class="overline-row">
+          <img src="/icons/icon.svg" alt="" width="22" height="22">
+          <span class="overline" id="lgGreeting">Good morning</span>
+          <span class="spacer"></span>
+          <button class="pill-btn glass-btn sm" type="button" data-signin>Sign in</button>
         </div>
-        <div class="sample-bar" aria-hidden="true"><span id="sampleBar"></span></div>
+        <h1 class="display">Your news, <em>read aloud</em> before your coffee's ready.</h1>
+        <p class="subtitle">Seven sections of the day's news in one warm voice. It's recorded before you wake — the same brief for every listener.</p>
+      </header>
+
+      <!-- The same player card as the app's Today screen, playing today's real clips -->
+      <section class="glass hero" id="sampleHero" aria-label="Sample briefing">
+        <img class="hero-cover hidden" id="sampleCover" alt="">
+        <div class="hero-body">
+          <p class="overline" id="sampleLabel">Today's briefing</p>
+          <h2 class="hero-title" id="sampleTitle">Loading today's briefing…</h2>
+          <div class="seg-progress" id="sampleSegs" role="slider" tabindex="0"
+               aria-label="Seek through the briefing" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div class="seg-thumb" id="sampleThumb"></div>
+          </div>
+          <div class="times"><span id="sampleCur">0:00</span><span id="sampleDur">-0:00</span></div>
+          <div class="hero-controls">
+            <button class="skip-btn" id="samplePrev" aria-label="Previous story"><svg><use href="#i-prev"/></svg></button>
+            <button class="ink-circle" id="samplePlay" aria-label="Play the briefing">
+              <svg class="i-play"><use href="#i-play"/></svg>
+              <svg class="i-pause"><use href="#i-pause"/></svg>
+            </button>
+            <button class="skip-btn" id="sampleNext" aria-label="Next story"><svg><use href="#i-next"/></svg></button>
+          </div>
+        </div>
         <audio id="sampleAudio" preload="none"></audio>
-      </div>
+      </section>
 
       <div class="landing-cta">
-        <button class="btn btn-primary btn-lg" type="button" data-signin>Get my morning brief</button>
-        <span class="hint">Free · one tap with Google or your email</span>
+        <button class="pill-btn" type="button" data-signin>Get my morning brief</button>
+        <span class="hint">Free. One tap with Google or your email.</span>
       </div>
-    </section>
 
-    <section class="landing-section" id="sampleSection" hidden>
-      <div class="landing-heading">
-        <h2 id="sampleHeading">Headlines from a recent brief</h2>
-        <span class="hint" id="sampleDate"></span>
-      </div>
-      <div class="sample-cards" id="sampleCards"></div>
-    </section>
+      <!-- The stories in that sample, grouped by section exactly as in the app -->
+      <section id="sampleSection" hidden>
+        <div id="sampleStories"></div>
+      </section>
 
-    <section class="landing-section">
-      <h2>How it works</h2>
-      <ol class="steps">
-        <li><b>�️ Seven sections, the top of each.</b> Top stories, AI, tech, politics, entertainment, science and sports — the same brief for every listener.</li>
-        <li><b>🎚️ Your own length.</b> Choose how many stories each section gets. The narrator is the same warm voice every morning.</li>
-        <li><b>☀️ Wake up to it.</b> It's recorded before your alarm, with a notification. Listen on the go or skim the cards.</li>
-      </ol>
-    </section>
-    <p class="legal-links"><a href="/privacy">Privacy</a><a href="/terms">Terms</a></p>
+      <section class="landing-section">
+        <div class="section-head"><span class="overline">How it works</span></div>
+        <div class="glass-group">
+          <div class="feature-row">
+            <span class="feature-icon"><svg><use href="#i-grid"/></svg></span>
+            <span class="feature-text"><b>Seven sections, the top of each</b>
+              <span class="meta">Top stories, AI, tech, politics, entertainment, science and sports.</span></span>
+          </div>
+          <div class="hairline"></div>
+          <div class="feature-row">
+            <span class="feature-icon"><svg><use href="#i-settings"/></svg></span>
+            <span class="feature-text"><b>Your own length</b>
+              <span class="meta">Choose how many stories each section gets — five minutes or fifteen.</span></span>
+          </div>
+          <div class="hairline"></div>
+          <div class="feature-row">
+            <span class="feature-icon"><svg><use href="#i-sun"/></svg></span>
+            <span class="feature-text"><b>Waiting when you wake</b>
+              <span class="meta">Recorded before your alarm, with one quiet notification.</span></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="landing-section">
+        <div class="section-head"><span class="overline">What you get</span></div>
+        <div class="glass-group">
+          <div class="feature-row">
+            <span class="feature-icon"><svg><use href="#i-headphones"/></svg></span>
+            <span class="feature-text"><b>One narrator, every morning</b>
+              <span class="meta">The same calm voice reading the news, not a phone robot.</span></span>
+          </div>
+          <div class="hairline"></div>
+          <div class="feature-row">
+            <span class="feature-icon"><svg><use href="#i-check"/></svg></span>
+            <span class="feature-text"><b>Free, no ads, no algorithm</b>
+              <span class="meta">Nothing to download to listen today. Add it to your home screen whenever you like.</span></span>
+          </div>
+        </div>
+      </section>
+
+      <p class="footnote"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p>
+    </div>
 
     <!-- Sign in: email, then the link or code from the email -->
     <div class="signin hidden" id="signin" role="dialog" aria-modal="true" aria-labelledby="signinTitle">
