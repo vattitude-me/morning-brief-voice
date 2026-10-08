@@ -34,6 +34,20 @@ log = logging.getLogger(__name__)
 
 MAX_PER_SECTION = 5
 
+# The voices the pack publishes, keyed by their reference clip in the voice service.
+# The names are what listeners see, in Settings and under each briefing; the clients keep
+# their own copy of this list so they can label a briefing before it loads.
+VOICES: dict[str, dict[str, str]] = {
+    "her_reference": {"name": "Alice", "gender": "female"},
+    "him_reference": {"name": "Mike", "gender": "male"},
+}
+DEFAULT_VOICE = "her_reference"
+
+
+def voice_name(voice: str | None) -> str:
+    """The name a listener would recognise for a clip: 'Alice', not 'her_reference'."""
+    return (VOICES.get(voice or "") or {}).get("name") or (voice or "the narrator")
+
 # The landing page has to play something for people who aren't signed in, and
 # `story_audio` is not readable without a session. So every pack also publishes a
 # small public slice of itself: the greeting, a couple of sections' intros, and
@@ -187,6 +201,8 @@ def showcase_payload(rows: list[dict], notes: list[dict], url_for, *, day: str,
     return {"briefing": {
         "date": day,
         "title": "Your briefing",
+        "voice": {"id": voice or DEFAULT_VOICE, "name": voice_name(voice),
+                  "gender": (VOICES.get(voice or "") or {}).get("gender", "")},
         "duration": round(cursor, 2),
         "audio_url": "",  # the sample is the clips below, played back to back
         "clips": clips,
@@ -324,8 +340,13 @@ async def synthesise(client: httpx.AsyncClient, base: str, text: str, voice: str
 
 
 async def build_notes(cfg, store, *, day: str | None = None, voice: str | None = None,
-                      voice_url: str | None = None, keys: list[str] | None = None) -> list[dict]:
-    """Voice the greeting and the section intros once for the day."""
+                      voice_url: str | None = None, keys: list[str] | None = None,
+                      force: bool = False) -> list[dict]:
+    """Voice the greeting and the section intros once for the day.
+
+    A note whose text hasn't changed is left alone, so re-running the pack — or adding a
+    second voice — doesn't pay for the same eight words again.
+    """
     day = day or datetime.now(ZoneInfo(cfg.timezone)).date().isoformat()
     voice = voice or cfg.story_voice
     base = (voice_url or cfg.voice_url or "").rstrip("/")
@@ -333,9 +354,16 @@ async def build_notes(cfg, store, *, day: str | None = None, voice: str | None =
         raise RuntimeError("VOICE_SERVICE_URL is not set")
 
     items = [(k, NOTES[k]) for k in NOTES if not keys or k in keys]
+    done = {r["note_key"]: r for r in store.select(
+        "voice_notes", {"date": f"eq.{day}", "voice": f"eq.{voice}"})}
     rows: list[dict] = []
     async with httpx.AsyncClient(timeout=900) as client:
         for key, text in items:
+            have = done.get(key)
+            if not force and have and have.get("text") == text and have.get("audio_path"):
+                rows.append(have)
+                log.info("[note] %-20s %-34s reused (%.1fs)", key, text, have.get("duration") or 0)
+                continue
             audio, duration = await synthesise(client, base, text, voice)
             path = f"notes/{day}/{key}-{voice}.mp3"
             store.upload(path, audio, content_type="audio/mpeg", cache="max-age=86400")
@@ -344,7 +372,7 @@ async def build_notes(cfg, store, *, day: str | None = None, voice: str | None =
             store.insert("voice_notes", row, on_conflict="date,voice,note_key")
             rows.append(row)
             log.info("[note] %-20s %-34s %.1fs", key, text, duration)
-    log.info("Published %d voice notes", len(rows))
+    log.info("Published %d voice notes for %s", len(rows), voice_name(voice))
     return rows
 
 
@@ -354,19 +382,41 @@ async def build(cfg, store, *, day: str | None = None, per_section: int | None =
                 force: bool = False) -> list[dict]:
     """Voice the day's stories once and publish them as shared clips.
 
-    Safe to re-run: rows upsert on ``(date, section, rank, voice)``, so a retry — or a
-    second voice — simply adds to the day's pack.
+    Every configured voice is rendered unless one is named: a listener hears the voice
+    they picked, and every listener of that voice shares the same clips. Safe to re-run —
+    rows upsert on ``(date, section, rank, voice)``, so a retry or a new voice simply adds
+    to the day's pack.
     """
     day = day or datetime.now(ZoneInfo(cfg.timezone)).date().isoformat()
-    voice = voice or cfg.story_voice
     base = (voice_url or cfg.voice_url or "").rstrip("/")
     if not base:
         raise RuntimeError("VOICE_SERVICE_URL is not set")
     per_section = per_section or cfg.stories_per_section
+    voices = [voice] if voice else list(cfg.story_voices or (DEFAULT_VOICE,))
 
     scripts = await guardian.build_pack(per_section=per_section, sections=sections)
-    log.info("Voicing %d stories for %s as %s", len(scripts), day, voice)
+    log.info("Voicing %d stories for %s as %s", len(scripts), day, ", ".join(voices))
 
+    rows: list[dict] = []
+    for name in voices:
+        rows += await voice_scripts(store, scripts, day=day, voice=name, base=base, force=force)
+
+    log.info("Published %d clips (%.1fs of audio)", len(rows), total_seconds(rows))
+    if notes:
+        for name in voices:
+            await build_notes(cfg, store, day=day, voice=name, voice_url=base)
+    # The landing page's sample rides along with the pack, so it can't quietly go stale.
+    try:
+        await publish_showcase(cfg, store, day=day, voice=voices[0])
+    except Exception as exc:  # noqa: BLE001 — a sample is worth having, a pack is not
+        log.warning("Could not publish the landing sample: %s", exc)
+    return rows
+
+
+async def voice_scripts(store, scripts: list[dict], *, day: str, voice: str,
+                        base: str, force: bool = False) -> list[dict]:
+    """Voice one voice's worth of the day's stories. Extracted so a second voice costs
+    one more pass over the same scripts, with the same reuse rules."""
     # Stories already voiced for this day are reused, so a re-run only re-renders what
     # genuinely changed — a story that dropped out of the top five, or a new one — and
     # metadata such as the lead image can be refreshed without paying for audio again.
@@ -385,8 +435,8 @@ async def build(cfg, store, *, day: str | None = None, per_section: int | None =
                              {"image": image, "title": story["title"][:500],
                               "source": (story["source"] or "")[:200], "script": story["script"]})
                 rows.append({**done, "image": image})
-                log.info("[%s #%s] %s — reused (%.1fs)", story["section"], story["rank"],
-                         story["title"][:60], done.get("duration") or 0)
+                log.info("[%s %s #%s] %s — reused (%.1fs)", voice_name(voice), story["section"],
+                         story["rank"], story["title"][:60], done.get("duration") or 0)
                 continue
 
             audio, duration = await synthesise(client, base, story["script"], voice)
@@ -403,16 +453,8 @@ async def build(cfg, store, *, day: str | None = None, per_section: int | None =
             # a usable pack instead of throwing away every minute already rendered.
             store.insert("story_audio", row, on_conflict="date,section,rank,voice")
             rows.append(row)
-            log.info("[%s #%s] %s — %.1fs", story["section"], story["rank"], story["title"][:60], duration)
-
-    log.info("Published %d clips (%.1fs of audio)", len(rows), total_seconds(rows))
-    if notes:
-        await build_notes(cfg, store, day=day, voice=voice, voice_url=base)
-    # The landing page's sample rides along with the pack, so it can't quietly go stale.
-    try:
-        await publish_showcase(cfg, store, day=day, voice=voice)
-    except Exception as exc:  # noqa: BLE001 — a sample is worth having, a pack is not
-        log.warning("Could not publish the landing sample: %s", exc)
+            log.info("[%s %s #%s] %s — %.1fs", voice_name(voice), story["section"], story["rank"],
+                     story["title"][:60], duration)
     return rows
 
 

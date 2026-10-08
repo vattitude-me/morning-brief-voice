@@ -274,7 +274,7 @@ private fun ReadyStep(vm: AppViewModel) {
                 cursorBrush = SolidColor(t.ink),
                 decorationBox = { inner ->
                     Box(contentAlignment = Alignment.CenterEnd) {
-                        if (st.name.isEmpty()) Text("Optional, for the greeting", style = Type.value, color = t.muted)
+                        if (st.name.isEmpty()) Text("Optional", style = Type.value, color = t.muted)
                         inner()
                     }
                 },

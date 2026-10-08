@@ -48,6 +48,11 @@ class Config:
     # The Cloned narrator: the LAN/GPU voice service that voices the shared daily stories.
     voice_url: str = os.getenv("VOICE_SERVICE_URL", "").rstrip("/")
     story_voice: str = os.getenv("STORY_VOICE", "her_reference")
+    # Every voice the pack renders each day. A listener hears the one they picked, and the
+    # clips are shared, so the cost is stories × voices rather than × listeners.
+    story_voices: tuple[str, ...] = tuple(
+        v.strip() for v in os.getenv("STORY_VOICES", "her_reference,him_reference").split(",") if v.strip()
+    )
     stories_per_section: int = int(os.getenv("STORIES_PER_SECTION", "5"))
 
     @property

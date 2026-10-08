@@ -21,21 +21,27 @@ export const SECTIONS = {
 
 export const sectionLabel = (key) => { const s = SECTIONS[key] || SECTIONS.top; return `${s.emoji} ${s.title}`; };
 
+/**
+ * The narrators the pack records every morning (app/storypack.py). A listener picks one and
+ * hears that recording; the clips are shared, so this is a choice of who reads, not a
+ * per-listener recording.
+ */
+export const VOICES = [
+  { id: 'her_reference', name: 'Alice', gender: 'female' },
+  { id: 'him_reference', name: 'Mike', gender: 'male' },
+];
+
+/** The voice a listener picked, falling back to the first for anything older or unknown. */
+export const voiceFor = (id) => VOICES.find((v) => v.id === id) || VOICES[0];
+export const voiceName = (id) => voiceFor(id).name;
+
 export const DEFAULT_SETTINGS = {
   name: '',
-  voice: 'gemini:Kore',
+  voice: 'her_reference',
   speed: 1.0,
   daily: true,
-  llm_provider: 'groq',
-  llm_model: '',
-  llm_keys: {},
-  // Every category starts on, at three stories, so a first brief covers all seven.
+  // Every section starts on, at three stories, so a first brief covers all seven.
   stories: { top: 3, ai: 3, tech: 3, politics: 3, entertainment: 3, science: 3, sports: 3 },
-  city: 'Toronto',
-  latitude: 43.6532,
-  longitude: -79.3832,
-  weather: true,
-  say_sources: false,
   color_photos: true,
   disabled_sources: [],
 };

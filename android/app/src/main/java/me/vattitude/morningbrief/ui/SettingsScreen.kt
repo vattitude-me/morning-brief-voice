@@ -85,9 +85,11 @@ import me.vattitude.morningbrief.R
 import me.vattitude.morningbrief.pipeline.AI_PROVIDERS
 import me.vattitude.morningbrief.pipeline.KOKORO_VOICES
 import me.vattitude.morningbrief.pipeline.KokoroPack
+import me.vattitude.morningbrief.pipeline.PACK_VOICES
 import me.vattitude.morningbrief.pipeline.PHONE_VOICE
 import me.vattitude.morningbrief.pipeline.Place
 import me.vattitude.morningbrief.pipeline.kokoroVoice
+import me.vattitude.morningbrief.pipeline.packVoice
 import me.vattitude.morningbrief.work.Scheduler
 
 private val TIME = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)
@@ -171,44 +173,11 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                     askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
                 Hairline()
-                SwitchRow("Say where each story is from", st.saySources) { on -> vm.update { it.copy(saySources = on) } }
-                Hairline()
                 ListRow("Topics and story counts", caret = true, onClick = { vm.tab.value = Tab.Sources })
             }
 
             SectionLabel("Voice")
-            VoiceGroup(vm)
-
-            SectionLabel("Greeting and weather")
-            GlassGroup {
-                Row(Modifier.fillMaxWidth().padding(vertical = 15.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Your name", style = Type.body, color = t.ink)
-                    Spacer(Modifier.width(16.dp))
-                    BasicTextField(
-                        st.name, { v -> vm.update { it.copy(name = v.take(40)) } }, Modifier.weight(1f), singleLine = true,
-                        textStyle = Type.value.copy(color = t.ink, textAlign = TextAlign.End), cursorBrush = SolidColor(t.ink),
-                        decorationBox = { inner ->
-                            Box(contentAlignment = Alignment.CenterEnd) {
-                                if (st.name.isEmpty()) Text("For the greeting", style = Type.value, color = t.muted)
-                                inner()
-                            }
-                        },
-                    )
-                }
-                Hairline()
-                SwitchRow("Start with the weather", st.weather) { on -> vm.update { it.copy(weather = on) } }
-                if (st.weather) {
-                    var picking by remember { mutableStateOf(false) }
-                    Hairline()
-                    ListRow("Weather city", value = st.city.ifBlank { "Not set" }, caret = true, onClick = { picking = !picking })
-                    if (picking) Column(Modifier.padding(bottom = 14.dp)) {
-                        CitySearch(vm) { p ->
-                            vm.update { it.copy(city = p.name, latitude = p.latitude, longitude = p.longitude) }
-                            picking = false
-                        }
-                    }
-                }
-            }
+            NarratorGroup(vm)
 
             SectionLabel("Appearance")
             val looks = listOf("light", "dark", "system")
@@ -225,15 +194,6 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             SectionLabel("Account")
             AccountGroup(vm)
 
-            SectionLabel("Advanced")
-            GlassGroup {
-                var open by remember { mutableStateOf(false) }
-                ListRow("AI-written summaries",
-                    detail = if (st.summaryKey.isBlank()) "Off: summaries are made on the phone" else "On, with ${st.provider.name}",
-                    caret = !open, onClick = { open = !open })
-                if (open) SummaryPicker(vm, Modifier.padding(bottom = 14.dp))
-            }
-
             Row(Modifier.padding(top = 22.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Hint("Morning Brief ${BuildConfig.VERSION_NAME}", Modifier.weight(1f))
                 TextButton(onClick = { openPage(context, PRIVACY_URL) }) { Text("Privacy", style = Type.meta, color = t.ink) }
@@ -243,25 +203,49 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * Who reads the brief. Both narrators are recorded every morning from the same stories, so
+ * choosing one only changes who you hear — it isn't a per-listener recording.
+ */
 @Composable
-private fun VoiceGroup(vm: AppViewModel) {
+private fun NarratorGroup(vm: AppViewModel) {
     val st by vm.settings.collectAsState()
-    val pack by vm.packInstalled.collectAsState()
-    val natural = kokoroVoice(st.voice) != null || (st.voice == null && pack != null)
-    var open by remember { mutableStateOf(false) }
+    val previewing by vm.previewing.collectAsState()
+    val t = Mb.t
+    val current = packVoice(st.voice).id
 
     GlassGroup {
-        val current = kokoroVoice(st.voice) ?: KOKORO_VOICES.first()
-        ListRow("Voice",
-            value = when {
-                !natural -> "Phone"
-                pack == null -> "Natural, not downloaded"
-                else -> "${current.name} · ${current.accent}"
-            },
-            caret = !open, onClick = { open = !open })
-
-        if (open) VoicePicker(vm, Modifier.padding(bottom = 14.dp))
-
+        PACK_VOICES.forEachIndexed { i, who ->
+            if (i > 0) Hairline()
+            val on = who.id == current
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 12.dp)
+                    .clickable { vm.update { s -> s.copy(voice = who.id) } },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(38.dp).clip(CircleShape).background(if (on) t.ink else t.glass), contentAlignment = Alignment.Center) {
+                    Text(who.name.take(1), style = Type.title, color = if (on) t.onInk else t.ink)
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(who.name, style = Type.body, color = t.ink)
+                    Text(
+                        if (who.gender == "female") "A woman reads the news" else "A man reads the news",
+                        Modifier.padding(top = 2.dp), style = Type.tiny, color = t.muted,
+                    )
+                }
+                InkCircle(Icons.Filled.PlayArrow, "Hear ${who.name}", size = 40.dp, busy = previewing == who.id) {
+                    vm.previewNarrator(who.id)
+                }
+                Spacer(Modifier.width(10.dp))
+                CheckDot(on)
+            }
+        }
+        Hairline()
+        Hint(
+            "Both voices are recorded each morning from the same stories, so switching only changes who you hear — from your next brief.",
+            Modifier.padding(top = 12.dp, bottom = 4.dp),
+        )
         Hairline()
         ListRow("Playback speed") {
             val speed = (st.speed * 20).roundToInt()

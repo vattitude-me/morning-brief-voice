@@ -32,9 +32,12 @@ import me.vattitude.morningbrief.pipeline.StoryWriter
 import me.vattitude.morningbrief.data.Settings
 import me.vattitude.morningbrief.data.Pack
 import me.vattitude.morningbrief.data.StoryPack
+import me.vattitude.morningbrief.data.clipUrl
 import me.vattitude.morningbrief.pipeline.KOKORO_VOICES
 import me.vattitude.morningbrief.pipeline.Kokoro
 import me.vattitude.morningbrief.pipeline.KokoroPack
+import me.vattitude.morningbrief.pipeline.packVoice
+import org.json.JSONArray
 import me.vattitude.morningbrief.pipeline.MAX_PER_SECTION
 import me.vattitude.morningbrief.pipeline.PHONE_VOICE
 import me.vattitude.morningbrief.pipeline.PICKS
@@ -310,7 +313,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private fun fetchPack(date: String) {
         if (!repo.signedIn || packs.containsKey(date)) return
         viewModelScope.launch {
-            val pack = runCatching { StoryPack.fetch(repo.supabase, date, _settings.value.stories) }.getOrNull()
+            val pack = runCatching {
+                StoryPack.fetch(repo.supabase, date, _settings.value.stories, _settings.value.voice)
+            }.getOrNull()
             packs[date] = pack
             if (pack != null && selected.value == date) {
                 nowPlayingTried = null
@@ -654,6 +659,48 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun packSize(): Long = packInstalled.value?.sizeOnDisk(getApplication()) ?: 0L
+
+    private var narratorPlayer: MediaPlayer? = null
+
+    /**
+     * Plays today's greeting in a narrator's own voice: the real clip the briefing plays, so
+     * what you hear in Settings is exactly what you get in the morning.
+     */
+    fun previewNarrator(id: String) {
+        stopSample()
+        preview?.stop()
+        narratorPlayer?.release()
+        narratorPlayer = null
+        viewModelScope.launch {
+            val today = LocalDate.now().toString()
+            val notes = runCatching { repo.supabase.voiceNotes(today) }.getOrDefault(JSONArray())
+            val note = (0 until notes.length()).map { notes.getJSONObject(it) }
+                .firstOrNull { it.optString("voice") == id && it.optString("note_key") == "greeting_morning" }
+            if (note == null) {
+                message.value = "${packVoice(id).name} hasn't been recorded for today yet."
+                return@launch
+            }
+            val attrs = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()
+            val player = MediaPlayer()
+            player.setAudioAttributes(attrs)
+            player.setDataSource(getApplication(), Uri.parse(clipUrl(note.optString("audio_path"))))
+            player.setOnPreparedListener { it.start() }
+            player.setOnCompletionListener {
+                previewing.value = null
+                it.release()
+                if (narratorPlayer === it) narratorPlayer = null
+            }
+            player.setOnErrorListener { mp, _, _ ->
+                previewing.value = null
+                mp.release()
+                true
+            }
+            narratorPlayer = player
+            previewing.value = id
+            player.prepareAsync()
+        }
+    }
 
     /** Plays a short greeting in [voice]: Kokoro voices are generated here, phone voices spoken directly. */
     fun previewVoice(voice: String?) {

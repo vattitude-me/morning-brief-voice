@@ -31,8 +31,8 @@ data class Settings(
     // Phone-only settings.
     val daily: Boolean = true,
     val readyBy: String = "07:00",
-    /** A Kokoro id (kokoro:af_heart, shared with the web app), a phone voice name, "phone", or null for the best available. */
-    val voice: String? = null,
+    /** Which narrator reads the news: an id from [NARRATORS] ("her_reference" = Alice), or null for the default. */
+    val voice: String? = "her_reference",
     val speed: Float = 1.0f,
     val groqKey: String = "",
     /** Who writes the summaries: an [AI_PROVIDERS] id. Groq uses [groqKey]; each other service keeps its own key in [aiKeys]. */

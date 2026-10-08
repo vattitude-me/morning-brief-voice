@@ -3,7 +3,7 @@
 // The worker voices each day's stories once and publishes them as clips in Supabase
 // Storage. This module picks the clips a given listener asked for and lays them out
 // on one timeline, so the player can play them back to back with no server-side merge.
-import { SECTIONS } from './api.js';
+import { SECTIONS, voiceName } from './api.js';
 import { SUPABASE_URL } from '../config.js';
 
 /** Reading order — the same seven categories the worker publishes (app/guardian.py). */
@@ -26,10 +26,24 @@ export function clipUrl(path) {
   return `${SUPABASE_URL}/storage/v1/object/public/briefings/${path}`;
 }
 
-/** Order the shared rows into one listener's clip list: section order, then rank. */
-export function clipsFor(rows, wanted) {
+/**
+ * Which voice's clips to play: the one this listener picked, or — when that recording isn't
+ * published (a render that failed, or a voice they used to have) — whichever one is there.
+ */
+export function pickVoice(rows, chosen) {
+  const ids = (rows || []).map((r) => r.voice).filter(Boolean);
+  if (!ids.length) return null;
+  if (chosen && ids.includes(chosen)) return chosen;
+  const counts = new Map();
+  for (const id of ids) counts.set(id, (counts.get(id) || 0) + 1);
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+}
+
+/** Order one listener's clips: their voice, then section order, then rank. */
+export function clipsFor(rows, wanted, voice) {
   const bySection = new Map();
   for (const row of rows || []) {
+    if (voice && row.voice !== voice) continue;
     if (!bySection.has(row.section)) bySection.set(row.section, []);
     bySection.get(row.section).push(row);
   }
@@ -63,12 +77,12 @@ export function greetingKey(hour = new Date().getHours()) {
  * Returns `null` when the listener's lineup selects nothing (or the day has no pack).
  */
 export function buildBriefing(rows, settings, { date, voice, notes = [], hour } = {}) {
-  const chosen = clipsFor(rows, lineup(settings));
+  const id = pickVoice(rows, voice);
+  const chosen = clipsFor(rows, lineup(settings), id);
   if (!chosen.length) return null;
 
-  const voiceName = voice || chosen[0].voice;
   const byKey = new Map(
-    (notes || []).filter((n) => !voiceName || n.voice === voiceName).map((n) => [n.note_key, n]),
+    (notes || []).filter((n) => !id || n.voice === id).map((n) => [n.note_key, n]),
   );
 
   const clips = [];
@@ -124,7 +138,7 @@ export function buildBriefing(rows, settings, { date, voice, notes = [], hour } 
     title: 'Your briefing',
     duration: round(cursor),
     generated_at: new Date().toISOString(),
-    voice: { name: voiceName || 'Cloned narrator' },
+    voice: { id, name: voiceName(id) },
     writer: 'guardian',
     weather: null,
     sections, chapters, stories, clips,

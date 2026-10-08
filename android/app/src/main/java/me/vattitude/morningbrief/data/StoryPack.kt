@@ -2,6 +2,8 @@ package me.vattitude.morningbrief.data
 
 import me.vattitude.morningbrief.pipeline.MAX_PER_SECTION
 import me.vattitude.morningbrief.pipeline.SECTIONS
+import me.vattitude.morningbrief.pipeline.packVoice
+import me.vattitude.morningbrief.pipeline.pickPackVoice
 import me.vattitude.morningbrief.ui.Briefing
 import me.vattitude.morningbrief.ui.Card
 import me.vattitude.morningbrief.ui.Chapter
@@ -32,7 +34,7 @@ fun lineup(stories: Map<String, Int>): Map<String, Int> =
 
 private fun JSONArray.objects(): List<JSONObject> = (0 until length()).map { getJSONObject(it) }
 
-private fun publicUrl(path: String) = "$SUPABASE_URL/storage/v1/object/public/briefings/$path"
+internal fun clipUrl(path: String) = "$SUPABASE_URL/storage/v1/object/public/briefings/$path"
 
 /**
  * Turns the day's shared clips into one listener's briefing: the greeting, then each
@@ -49,7 +51,8 @@ object StoryPack {
      * the returned pack carries that day in [Briefing.date] so the caller can say where it's from.
      * Null means there is genuinely nothing recorded yet.
      */
-    suspend fun fetch(supabase: Supabase, date: String, stories: Map<String, Int>): Pack? {
+    suspend fun fetch(supabase: Supabase, date: String, stories: Map<String, Int>,
+                      voice: String? = null): Pack? {
         var day = date
         var rows = supabase.storyAudio(day)
         if (rows.length() == 0) {
@@ -60,11 +63,14 @@ object StoryPack {
             }
         }
         if (rows.length() == 0) return null
-        val all = rows.objects()
-        val voice = all.first().optString("voice")
+        // Every narrator is published each morning, so the day's rows hold all of them:
+        // play the one this listener picked.
+        val every = rows.objects()
+        val spokenBy = pickPackVoice(every.map { it.optString("voice") }, voice)
+        val all = if (spokenBy == null) every else every.filter { it.optString("voice") == spokenBy }
         val notes = runCatching { supabase.voiceNotes(day) }.getOrDefault(JSONArray())
         val wanted = lineup(stories)
-        val noteByKey = notes.objects().filter { it.optString("voice") == voice }
+        val noteByKey = notes.objects().filter { it.optString("voice") == spokenBy }
             .associateBy { it.optString("note_key") }
 
         val clips = mutableListOf<Clip>()
@@ -77,7 +83,7 @@ object StoryPack {
             val note = noteByKey[key] ?: return
             val duration = note.optDouble("duration", 0.0)
             val text = note.optString("text")
-            clips += Clip(key, text, publicUrl(note.optString("audio_path")), duration, cursor, cursor + duration, note = true)
+            clips += Clip(key, text, clipUrl(note.optString("audio_path")), duration, cursor, cursor + duration, note = true)
             chapters += Chapter(key, "note", text, cursor, cursor + duration, null)
             cursor += duration
         }
@@ -96,7 +102,7 @@ object StoryPack {
                 val title = row.optString("title")
                 val start = cursor
                 val end = cursor + duration
-                clips += Clip(id, title, publicUrl(row.optString("audio_path")), duration, start, end, note = false)
+                clips += Clip(id, title, clipUrl(row.optString("audio_path")), duration, start, end, note = false)
                 cards += Card(
                     id = id, section = key, headline = title, summary = row.optString("script"),
                     url = row.optString("url"), source = row.optString("source").ifEmpty { "The Guardian" },
@@ -124,7 +130,7 @@ object StoryPack {
             notes = emptyList(),
             // The pack is voiced by the server's cloned narrator, not a phone voice, so
             // voiceId stays empty: there is nothing on this device to re-record.
-            voiceName = voice,
+            voiceName = packVoice(spokenBy).name,
             version = version,
         )
         return Pack(briefing, clips, version)

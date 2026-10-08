@@ -1,7 +1,8 @@
 // Settings tab: a full page mirroring the Android SettingsScreen.
-// Brief, voice, greeting & weather, appearance, account, advanced (AI keys).
-import { api, h, icon, toast } from '../api.js';
-import { LLM_PROVIDERS, VOICES } from '../options.js';
+// What's left is what still does something: the daily brief, the narrator, appearance and
+// the account. The BYOK voice list and the AI-key panel went with the builder they served.
+import { api, h, icon, toast, VOICES, voiceFor } from '../api.js';
+import { clipUrl } from '../storypack.js';
 import {
   GlassGroup, Hairline, Hint, ListRow, Overline, PillButton, PillStepper,
   SectionLabel, Segmented, SwitchRow, Tag, applyPhotoMode,
@@ -11,17 +12,17 @@ import { enablePush, pushSupported } from '../sheets.js';
 const speedLabel = (v) => `${Number(v).toFixed(2).replace(/0$/, '')}×`;
 
 export class SettingsPage {
-  constructor({ onDirty, goSources, email }) {
+  constructor({ onDirty, goSources, email, setRate }) {
     this.onDirty = onDirty;
     this.goSources = goSources;
     this.email = email || '';
+    this.setRate = setRate || (() => {});
     this.root = document.querySelector('#page-settings .screen');
     this.saved = null;
     this.draft = null;
-    this.voiceOpen = false;
-    this.aiOpen = false;
-    this.cityOpen = false;
     this.previewAudio = new Audio();
+    this.notes = null;      // today's greeting per voice, for the "hear it" buttons
+    this.notesDay = null;
     this.loaded = false;
   }
 
@@ -119,6 +120,7 @@ export class SettingsPage {
   render() {
     if (!this.draft) return;
     const d = this.draft;
+    const total = Object.values(d.stories || {}).reduce((n, v) => n + (Number(v) || 0), 0);
     this.root.replaceChildren(
       h('header', { class: 'screen-header' },
         h('div', { class: 'overline-row' }, Overline(d.daily ? 'Daily brief on' : 'Daily brief off')),
@@ -136,16 +138,16 @@ export class SettingsPage {
           PillButton('Send a test notification', { filled: false, onClick: (e) => this.testPush(e.currentTarget) })),
         h('p', { class: 'hint', id: 'pushHint' }),
         Hairline(),
-        SwitchRow('Say where each story is from', !!d.say_sources, { onChange: (on) => this.set({ say_sources: on }) }),
-        Hairline(),
-        ListRow({ label: 'Topics and story counts', caret: true, onClick: () => this.goSources() }),
+        ListRow({
+          label: 'Topics and story counts',
+          value: total ? `${total} stories` : 'None yet',
+          caret: true,
+          onClick: () => this.goSources(),
+        }),
       ),
 
       SectionLabel('Voice'),
       this.voiceGroup(d),
-
-      SectionLabel('Greeting and weather'),
-      this.weatherGroup(d),
 
       SectionLabel('Appearance'),
       this.appearanceGroup(d),
@@ -159,9 +161,6 @@ export class SettingsPage {
         ListRow({ label: 'Delete account', color: 'var(--err)', onClick: () => this.openDelete() }),
       ),
 
-      SectionLabel('Advanced'),
-      this.aiGroup(d),
-
       h('div', { class: 'legal-row' },
         h('span', { class: 'hint' }, 'Morning Brief for web'),
         h('a', { href: '/privacy', target: '_blank', rel: 'noopener' }, 'Privacy'),
@@ -172,103 +171,72 @@ export class SettingsPage {
     if (pr) pr.classList.toggle('hidden', !this.pushOn);
   }
 
+  /**
+   * Who reads the brief. The pack records both narrators every morning, so switching picks
+   * which recording plays — it isn't a per-listener voice, and it costs nothing extra.
+   */
   voiceGroup(d) {
-    const v = VOICES.find((x) => x.id === d.voice) || VOICES[0];
-    const value = `${v.name} · ${v.accent}`;
-    const rows = [
-      ListRow({
-        label: 'Voice', value, caret: !this.voiceOpen,
-        onClick: () => { this.voiceOpen = !this.voiceOpen; this.render(); },
-      }),
-    ];
-    if (this.voiceOpen) {
-      const list = h('div', { class: 'voice-list' });
-      for (const voice of VOICES) {
-        const on = voice.id === d.voice;
-        const row = h('button', { type: 'button', class: 'voice-row' + (on ? ' on' : '') },
-          h('span', { class: 'avatar' }, voice.name[0]),
-          h('span', { class: 'v-text' },
-            h('span', { class: 'v-name' }, voice.name, voice.recommended ? h('span', { class: 'badge' }, 'Recommended') : null),
-            h('span', { class: 'v-meta' }, `${voice.accent} · ${voice.gender}`)),
-          h('span', { type: 'button', class: 'preview-btn', role: 'button', 'aria-label': `Hear ${voice.name}`, tabindex: '0' }, icon('play')));
-        row.addEventListener('click', (e) => {
-          if (e.target.closest('.preview-btn')) return;
-          this.set({ voice: voice.id });
-          this.preview(voice);
-        });
-        row.querySelector('.preview-btn').addEventListener('click', (e) => { e.stopPropagation(); this.preview(voice); });
-        list.append(row);
-      }
-      rows.push(h('div', { class: 'expandable' }, list));
-      rows.push(Hairline());
-    } else {
-      rows.push(Hairline());
-    }
+    const id = voiceFor(d.voice).id;
+    const rows = VOICES.map((v) => {
+      const on = v.id === id;
+      const row = h('button', {
+        type: 'button', class: `voice-row${on ? ' on' : ''}`, 'aria-pressed': String(on),
+      },
+      h('span', { class: 'avatar' }, v.name[0]),
+      h('span', { class: 'v-text' },
+        h('span', { class: 'v-name' }, v.name),
+        h('span', { class: 'v-meta' }, v.gender === 'female' ? 'A woman reads the news' : 'A man reads the news')),
+      h('span', { class: 'preview-btn', role: 'button', tabindex: '0', 'aria-label': `Hear ${v.name}` }, icon('play')));
+      row.addEventListener('click', (e) => {
+        if (e.target.closest('.preview-btn')) return;
+        this.set({ voice: v.id });
+      });
+      row.querySelector('.preview-btn').addEventListener('click', (e) => { e.stopPropagation(); this.preview(v); });
+      return row;
+    });
+
     const speed = Math.round(d.speed * 20);
-    rows.push(ListRow({
-      label: 'Playback speed',
-      end: PillStepper(speedLabel(speed / 20), {
-        canLower: speed > 16, canRaise: speed < 26,
-        lowerLabel: 'Slower', raiseLabel: 'Faster',
-        onLower: () => this.set({ speed: (speed - 1) / 20 }),
-        onRaise: () => this.set({ speed: (speed + 1) / 20 }),
+    return GlassGroup(
+      h('div', { class: 'voice-list' }, ...rows),
+      Hairline(),
+      Hint('Both voices are recorded each morning from the same stories, so switching only changes who you hear — from your next brief.'),
+      Hairline(),
+      ListRow({
+        label: 'Playback speed',
+        end: PillStepper(speedLabel(speed / 20), {
+          canLower: speed > 16, canRaise: speed < 26,
+          lowerLabel: 'Slower', raiseLabel: 'Faster',
+          onLower: () => this.setSpeed((speed - 1) / 20),
+          onRaise: () => this.setSpeed((speed + 1) / 20),
+        }),
       }),
-    }));
-    return GlassGroup(...rows);
+    );
   }
 
+  /** Speed is something you can hear straight away, so it doesn't wait for Save. */
+  setSpeed(v) {
+    const speed = Math.max(0.8, Math.min(1.3, Math.round(v * 100) / 100));
+    this.set({ speed });
+    this.setRate(speed);
+  }
+
+  /** Play today's greeting in a voice: the real recording, so what you hear is what you get. */
   async preview(voice) {
     const a = this.previewAudio;
     a.pause();
-    a.playbackRate = Number(this.draft.speed) || 1;
     try {
-      let src = voice.preview_url;
-      if (!src) {
-        const [provider, vname] = voice.id.split(':');
-        const key = (this.draft.llm_keys || {})[provider] || '';
-        if (!key) throw new Error(`Add your ${LLM_PROVIDERS[provider].label} key below first.`);
-        const r = await fetch('/api/tts', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ provider, apiKey: key, voice: vname, text: 'Good morning! This is what your briefing will sound like.' }),
-        });
-        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `Voice failed (${r.status})`);
-        src = URL.createObjectURL(new Blob([await r.arrayBuffer()], { type: 'audio/wav' }));
+      const today = new Date().toLocaleDateString('en-CA');
+      if (this.notesDay !== today || !this.notes) {
+        this.notes = await api.voiceNotes(today);
+        this.notesDay = today;
       }
-      a.src = src;
+      const note = this.notes.find((n) => n.voice === voice.id && n.note_key === 'greeting_morning');
+      if (!note) throw new Error(`${voice.name}'s recording for today isn't ready yet. Try again in a few minutes.`);
+      a.src = clipUrl(note.audio_path);
       await a.play();
-    } catch (err) { toast(err.message, { error: true }); }
-  }
-
-  weatherGroup(d) {
-    const nameInput = h('input', {
-      type: 'text', class: 'inline-input', value: d.name || '', maxlength: '40',
-      placeholder: 'For the greeting', 'aria-label': 'Your name', autocomplete: 'given-name',
-    });
-    nameInput.addEventListener('input', () => { this.draft.name = nameInput.value.slice(0, 40); this.markDirty(); });
-    const rows = [
-      h('div', { class: 'list-row' },
-        h('div', { class: 'list-row-text' }, h('span', { class: 'list-row-label' }, 'Your name')),
-        nameInput),
-      Hairline(),
-      SwitchRow('Start with the weather', !!d.weather, { onChange: (on) => this.set({ weather: on }) }),
-    ];
-    if (d.weather) {
-      rows.push(Hairline());
-      rows.push(ListRow({
-        label: 'Weather city', value: d.city || 'Not set', caret: !this.cityOpen,
-        onClick: () => { this.cityOpen = !this.cityOpen; this.render(); },
-      }));
-      if (this.cityOpen) {
-        const cityInput = h('input', {
-          type: 'text', class: 'pill-field', value: d.city || '',
-          placeholder: 'City', 'aria-label': 'Weather city',
-        });
-        cityInput.addEventListener('input', () => { this.draft.city = cityInput.value; this.markDirty(); });
-        rows.push(h('div', { class: 'expandable' }, cityInput,
-          Hint('Used for the weather in your intro and local stories.')));
-      }
+    } catch (err) {
+      toast(err.message, { error: true });
     }
-    return GlassGroup(...rows);
   }
 
   appearanceGroup(d) {
@@ -295,86 +263,6 @@ export class SettingsPage {
         detail: 'Cover and thumbnails in full color',
         onChange: (on) => this.set({ color_photos: on }),
       })));
-  }
-
-  aiGroup(d) {
-    const on = !(d.llm_keys && Object.keys(d.llm_keys).length === 0) || !!d.llm_provider;
-    const detail = d.llm_provider ? `On, with ${LLM_PROVIDERS[d.llm_provider]?.label || d.llm_provider}` : 'Off';
-    const rows = [
-      ListRow({
-        label: 'AI-written summaries', detail, caret: !this.aiOpen,
-        onClick: () => { this.aiOpen = !this.aiOpen; this.render(); },
-      }),
-    ];
-    if (this.aiOpen) {
-      const p = LLM_PROVIDERS[d.llm_provider] || LLM_PROVIDERS.groq;
-      const provSel = h('select', { class: 'pill-field', 'aria-label': 'AI provider' },
-        ...Object.entries(LLM_PROVIDERS).map(([k, pr]) =>
-          h('option', { value: k, selected: k === d.llm_provider ? '' : null }, pr.label)));
-      const modelSel = h('select', { class: 'pill-field', 'aria-label': 'AI model' });
-      const fillModels = () => {
-        const pp = LLM_PROVIDERS[provSel.value];
-        const cur = pp.models.includes(d.llm_model) ? d.llm_model : pp.models[0];
-        modelSel.replaceChildren(...pp.models.map((m) => h('option', { value: m, selected: m === cur ? '' : null }, m)));
-      };
-      provSel.addEventListener('change', () => {
-        this.draft.llm_provider = provSel.value;
-        fillModels();
-        this.draft.llm_model = modelSel.value;
-        this.markDirty();
-        this.render();
-      });
-      modelSel.addEventListener('change', () => this.set({ llm_model: modelSel.value }));
-      fillModels();
-
-      const keyRows = h('div', { class: 'key-rows' });
-      for (const [k, pr] of Object.entries(LLM_PROVIDERS)) {
-        const input = h('input', {
-          type: 'password', class: 'pill-field', placeholder: 'Paste key…',
-          value: (d.llm_keys || {})[k] || '', autocomplete: 'off', spellcheck: 'false',
-          'aria-label': pr.keyLabel,
-        });
-        const testBtn = PillButton('Test', { filled: false });
-        const hint = Hint('');
-        testBtn.addEventListener('click', async () => {
-          const key = input.value.trim();
-          if (!key) { hint.textContent = 'Paste a key first.'; return; }
-          testBtn.disabled = true;
-          hint.textContent = 'Checking…';
-          try {
-            const model = (k === provSel.value && modelSel.value) || pr.models[0];
-            const r = await fetch('/api/llm', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                provider: k, apiKey: key, model, maxTokens: 60, json: false,
-                messages: [{ role: 'user', content: 'Reply with the word ok.' }],
-              }),
-            });
-            const data = await r.json().catch(() => ({}));
-            hint.textContent = r.ok ? 'Key works ✓' : `Failed: ${data.error || r.status}`;
-          } catch (err) { hint.textContent = `Failed: ${err.message}`; }
-          testBtn.disabled = false;
-        });
-        input.addEventListener('input', () => {
-          this.draft.llm_keys = { ...(this.draft.llm_keys || {}) };
-          if (input.value.trim()) this.draft.llm_keys[k] = input.value.trim();
-          else delete this.draft.llm_keys[k];
-          this.markDirty();
-        });
-        keyRows.append(
-          h('div', { class: 'key-row' },
-            h('div', { class: 'key-head' },
-              h('label', {}, pr.keyLabel),
-              h('a', { href: pr.keyUrl, target: '_blank', rel: 'noopener noreferrer', class: 'key-link' }, 'Get one →')),
-            h('div', { class: 'input-row' }, input, testBtn),
-            hint));
-      }
-      rows.push(h('div', { class: 'expandable' },
-        h('div', { class: 'input-row' }, provSel, modelSel),
-        Hint('Your key, your quota. Keys are sent to the AI service only when building a briefing.'),
-        keyRows));
-    }
-    return GlassGroup(...rows);
   }
 
   openDelete() {

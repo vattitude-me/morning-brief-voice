@@ -296,7 +296,7 @@ async function loadStoryPack(day) {
     }
     if (!rows.length) return null;
     const notes = await api.voiceNotes(date);
-    const briefing = buildPackBriefing(rows, settings, { date, voice: rows[0]?.voice, notes });
+    const briefing = buildPackBriefing(rows, settings, { date, voice: settings.voice, notes });
     if (briefing) briefing.fresh = date === today;
     return briefing;
   } catch {
@@ -305,12 +305,10 @@ async function loadStoryPack(day) {
 }
 
 /* ----------------------------------------------------------------- loading */
+/** One honest line under the brief: where it came from, and who read it. */
 function setFootnote() {
-  const WRITER = { groq: 'Summaries by AI (Groq)', mixed: 'Summaries by AI + built-in summarizer', 'built-in': 'Built-in summaries', ai: 'Summaries by your AI key', guardian: 'The Guardian · built-in summaries' };
-  const writer = WRITER[state.briefing?.writer] || 'Summarized in your browser';
-  $('footnote').textContent = state.briefing
-    ? `${writer} · voiced by ${state.briefing.voice?.name || 'Default'} · built ${timeAgo(state.briefing.generated_at)}`
-    : '';
+  const b = state.briefing;
+  $('footnote').textContent = b ? `The Guardian · read by ${b.voice?.name || 'the narrator'}` : '';
 }
 
 function displayBriefing() {
@@ -355,6 +353,7 @@ async function switchTab(tab) {
       onDirty: syncSaveBar,
       goSources: () => switchTab('sources'),
       email: state.profile?.email,
+      setRate: (rate) => player.setRate(rate),
     });
     try { await settingsPage.load(); } catch (err) { toast(err.message, { error: true }); }
   }
