@@ -142,6 +142,17 @@ class Supabase(private val prefs: Prefs) {
         }
     }
 
+    /** The most recent day that has a published pack, or null when there isn't one yet. */
+    suspend fun latestStoryDate(): String? {
+        fresh()
+        return try {
+            val rows = call("GET", "/rest/v1/story_audio?select=date&order=date.desc&limit=1") as JSONArray
+            rows.optJSONObject(0)?.optString("date")?.takeIf { it.isNotBlank() }
+        } catch (e: SupabaseError) {
+            null
+        }
+    }
+
     /** The day's greeting and section intros. A database without the table simply has no framing. */
     suspend fun voiceNotes(date: String): JSONArray {
         fresh()

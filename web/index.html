@@ -69,8 +69,8 @@
       <div class="hero-glow" aria-hidden="true"></div>
       <p class="eyebrow" id="lgGreeting">Good morning</p>
       <h1>Your news, <em>read aloud</em> before your coffee's ready.</h1>
-      <p class="lead">Top stories from across Canada and the latest in AI &amp; tech, plus the sites you follow.
-        Summarized, then read by a natural voice every morning.</p>
+      <p class="lead">Top stories, AI, tech, politics and more — summarised and read by a warm
+        narrator. Recorded once each morning, waiting when you wake.</p>
 
       <div class="sample-player" id="samplePlayer">
         <button class="play-btn" id="samplePlay" aria-label="Play the sample briefing">
@@ -99,20 +99,12 @@
       <div class="sample-cards" id="sampleCards"></div>
     </section>
 
-    <section class="landing-section" id="voiceSection" hidden>
-      <div class="landing-heading">
-        <h2>Pick a voice you'll enjoy</h2>
-        <span class="hint">Tap to hear. Canadian, American and British accents.</span>
-      </div>
-      <div class="voice-chips" id="sampleVoices"></div>
-    </section>
-
     <section class="landing-section">
       <h2>How it works</h2>
       <ol class="steps">
-        <li><b>🔗 Add what you read.</b> Paste any news site, section, RSS feed or single article. Canadian and tech news are built in.</li>
-        <li><b>🎙️ Choose a voice and length.</b> Pick the voice, speed and how many stories you want from each section.</li>
-        <li><b>☀️ Wake up to it.</b> Your briefing is ready every morning, with a notification. Listen on the go or skim the cards.</li>
+        <li><b>�️ Seven sections, the top of each.</b> Top stories, AI, tech, politics, entertainment, science and sports — the same brief for every listener.</li>
+        <li><b>🎚️ Your own length.</b> Choose how many stories each section gets. The narrator is the same warm voice every morning.</li>
+        <li><b>☀️ Wake up to it.</b> It's recorded before your alarm, with a notification. Listen on the go or skim the cards.</li>
       </ol>
     </section>
     <p class="legal-links"><a href="/privacy">Privacy</a><a href="/terms">Terms</a></p>
@@ -256,7 +248,7 @@
         <div class="welcome-step hidden" data-step="sources">
           <p class="hint">Every morning we read these sites and pick the top stories. Tap one to leave it out.</p>
           <div id="welcomeSources"></div>
-          <div class="setting-group">
+          <div class="setting-group hidden">
             <h3><label for="welcomeSourceUrl">Add a site you like</label></h3>
             <div class="input-row">
               <input type="url" id="welcomeSourceUrl" class="text-input" inputmode="url" autocomplete="off" placeholder="e.g. thestar.com or a feed link">
@@ -270,7 +262,7 @@
           <div class="first-brief">
             <span class="first-brief-icon" aria-hidden="true">☀️</span>
             <div>
-              <span class="first-brief-label">Your first briefing</span>
+              <span class="first-brief-label">Your briefing</span>
               <strong class="first-brief-when" id="welcomeWhen">Tomorrow morning</strong>
               <span class="first-brief-what" id="welcomeWhat"></span>
             </div>

@@ -159,7 +159,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     val onboarded = MutableStateFlow(repo.prefs.onboarded)
 
-    /** Keeps the choices from setup, schedules the daily brief and makes the first one now. */
+    /** Keeps the choices from setup, then lands on today's brief. Nothing is built on the phone. */
     fun finishOnboarding() {
         stopDemo()
         val new = _settings.value.copy(daily = true)
@@ -167,16 +167,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             repo.saveSettings(new)
             _saved.value = repo.settings
+            // Still scheduled: the same worker posts the quiet "your brief is ready" alert.
             Scheduler.schedule(getApplication(), new)
             repo.prefs.onboarded = true
             tab.value = Tab.Today
             onboarded.value = true
-            // A natural voice still downloading: wait for it, so the first brief isn't in the phone's voice.
-            if (kokoroVoice(new.voice) != null && packDownload.value.running) {
-                message.value = "Your first brief starts when the voices finish downloading."
-                packDownload.first { !it.running }
-            }
-            Scheduler.buildNow(getApplication())
+            select(LocalDate.now().toString())
         }
     }
 
@@ -308,8 +304,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /**
      * The day's shared clips, assembled for this listener's line-up. Fetched in the background
-     * and kept, so moving between days is instant the second time. Falls back to the on-device
-     * briefing when signed out, or when the day has no pack (an older day, or an empty section).
+     * and kept, so moving between days is instant the second time. When the requested day has no
+     * pack yet, [StoryPack.fetch] returns the most recent published day instead.
      */
     private fun fetchPack(date: String) {
         if (!repo.signedIn || packs.containsKey(date)) return
@@ -323,6 +319,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 tick()
             }
         }
+    }
+
+    /** Look again for today's brief: the overnight job may have published it since we last checked. */
+    fun refreshPack() {
+        val today = LocalDate.now().toString()
+        packs.remove(today)
+        select(today)
     }
 
     fun buildNow() {

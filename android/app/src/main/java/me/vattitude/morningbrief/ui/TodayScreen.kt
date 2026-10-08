@@ -1,9 +1,7 @@
 package me.vattitude.morningbrief.ui
 
-import android.Manifest
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.SystemClock
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.lazy.LazyItemScope
@@ -20,8 +18,6 @@ import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -52,7 +48,6 @@ import androidx.compose.material.icons.outlined.AcUnit
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.FlashOn
 import androidx.compose.material.icons.outlined.GraphicEq
-import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Umbrella
 import androidx.compose.material.icons.outlined.WbCloudy
 import androidx.compose.material.icons.outlined.WbSunny
@@ -106,18 +101,10 @@ fun TodayScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     val saved by vm.saved.collectAsState()
     val pack by vm.packInstalled.collectAsState()
     val reported by vm.reported.collectAsState()
-    val upsellsSeen by vm.upsellsSeen.collectAsState()
-    // Once the first brief exists the waiting room (and its upsells) are behind us.
-    LaunchedEffect(briefing) { if (briefing != null) vm.dismissUpsells() }
     var reporting by remember { mutableStateOf<Pair<Card, String>?>(null) }
     reporting?.let { (card, date) -> ReportDialog(vm, card, date) { reporting = null } }
     val context = LocalContext.current
     val t = Mb.t
-
-    val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { vm.buildNow() }
-    fun startBuild() {
-        if (Build.VERSION.SDK_INT >= 33) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS) else vm.buildNow()
-    }
 
     val b = briefing
     val mine = player.date == b?.date
@@ -218,19 +205,28 @@ fun TodayScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         if (b == null) {
             entry {
                 Notice(Modifier.padding(top = 22.dp)) {
-                    Text("Your first brief is a tap away", style = Type.title, color = t.ink)
-                    Text("Five minutes of the news you choose, read aloud and made right here on your phone. " +
-                        "Start with the defaults; you can change sources and voice any time.",
+                    Text("Today's brief isn't ready yet", style = Type.title, color = t.ink)
+                    Text("It's recorded once each morning for everyone listening, so there's nothing to build here. " +
+                        "Check back in a moment.",
                         Modifier.padding(top = 6.dp), style = Type.body, color = t.muted)
-                    PillButton("Make my first brief", Modifier.padding(top = 16.dp), enabled = !build.running) { startBuild() }
+                    PillButton("Check again", Modifier.padding(top = 16.dp), filled = false) { vm.refreshPack() }
                 }
             }
-            // The wait for the first brief is dead time: surface the two upgrades that matter most,
-            // voice and summaries, exactly once. Dismissing or the brief landing retires them.
-            if (build.running && !upsellsSeen) entry("upsells") {
-                FirstRunUpsells(vm, Modifier.padding(top = 22.dp), onDismiss = vm::dismissUpsells)
-            }
             return@LazyColumn
+        }
+
+        // The night's recording may not be out yet: the most recent day stands in for today.
+        val today = LocalDate.now().toString()
+        if (b.date != today) entry {
+            val day = runCatching { LocalDate.parse(b.date) }.getOrNull()
+                ?.format(DateTimeFormatter.ofPattern("EEE · d MMM", Locale.ENGLISH)) ?: b.date
+            Notice(Modifier.padding(top = 22.dp)) {
+                Text("Showing the latest brief, from $day", style = Type.title, color = t.ink)
+                Text("Today's recording isn't out yet — this is the most recent one, with your usual topics. " +
+                    "It'll switch over on its own.",
+                    Modifier.padding(top = 4.dp), style = Type.body, color = t.muted)
+                PillButton("Check again", Modifier.padding(top = 14.dp), filled = false) { vm.refreshPack() }
+            }
         }
 
         entry("hero") {
@@ -335,13 +331,6 @@ fun TodayScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Column(Modifier.padding(top = 18.dp, start = 4.dp, end = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 for (n in b.notes) Hint(n)
             }
-        }
-
-        entry {
-            PillButton(
-                if (b.date == LocalDate.now().toString()) "Make a fresh brief" else "Make today's brief",
-                Modifier.fillMaxWidth().padding(top = 22.dp), filled = false, enabled = !build.running, icon = Icons.Outlined.Refresh,
-            ) { startBuild() }
         }
     }
 }
@@ -580,47 +569,5 @@ private fun dayLabel(date: String): String {
         today -> "Today"
         today.minusDays(1) -> "Yesterday"
         else -> d.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH))
-    }
-}
-
-/**
- * First run, while the first brief builds: the two upgrades worth a moment before the wait ends.
- * Voice first — nobody should meet the phone's flat voice with no way out — then AI summaries.
- * Shown once; dismissing or the brief landing retires it for good.
- */
-@Composable
-private fun FirstRunUpsells(vm: AppViewModel, modifier: Modifier = Modifier, onDismiss: () -> Unit) {
-    val t = Mb.t
-    LaunchedEffect(Unit) { vm.loadVoices() }
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Overline("While you wait", Modifier.weight(1f))
-            TextButton(onClick = onDismiss, contentPadding = PaddingValues(horizontal = 8.dp)) {
-                Text("Dismiss", style = Type.meta, color = t.muted)
-            }
-        }
-        Text("Heads up: this first brief is the basic version.", style = Type.title, color = t.ink)
-        Text("Phone voice, plain summaries — so it could start right away. It won't sound like the sample " +
-            "you heard. Two quick upgrades fix that:",
-            Modifier.padding(top = 6.dp), style = Type.body, color = t.muted)
-        Glass(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(18.dp)) {
-                Text("Give it a real voice", style = Type.title, color = t.ink)
-                Text("Natural voices sound like a human host and work offline after a one-time download. " +
-                    "Pick one now — your next briefs use it, or re-record this one when it's done.",
-                    Modifier.padding(top = 6.dp), style = Type.body, color = t.muted)
-                VoicePicker(vm, Modifier.padding(top = 4.dp), saveThrough = true)
-            }
-        }
-        Glass(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(18.dp)) {
-                Text("Summaries written to be heard", style = Type.title, color = t.ink)
-                Text("Right now each story is just key sentences lifted from the article. Add a free key — " +
-                    "tap the FREE tag next to a provider — and every story is rewritten short and clear, " +
-                    "from your next brief.",
-                    Modifier.padding(top = 6.dp), style = Type.body, color = t.muted)
-                SummaryPicker(vm, Modifier.padding(top = 4.dp), saveThrough = true)
-            }
-        }
     }
 }

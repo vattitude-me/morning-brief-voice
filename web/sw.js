@@ -1,9 +1,9 @@
 // Offline shell: our static files network-first with a cache fallback.
 // Supabase (data, audio) and CDN requests are cross-origin and go straight to the network.
-const CACHE = 'morning-brief-v18';
-const SHELL = ['/', '/config.js', '/css/styles.css', '/js/app.js', '/js/api.js', '/js/storypack.js', '/js/player.js', '/js/sheets.js', '/js/landing.js', '/js/brief.js',
+const CACHE = 'morning-brief-v19';
+const SHELL = ['/', '/config.js', '/css/styles.css', '/js/app.js', '/js/api.js', '/js/storypack.js', '/js/player.js', '/js/sheets.js', '/js/landing.js', '/js/options.js',
   '/js/design.js', '/js/pages/sources.js', '/js/pages/settings.js',
-  '/catalog/sources.json', '/icons/icon.svg', '/manifest.webmanifest'];
+  '/icons/icon.svg', '/manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

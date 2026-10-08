@@ -1,7 +1,7 @@
 // Settings tab: a full page mirroring the Android SettingsScreen.
 // Brief, voice, greeting & weather, appearance, account, advanced (AI keys).
 import { api, h, icon, toast } from '../api.js';
-import { LLM_PROVIDERS, VOICES } from '../brief.js';
+import { LLM_PROVIDERS, VOICES } from '../options.js';
 import {
   GlassGroup, Hairline, Hint, ListRow, Overline, PillButton, PillStepper,
   SectionLabel, Segmented, SwitchRow, Tag, applyPhotoMode,

@@ -43,12 +43,26 @@ private fun publicUrl(path: String) = "$SUPABASE_URL/storage/v1/object/public/br
  * for everyone, so cost never grows with the number of listeners.
  */
 object StoryPack {
+    /**
+     * [date] is the day the listener asked for. When that day has no pack — the nightly job hasn't
+     * published yet, or it wasn't a news day — the most recent published day is used instead, and
+     * the returned pack carries that day in [Briefing.date] so the caller can say where it's from.
+     * Null means there is genuinely nothing recorded yet.
+     */
     suspend fun fetch(supabase: Supabase, date: String, stories: Map<String, Int>): Pack? {
-        val rows = supabase.storyAudio(date)
+        var day = date
+        var rows = supabase.storyAudio(day)
+        if (rows.length() == 0) {
+            val latest = runCatching { supabase.latestStoryDate() }.getOrNull()
+            if (latest != null && latest != day) {
+                day = latest
+                rows = supabase.storyAudio(day)
+            }
+        }
         if (rows.length() == 0) return null
         val all = rows.objects()
         val voice = all.first().optString("voice")
-        val notes = runCatching { supabase.voiceNotes(date) }.getOrDefault(JSONArray())
+        val notes = runCatching { supabase.voiceNotes(day) }.getOrDefault(JSONArray())
         val wanted = lineup(stories)
         val noteByKey = notes.objects().filter { it.optString("voice") == voice }
             .associateBy { it.optString("note_key") }
@@ -98,7 +112,7 @@ object StoryPack {
 
         val version = all.map { it.optString("created_at") }.maxOrNull().orEmpty()
         val briefing = Briefing(
-            date = date,
+            date = day,
             title = "Your briefing",
             duration = cursor,
             intro = "",

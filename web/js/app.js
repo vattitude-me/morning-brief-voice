@@ -5,7 +5,6 @@ import { Landing } from './landing.js';
 import { WelcomeSheet, installMode, onInstallChange, promptInstall, pushSupported, wireSheet } from './sheets.js';
 import { SourcesPage } from './pages/sources.js';
 import { SettingsPage } from './pages/settings.js';
-import { buildBriefing, loadLocalBriefing } from './brief.js';
 import { buildBriefing as buildPackBriefing } from './storypack.js';
 import { applyPhotoMode } from './design.js';
 
@@ -14,10 +13,6 @@ const state = {
   profile: null,
   status: null,
   archiveDates: [],
-  building: false,
-  buildStep: '',
-  buildFrac: 0,
-  buildError: null,
   reported: new Set(store.get('reported', [])),
 };
 
@@ -77,33 +72,22 @@ function renderHeader() {
 }
 
 /* ------------------------------------------------------------------ notice */
+/** The only notice left: today's brief isn't published yet, so the latest one is playing. */
 function renderNotice() {
   const box = $('notice');
-  if (state.building) {
-    box.replaceChildren(h('div', { class: 'glass notice-card', role: 'status', 'aria-live': 'polite' },
-      h('h3', {}, 'Making your brief'),
-      h('p', { class: 'hint' }, state.buildStep || 'Starting…'),
-      h('div', { class: 'progress-bar' }, h('span', { style: `width:${Math.round(state.buildFrac * 100)}%` })),
-      h('p', { class: 'hint' }, 'This takes a few minutes. Feel free to leave the app; it keeps going.')));
-    return;
-  }
-  if (state.buildError) {
-    box.replaceChildren(h('div', { class: 'glass notice-card', role: 'alert' },
-      h('h3', { class: 'error' }, "Your last brief couldn't be made"),
-      h('p', {}, state.buildError)));
-    return;
-  }
   if (!state.briefing) {
-    const btn = h('button', { class: 'pill-btn', type: 'button' }, 'Make my first brief');
-    btn.addEventListener('click', build);
-    box.replaceChildren(h('div', { class: 'glass notice-card' },
-      h('h3', {}, 'Your first brief is a tap away'),
-      h('p', {}, 'Five minutes of the news you choose, read aloud and made right here in your browser. Start with the defaults; you can change sources and voice any time.'),
-      btn));
+    box.replaceChildren(h('div', { class: 'glass notice-card', role: 'status' },
+      h('h3', {}, "Today's brief isn't ready yet"),
+      h('p', {}, "It's usually published by 7 am. Come back in a little while.")));
     return;
   }
-  const notes = state.briefing.notes || [];
-  box.replaceChildren(...notes.map((n) => h('div', { class: 'glass notice-card', role: 'status' }, h('p', {}, n.message))));
+  if (state.briefing.fresh === false) {
+    box.replaceChildren(h('div', { class: 'glass notice-card', role: 'status' },
+      h('h3', {}, "Today's brief isn't ready yet"),
+      h('p', {}, `Playing the latest one, from ${chipLabel(state.briefing.date)}.`)));
+    return;
+  }
+  box.replaceChildren();
 }
 
 /* -------------------------------------------------------------------- hero */
@@ -134,24 +118,14 @@ function renderDateChips() {
 async function selectDate(date) {
   const today = new Date().toLocaleDateString('en-CA');
   try {
-    if (date === today) {
-      const local = await loadLocalBriefing(today).catch(() => null);
-      if (local?.briefing && local?.audio) {
-        state.briefing = local.briefing;
-        state.briefing.audio_url = URL.createObjectURL(local.audio);
-        displayBriefing();
-        return;
-      }
-    }
     const pack = await loadStoryPack(date);
     if (pack) {
       state.briefing = pack;
       displayBriefing();
       return;
     }
-    const { briefing } = await api.briefing(date);
-    state.briefing = briefing;
-    if (briefing) displayBriefing();
+    state.briefing = null;
+    displayBriefing();
   } catch (err) {
     toast(err.message, { error: true });
   }
@@ -220,13 +194,6 @@ function renderSections() {
     const group = h('div', { class: 'glass glass-group' }, ...stories.map(storyRow));
     return [head, group];
   }));
-  // APK parity: rebuild action at the end of the page.
-  const today = new Date().toLocaleDateString('en-CA');
-  const fresh = h('button', { class: 'pill-btn glass-btn wide', type: 'button' },
-    icon('refresh'), b.date === today ? 'Make a fresh brief' : "Make today's brief");
-  fresh.addEventListener('click', () => build());
-  fresh.disabled = state.building;
-  box.append(h('div', { class: 'fresh-wrap' }, fresh));
   syncPlaying();
 }
 
@@ -283,47 +250,27 @@ async function sendReport() {
   }
 }
 
-/* ----------------------------------------------------------------- builder */
-async function build() {
-  if (state.building) return;
-  state.building = true;
-  state.buildError = null;
-  state.buildStep = 'Starting';
-  state.buildFrac = 0;
-  renderNotice();
-  try {
-    const [{ settings }, { sources }] = await Promise.all([api.settings(), api.sources()]);
-    const catalog = await (await fetch('catalog/sources.json')).json();
-    const disabledNames = new Set(sources.filter((s) => s.builtin && !s.enabled).map((s) => s.name));
-    const builtin = catalog.sources.filter((s) => !disabledNames.has(s.name));
-    const custom = sources.filter((s) => !s.builtin && s.enabled);
-    const { briefing, audio } = await buildBriefing({
-      settings, builtin, customSources: custom, catalog,
-      onProgress: (step, frac) => { state.buildStep = step; state.buildFrac = frac; renderNotice(); },
-    });
-    state.briefing = briefing;
-    briefing.audio_url = URL.createObjectURL(audio);
-    const today = new Date().toLocaleDateString('en-CA');
-    if (!state.archiveDates.includes(today)) state.archiveDates = [today, ...state.archiveDates];
-    toast('Your briefing is ready ☀️');
-  } catch (err) {
-    state.buildError = err.message;
-  } finally {
-    state.building = false;
-    renderNotice();
-    if (state.briefing && !state.buildError) displayBriefing();
-    else { renderHeader(); renderHero(); }
-  }
-}
-
-/* ------------------------------------------------------- shared story pack */
-/** The day's shared clips assembled for this listener's lineup; null when there is no pack. */
+/** The day's shared clips assembled for this listener; null when there is no pack at all.
+ *
+ * Today's pack may not be published yet (the nightly job hasn't run), so for today only we fall
+ * back to the most recent one and flag it, rather than showing an empty player. */
 async function loadStoryPack(day) {
+  const today = new Date().toLocaleDateString('en-CA');
   try {
-    const [{ settings }, rows, notes] = await Promise.all([
-      api.settings(), api.storyAudio(day), api.voiceNotes(day),
-    ]);
-    return buildPackBriefing(rows, settings, { date: day, voice: rows[0]?.voice, notes });
+    const { settings } = await api.settings();
+    let date = day;
+    let rows = await api.storyAudio(day);
+    if (!rows.length && day === today) {
+      const latest = await api.latestStoryDate();
+      if (!latest) return null;
+      date = latest;
+      rows = await api.storyAudio(date);
+    }
+    if (!rows.length) return null;
+    const notes = await api.voiceNotes(date);
+    const briefing = buildPackBriefing(rows, settings, { date, voice: rows[0]?.voice, notes });
+    if (briefing) briefing.fresh = date === today;
+    return briefing;
   } catch {
     return null;  // no pack that day, or the story_audio table isn't there yet
   }
@@ -499,15 +446,9 @@ async function start() {
     state.profile = profile;
     applyPhotoMode(profile?.settings?.color_photos);
     await loadArchive();
-    // Precedence: a brief built on this device today, then today's shared pack, then the newest briefing row.
-    const local = await loadLocalBriefing(today).catch(() => null);
-    if (local?.briefing && local?.audio) {
-      state.briefing = local.briefing;
-      state.briefing.audio_url = URL.createObjectURL(local.audio);
-      if (!state.archiveDates.includes(today)) state.archiveDates = [today, ...state.archiveDates];
-    } else {
-      state.briefing = (await loadStoryPack(today)) || (await api.latest()).briefing;
-    }
+    // The shared pack *is* the briefing now. When today's hasn't been published yet,
+    // loadStoryPack falls back to the most recent one and renderNotice says so.
+    state.briefing = await loadStoryPack(today);
     displayBriefing();
   } catch (err) {
     const cached = store.get('last-briefing', null);

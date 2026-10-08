@@ -64,6 +64,12 @@ import java.net.URI
 /** A page of links the app can read without a feed, to show that any link works. */
 private const val LINK_EXAMPLE = "cbc.ca/sports/hockey/nhl"
 
+// "Your picks" (names or links people follow) is parked while the seven fixed categories settle,
+// exactly as the web app does it: the shared daily pack only carries those seven, so a followed
+// source could never be voiced. Everything the card needs is still below — flip this to true to
+// bring it back.
+private const val SHOW_MY_SOURCES = false
+
 /** A web address rather than a name: "https://…", or a bare domain with an optional path. */
 private val LINKISH = Regex("^([\\w-]+\\.)+[a-z]{2,}(:\\d+)?(/\\S*)?$", RegexOption.IGNORE_CASE)
 
@@ -103,7 +109,7 @@ fun SourcesScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 Modifier.padding(start = 4.dp, top = 4.dp))
         }
 
-        item {
+        if (SHOW_MY_SOURCES) item {
             Picks(vm, picksCount(st.stories), canRaise = true, sources.filter { it.section in PICKS }, ::on) { removing = it }
         }
 

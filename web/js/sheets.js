@@ -241,11 +241,18 @@ export class WelcomeSheet {
     }
   }
 
-  paintMorning() {
-    document.getElementById('welcomeWhen').textContent = whenLabel(this.status);
-    const on = this.sources ? this.sources.filter((s) => !this.disabled.has(s.id)).length + this.added : null;
-    document.getElementById('welcomeWhat').textContent = on != null
-      ? `The top stories from your ${on} sources, summarised and read aloud in about five minutes.`
+  async paintMorning() {
+    const when = document.getElementById('welcomeWhen');
+    const what = document.getElementById('welcomeWhat');
+    // The day's brief is recorded once for everyone, so it may already be waiting — in which case
+    // there is nothing to wait for and nothing to build.
+    let ready = false;
+    try {
+      ready = (await api.storyAudio(new Date().toLocaleDateString('en-CA'))).length > 0;
+    } catch { /* offline, or not signed in yet: fall back to the schedule below */ }
+    when.textContent = ready ? 'Ready now' : whenLabel(this.status);
+    what.textContent = ready
+      ? 'Recorded this morning and waiting for you.'
       : 'The top stories, summarised and read aloud in about five minutes.';
   }
 

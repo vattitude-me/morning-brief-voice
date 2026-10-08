@@ -40,7 +40,7 @@ you get up. Press play over coffee, on the commute or on a run, and hear the day
 • Add a free key from Groq, Gemini or OpenRouter and each story is rewritten for listening
 • Spot a summary that's wrong? Report it right from the story
 
-Free. Natural voices are an optional one-time download that then works offline.
+Free. A new five-minute brief is recorded every morning, ready before you wake.
 
 ## Category and tags
 

@@ -74,9 +74,9 @@ import me.vattitude.morningbrief.pipeline.briefMinutes
 private enum class Step { Welcome, Topics, Ready }
 
 /**
- * First run, kept short on purpose: hear what a briefing sounds like, pick topics,
- * then make the first brief. Voice, time, notifications and AI summaries all have
- * sensible defaults and live in Settings.
+ * First run, kept short on purpose: hear what a briefing sounds like, pick topics, then start
+ * listening. There is nothing to build — the day's brief is recorded once for everyone — so voice,
+ * time and notifications all keep sensible defaults and live in Settings.
  */
 @Composable
 fun OnboardingScreen(vm: AppViewModel) {
@@ -94,7 +94,7 @@ fun OnboardingScreen(vm: AppViewModel) {
     val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         canNotify = granted
         asked = true
-        // Asked from the last step's button: carry on to the first brief either way.
+        // Asked from the last step's button: carry on to the brief either way.
         if (step == Step.Ready) vm.finishOnboarding()
     }
 
@@ -126,7 +126,7 @@ fun OnboardingScreen(vm: AppViewModel) {
             val label = when (step) {
                 Step.Welcome -> "Get started"
                 Step.Topics -> if (topicsEmpty) "Pick at least one topic" else "Continue"
-                Step.Ready -> "Make my first brief"
+                Step.Ready -> "Start listening"
                 else -> "Continue"
             }
             PillButton(label, enabled = !topicsEmpty) {
@@ -166,8 +166,8 @@ private fun Welcome(vm: AppViewModel) {
     AppMark()
     Spacer(Modifier.height(26.dp))
     Title("Morning Brief", "Your news, read aloud every morning.",
-        "Five minutes of the stories you care about, waiting when you wake. Made on your phone, " +
-            "with no ads and no account.")
+        "Five minutes of the stories you care about, waiting when you wake. No ads, no account, " +
+            "and nothing to build.")
     Glass(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             InkCircle(if (demo != null) Icons.Filled.Pause else Icons.Filled.PlayArrow,
@@ -184,9 +184,9 @@ private fun Welcome(vm: AppViewModel) {
         }
     }
     Column(Modifier.padding(top = 22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Feature(Icons.Outlined.RecordVoiceOver, "Sounds like a real host", "Natural voices that run on your phone, even offline")
-        Feature(Icons.Outlined.Schedule, "Ready before your alarm", "Made overnight, with one quiet alert when it's done")
-        Feature(Icons.Outlined.AutoAwesome, "Only what you follow", "Topics, local news, people, teams or any site you like")
+        Feature(Icons.Outlined.RecordVoiceOver, "Read by a real narrator", "The same warm voice every morning, recorded before you wake")
+        Feature(Icons.Outlined.Schedule, "Ready before your alarm", "A new brief appears each morning — nothing to build or wait for")
+        Feature(Icons.Outlined.AutoAwesome, "Only what you follow", "Pick your topics, and how many stories each one gets")
     }
 }
 
@@ -248,8 +248,9 @@ private fun ReadyStep(vm: AppViewModel) {
     val st by vm.settings.collectAsState()
     val context = LocalContext.current
     val t = Mb.t
-    Title("All set", "Your first brief is one tap away.",
-        "Made with the phone's voice, ready every morning. Tune everything later in Settings.")
+    Title("All set", "Tomorrow's brief is already recorded.",
+        "Your narrator reads it before you wake, so there's nothing to build or download. " +
+            "Tune everything later in Settings.")
     GlassGroup {
         val time = LocalTime.of(st.readyHour, st.readyMinute)
         ListRow("Ready by",
@@ -280,8 +281,6 @@ private fun ReadyStep(vm: AppViewModel) {
             )
         }
     }
-    Hint("Your first brief takes a few minutes. After that, a new one is waiting every morning.",
+    Hint("The day's brief is recorded once, early, and shows up here on its own — there's nothing to build or download.",
         Modifier.padding(top = 14.dp, start = 4.dp))
-    Hint("Want a more natural voice? Download one later in Settings, under Voice.",
-        Modifier.padding(top = 8.dp, start = 4.dp))
 }

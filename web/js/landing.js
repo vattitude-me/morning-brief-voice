@@ -40,7 +40,7 @@ export class Landing {
   }
 
   // ------------------------------------------------------------------ sample
-  render({ briefing, voices }) {
+  render({ briefing }) {
     this.briefing = briefing;
     const player = $('samplePlayer');
     if (!briefing?.audio_url) {
@@ -57,11 +57,6 @@ export class Landing {
       $('sampleDate').textContent = today ? briefing.title : `From ${briefing.title}`;
       $('sampleCards').replaceChildren(...briefing.stories.map((s) => this.card(s)));
       $('sampleSection').hidden = false;
-    }
-    const list = (voices || []).slice(0, 8);
-    if (list.length) {
-      $('sampleVoices').replaceChildren(...list.map((v) => this.voiceChip(v)));
-      $('voiceSection').hidden = false;
     }
   }
 
@@ -122,24 +117,6 @@ export class Landing {
     el.classList.add('reading');
     const row = $('sampleCards');
     row.scrollTo({ left: el.offsetLeft - row.offsetLeft, behavior: 'smooth' });
-  }
-
-  voiceChip(v) {
-    const chip = h('button', { type: 'button', class: 'voice-chip', 'aria-label': `Hear ${v.name}` },
-      h('span', { class: 'avatar' }, v.name[0]),
-      h('span', {}, v.name, h('small', {}, [v.accent, v.gender].filter(Boolean).join(' · '))));
-    chip.addEventListener('click', () => {
-      const va = this.voiceAudio;
-      document.querySelectorAll('.voice-chip.playing').forEach((c) => c.classList.remove('playing'));
-      if (va.dataset.id === v.id && !va.paused) { va.pause(); return; }
-      this.audio.pause();
-      va.dataset.id = v.id;
-      va.src = v.preview_url;
-      va.onended = () => chip.classList.remove('playing');
-      va.play().then(() => chip.classList.add('playing')).catch(() => {});
-      store.set('pending-voice', v.id); // becomes their voice on first sign-in
-    });
-    return chip;
   }
 
   // ----------------------------------------------------------------- sign in
