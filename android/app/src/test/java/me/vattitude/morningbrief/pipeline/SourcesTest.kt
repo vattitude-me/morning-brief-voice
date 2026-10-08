@@ -56,8 +56,7 @@ class SourcesTest {
         assertEquals(SECTIONS.size * DEFAULT_PER_SECTION, DEFAULT_STORIES.values.sum())
     }
 
-    @Test fun quickMixStaysWithinTheBudget() {
-        assertTrue(QUICK_MIX.values.sum() <= STORY_BUDGET)
+    @Test fun quickMixStaysWithinTheLimits() {
         val fitted = fitBudget(QUICK_MIX)
         for ((k, v) in QUICK_MIX) assertEquals(v, fitted[k])
         assertEquals(0, picksCount(fitted))
@@ -66,7 +65,6 @@ class SourcesTest {
     @Test fun aSectionIsCappedAtTheMaximum() {
         val fitted = fitBudget(SECTIONS.keys.associateWith { 9 })
         assertTrue(fitted.filterKeys { it in SECTIONS }.values.all { it <= MAX_PER_SECTION })
-        assertTrue(fitted.values.sum() <= STORY_BUDGET)
     }
 
     @Test fun countsFromTheOldSectionsAreIgnored() {
@@ -77,8 +75,8 @@ class SourcesTest {
         assertEquals(mapOf("follow" to 1, "custom" to 2), withPicks(emptyMap(), 3))
     }
 
-    @Test fun aFullBriefIsAboutAQuarterHour() {
-        assertEquals(13, briefMinutes(STORY_BUDGET))
+    @Test fun briefMinutesFollowsTheStoryCount() {
+        assertEquals(13, briefMinutes(35))
         assertEquals(2, briefMinutes(4))
     }
 }

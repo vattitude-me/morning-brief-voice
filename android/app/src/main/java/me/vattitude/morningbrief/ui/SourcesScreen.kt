@@ -56,10 +56,8 @@ import me.vattitude.morningbrief.pipeline.FOLLOW_EXAMPLES
 import me.vattitude.morningbrief.pipeline.MAX_PER_SECTION
 import me.vattitude.morningbrief.pipeline.PICKS
 import me.vattitude.morningbrief.pipeline.SECTIONS
-import me.vattitude.morningbrief.pipeline.STORY_BUDGET
 import me.vattitude.morningbrief.pipeline.Section
 import me.vattitude.morningbrief.pipeline.Source
-import me.vattitude.morningbrief.pipeline.briefMinutes
 import me.vattitude.morningbrief.pipeline.picksCount
 import java.net.URI
 
@@ -83,8 +81,6 @@ fun SourcesScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     var removing by remember { mutableStateOf<Source?>(null) }
     val expanded = remember { mutableStateMapOf<String, Boolean>() }
     val t = Mb.t
-    val total = SECTIONS.keys.sumOf { st.stories[it] ?: 0 }
-    val full = total >= STORY_BUDGET
     fun on(src: Source) = vm.isOn(src, st, pending)
 
     LaunchedEffect(email) { vm.loadSources() }
@@ -102,15 +98,13 @@ fun SourcesScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             CircularProgressIndicator(Modifier.padding(top = 22.dp).size(24.dp), color = t.ink, strokeWidth = 2.dp)
         }
 
-        item { Budget(total) }
-
         item {
             Hint("Tap a topic to see its sources, and use − and + to set how many stories it gets. A topic set to Off is skipped.",
                 Modifier.padding(start = 4.dp, top = 4.dp))
         }
 
         item {
-            Picks(vm, picksCount(st.stories), canRaise = !full, sources.filter { it.section in PICKS }, ::on) { removing = it }
+            Picks(vm, picksCount(st.stories), canRaise = true, sources.filter { it.section in PICKS }, ::on) { removing = it }
         }
 
         SECTIONS.values.filter { it.isCategory || it.key == "local" }.forEach { s ->
@@ -123,7 +117,7 @@ fun SourcesScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                     section = s,
                     label = label,
                     n = n,
-                    canRaise = !full,
+                    canRaise = true,
                     open = open,
                     onExpand = { expanded[s.key] = !open },
                     onChange = { vm.setStories(s.key, it) },
@@ -206,30 +200,6 @@ private fun Topic(
                     }
                 }
             }
-        }
-    }
-}
-
-/** How full the brief is: one tick per story, and about how long it will take to hear. */
-@Composable
-private fun Budget(total: Int) {
-    val t = Mb.t
-    Glass(Modifier.fillMaxWidth().padding(top = 22.dp)) {
-        Column(Modifier.padding(18.dp)) {
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text("$total of $STORY_BUDGET stories", Modifier.weight(1f), style = Type.title, color = t.ink)
-                Text(if (total == 0) "Nothing picked" else "About ${briefMinutes(total)} min", style = Type.meta, color = t.muted)
-            }
-            Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                repeat(STORY_BUDGET) { i ->
-                    Box(Modifier.weight(1f).height(6.dp).clip(CircleShape).background(if (i < total) t.ink else t.track))
-                }
-            }
-            Hint(
-                if (total >= STORY_BUDGET) "Your brief is full. Lower one topic to make room for another."
-                else "Up to $MAX_PER_SECTION from each topic and $STORY_BUDGET in all, so a brief stays near five minutes.",
-                Modifier.padding(top = 10.dp),
-            )
         }
     }
 }

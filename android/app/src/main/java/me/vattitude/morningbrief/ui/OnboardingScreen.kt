@@ -69,7 +69,7 @@ import java.util.Locale
 import me.vattitude.morningbrief.R
 import me.vattitude.morningbrief.pipeline.MAX_PER_SECTION
 import me.vattitude.morningbrief.pipeline.SECTIONS
-import me.vattitude.morningbrief.pipeline.STORY_BUDGET
+import me.vattitude.morningbrief.pipeline.briefMinutes
 
 private enum class Step { Welcome, Topics, Ready }
 
@@ -210,19 +210,14 @@ private fun TopicsStep(vm: AppViewModel) {
     val st by vm.settings.collectAsState()
     val t = Mb.t
     val total = SECTIONS.keys.sumOf { st.stories[it] ?: 0 }
-    val full = total >= STORY_BUDGET
     Title("Your topics", "What goes in your brief?",
-        "Twelve stories, split however you like — up to $MAX_PER_SECTION from each topic. Nothing is picked for you.")
+        "Up to $MAX_PER_SECTION stories from each topic, however you like it. Nothing is picked for you.")
     Glass(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp)) {
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text("$total of $STORY_BUDGET stories", Modifier.weight(1f), style = Type.title, color = t.ink)
-            }
-            Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                repeat(STORY_BUDGET) { i ->
-                    Box(Modifier.weight(1f).height(6.dp).clip(CircleShape).background(if (i < total) t.ink else t.track))
-                }
-            }
+            Text(
+                if (total == 0) "Nothing picked yet" else "$total stories, about ${briefMinutes(total)} min",
+                style = Type.title, color = t.ink,
+            )
             PillButton(if (total == 0) "Start with a balanced mix" else "Fill a balanced mix", filled = false,
                 modifier = Modifier.padding(top = 14.dp), onClick = { vm.applyQuickMix() })
         }
@@ -240,7 +235,7 @@ private fun TopicsStep(vm: AppViewModel) {
                     Text(s.title, style = Type.body, color = t.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("Up to $MAX_PER_SECTION stories", Modifier.padding(top = 2.dp), style = Type.tiny, color = t.muted)
                 }
-                StoryStepper(n, canRaise = !full, max = MAX_PER_SECTION) { vm.setStories(s.key, it) }
+                StoryStepper(n, canRaise = true, max = MAX_PER_SECTION) { vm.setStories(s.key, it) }
             }
         }
     }

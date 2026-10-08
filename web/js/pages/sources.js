@@ -1,10 +1,9 @@
 // Sources tab: a full page mirroring the Android SourcesScreen.
-// Budget card, your picks (links), and expandable topic cards with story counts.
+// Your picks (links) and expandable topic cards, each with its own story count.
 import { SECTIONS, api, h, icon, toast } from '../api.js';
 import { CheckDot, Chip, GlassGroup, Hairline, Hint, Overline, PillButton, SectionLabel, StoryStepper } from '../design.js';
 
 const MAX_PER_SECTION = 5;
-const STORY_BUDGET = MAX_PER_SECTION * 7;
 const TOPIC_KEYS = ['top', 'ai', 'tech', 'politics', 'entertainment', 'science', 'sports'];
 // "My Sources" (links people paste in) is parked while the seven default categories settle.
 // Everything it needs is still below — flip this back to true to restore the card.
@@ -45,11 +44,6 @@ export class SourcesPage {
   }
 
   reload() { this.loaded = false; return this.load(); }
-
-  total() {
-    const keys = SHOW_MY_SOURCES ? TOPIC_KEYS.concat('custom') : TOPIC_KEYS;
-    return keys.reduce((a, k) => a + (this.draft.stories[k] || 0), 0);
-  }
 
   isDirty() {
     if (!this.draft) return false;
@@ -101,14 +95,11 @@ export class SourcesPage {
   /* ------------------------------------------------------------ rendering */
   render() {
     if (!this.draft) return;
-    const total = this.total();
-    const full = total >= STORY_BUDGET;
     this.root.replaceChildren(
       this.header(),
-      this.budget(total, full),
       Hint('Tap a topic to see its sources, and use − and + to set how many stories it gets. A topic set to Off is skipped.'),
-      ...(SHOW_MY_SOURCES ? [this.picks(full)] : []),
-      ...TOPIC_KEYS.map((k) => this.topic(k, full)),
+      ...(SHOW_MY_SOURCES ? [this.picks()] : []),
+      ...TOPIC_KEYS.map((k) => this.topic(k)),
     );
   }
 
@@ -119,22 +110,9 @@ export class SourcesPage {
       h('p', { class: 'subtitle' }, "What goes into tomorrow's brief."));
   }
 
-  budget(total, full) {
-    const ticks = h('div', { class: 'budget-ticks' });
-    for (let i = 0; i < STORY_BUDGET; i++) ticks.append(h('span', { class: i < total ? 'on' : '' }));
-    return h('div', { class: 'glass budget-card' },
-      h('div', { class: 'budget-top' },
-        h('h3', {}, `${total} of ${STORY_BUDGET} stories`),
-        h('span', { class: 'meta' }, total === 0 ? 'Nothing picked' : `About ${Math.max(1, Math.round(total / 2.4))} min`)),
-      ticks,
-      Hint(full
-        ? 'Your brief is full. Lower one topic to make room for another.'
-        : `Up to ${MAX_PER_SECTION} stories from each topic — change any of them any time.`));
-  }
-
-  picks(full) {
+  picks() {
     const n = this.draft.stories.custom || 0;
-    const stepper = StoryStepper(n, !full, MAX_PER_SECTION, (v) => this.setStories('custom', v));
+    const stepper = StoryStepper(n, true, MAX_PER_SECTION, (v) => this.setStories('custom', v));
     const label = SectionLabel(SECTIONS.custom.title, {
       detail: 'Paste any news link — a site, section, feed or single article.',
       end: stepper,
@@ -184,7 +162,7 @@ export class SourcesPage {
     return h('section', { class: 'picks-section' }, label, addField, chips, list, offHint);
   }
 
-  topic(key, full) {
+  topic(key) {
     const sec = SECTIONS[key];
     const n = this.draft.stories[key] || 0;
     const items = this.sources.filter((s) => s.section === key);
@@ -198,7 +176,7 @@ export class SourcesPage {
       h('span', { class: 'topic-titles' },
         h('span', { class: 'topic-title' }, label),
         h('span', { class: 'tiny' }, `${items.length} source${items.length === 1 ? '' : 's'} · ${onCount} on`)),
-      StoryStepper(n, !full, MAX_PER_SECTION, (v) => this.setStories(key, v)),
+      StoryStepper(n, true, MAX_PER_SECTION, (v) => this.setStories(key, v)),
       h('span', { class: 'caret' + (open ? ' open' : ''), 'aria-hidden': 'true' }, icon(open ? 'chev-d' : 'chev-r')));
     head.addEventListener('click', (e) => {
       // The stepper handles its own taps; anything else toggles the card.

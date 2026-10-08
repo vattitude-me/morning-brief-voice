@@ -788,13 +788,6 @@ select.pill-field { appearance: auto; }
 /* ==========================================================================
    Sources page
    ========================================================================== */
-.budget-card { padding: 18px; margin-top: 22px; }
-.budget-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.budget-top h3 { margin: 0; font-size: 15px; font-weight: 600; color: var(--ink); }
-.budget-ticks { display: flex; gap: 4px; padding-top: 12px; }
-.budget-ticks span { flex: 1; height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--ink) 12%, transparent); }
-.budget-ticks span.on { background: var(--ink); }
-
 .picks-section { margin-top: 4px; }
 .add-field { display: flex; gap: 8px; align-items: center; }
 .add-field .pill-field { flex: 1; min-width: 0; }

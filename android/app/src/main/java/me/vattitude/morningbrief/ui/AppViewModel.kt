@@ -41,7 +41,6 @@ import me.vattitude.morningbrief.pipeline.PICKS
 import me.vattitude.morningbrief.pipeline.Place
 import me.vattitude.morningbrief.pipeline.QUICK_MIX
 import me.vattitude.morningbrief.pipeline.Source
-import me.vattitude.morningbrief.pipeline.STORY_BUDGET
 import me.vattitude.morningbrief.pipeline.Speech
 import me.vattitude.morningbrief.pipeline.fitBudget
 import me.vattitude.morningbrief.pipeline.kokoroVoice
@@ -541,16 +540,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         e.message ?: "Couldn't follow that."
     }
 
-    /** Stories for a topic, in the draft, within [MAX_PER_SECTION] a topic and [STORY_BUDGET] in all. */
+    /** Stories for a topic, in the draft: at most [MAX_PER_SECTION], with no cap on the brief as a whole. */
     fun setStories(section: String, n: Int) = update { st ->
-        val others = st.stories.filterKeys { it != section && it !in PICKS }.values.sum() + picksCount(st.stories)
-        st.copy(stories = st.stories + (section to n.coerceIn(0, minOf(MAX_PER_SECTION, STORY_BUDGET - others))))
+        st.copy(stories = st.stories + (section to n.coerceIn(0, MAX_PER_SECTION)))
     }
 
     /** Stories from the user's picks: follows and links share one count. */
     fun setPicks(n: Int) = update { st ->
-        val others = st.stories.filterKeys { it !in PICKS }.values.sum()
-        st.copy(stories = withPicks(st.stories, n.coerceIn(0, minOf(MAX_PER_SECTION, STORY_BUDGET - others))))
+        st.copy(stories = withPicks(st.stories, n.coerceIn(0, MAX_PER_SECTION)))
     }
 
     /** Fills the draft with the suggested balanced mix of topics. */

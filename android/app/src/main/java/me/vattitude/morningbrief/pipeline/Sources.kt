@@ -60,7 +60,6 @@ val QUICK_MIX: Map<String, Int> = SECTIONS.mapValues { DEFAULT_PER_SECTION }
  * A story takes about 22 seconds to hear, its share of the section leads included, and the greeting,
  * weather and sign-off about half a minute more.
  */
-const val STORY_BUDGET = 35
 const val MAX_PER_SECTION = 5
 const val DEFAULT_PER_SECTION = 3
 private const val SECONDS_PER_STORY = 22
@@ -77,18 +76,14 @@ fun picksCount(stories: Map<String, Int>): Int = PICKS.sumOf { stories[it] ?: 0 
 /** Splits the picks count between the two sections the web app and server keep apart. */
 fun withPicks(stories: Map<String, Int>, n: Int): Map<String, Int> = stories + ("follow" to n / 2) + ("custom" to n - n / 2)
 
-/** Fits counts to the limits: at most [MAX_PER_SECTION] a section (picks counted together) and [STORY_BUDGET] in all. */
+/**
+ * Clamps counts to the one limit that is left: at most [MAX_PER_SECTION] a section, with the picks
+ * counted together. There is no cap on the brief as a whole - the listener decides how long it is.
+ */
 fun fitBudget(stories: Map<String, Int>): Map<String, Int> {
     val out = LinkedHashMap<String, Int>()
     for (k in SECTIONS.keys) if (k !in PICKS) out[k] = (stories[k] ?: 0).coerceIn(0, MAX_PER_SECTION)
-    out["picks"] = picksCount(stories).coerceIn(0, MAX_PER_SECTION)
-    // Over budget (counts from before the limit, or from the web app): trim the biggest, later sections first.
-    while (out.values.sum() > STORY_BUDGET) {
-        val key = out.entries.reversed().maxBy { it.value }.key
-        out[key] = out.getValue(key) - 1
-    }
-    val picks = out.remove("picks")!!
-    return withPicks(out, picks)
+    return withPicks(out, picksCount(stories).coerceIn(0, MAX_PER_SECTION))
 }
 
 /** The catalog's sources. Their ids are negative and stable; signed in, the Supabase row's id replaces it. */
