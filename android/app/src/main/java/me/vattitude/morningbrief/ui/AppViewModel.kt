@@ -442,12 +442,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (c.currentMediaItem?.mediaId != id) {
             if (pack != null && pack.clips.isNotEmpty()) {
                 // One MediaItem per clip: Media3 queues them, so a section's intro flows
-                // straight into its first story with no gap and no re-encoding.
+                // straight into its first story with no gap and no re-encoding. The breath
+                // between two stories is its own silent clip, played from the app's own asset.
                 currentPack = pack
+                // By resource id, not by name: the release build shortens resource paths.
+                val silence = Uri.parse("android.resource://${getApplication<Application>().packageName}/${R.raw.gap}")
                 c.setMediaItems(pack.clips.map { clip ->
                     MediaItem.Builder()
                         .setMediaId(id)
-                        .setUri(clip.url)
+                        .setUri(if (clip.gap) silence else Uri.parse(clip.url))
                         .setMediaMetadata(MediaMetadata.Builder().setTitle(clip.title).setArtist("Morning Brief").build())
                         .build()
                 })

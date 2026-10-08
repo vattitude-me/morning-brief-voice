@@ -59,6 +59,14 @@ export function clipsFor(rows, wanted, voice) {
 
 const round = (n) => Math.round(n * 100) / 100;
 
+/**
+ * A breath between two clips, in seconds. Without it the end of one story runs into the start of
+ * the next and the two read as a single sentence. It is a real silent clip rather than a delay in
+ * the player, so the timeline stays true: story times, seeking and the total all count it.
+ */
+export const BREATH = 0.8;
+const GAP_URL = '/audio/gap.mp3';
+
 /** Which greeting to open with, by the listener's local hour (mirrors app/storypack.py). */
 export function greetingKey(hour = new Date().getHours()) {
   if (hour < 12) return 'greeting_morning';
@@ -91,9 +99,20 @@ export function buildBriefing(rows, settings, { date, voice, notes = [], hour } 
   const counts = new Map();
   let cursor = 0;
 
+  /** A silent clip between two voiced ones, so a story never starts on the last word. */
+  const breath = () => {
+    if (!cursor) return;
+    const start = round(cursor);
+    const end = round(cursor + BREATH);
+    clips.push({ id: `gap-${clips.length}`, url: GAP_URL, duration: BREATH, section: null, rank: 0,
+      title: '', start, end, gap: true });
+    cursor += BREATH;
+  };
+
   const sayNote = (key) => {
     const note = byKey.get(key);
     if (!note) return;
+    breath();
     const duration = Number(note.duration) || 0;
     const start = round(cursor);
     const end = round(cursor + duration);
@@ -111,6 +130,7 @@ export function buildBriefing(rows, settings, { date, voice, notes = [], hour } 
       sayNote(`intro_${row.section}`);
       currentSection = row.section;
     }
+    breath();
     const duration = Number(row.duration) || 0;
     const start = round(cursor);
     const end = round(cursor + duration);

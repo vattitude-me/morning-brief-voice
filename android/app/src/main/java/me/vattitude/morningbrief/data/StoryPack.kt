@@ -12,11 +12,19 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalTime
 
-/** One clip on the briefing's timeline: a story, or one of the spoken notes. */
+/** One clip on the briefing's timeline: a story, one of the spoken notes, or a breath between two. */
 data class Clip(
     val id: String, val title: String, val url: String,
     val duration: Double, val start: Double, val end: Double, val note: Boolean,
+    /** True for the silent clip that separates two voiced ones. */
+    val gap: Boolean = false,
 )
+
+/**
+ * A breath between two clips, in seconds. Without it the end of one story runs into the start of
+ * the next and the two read as a single sentence. Mirrors BREATH in web/js/storypack.js.
+ */
+const val BREATH = 0.8
 
 /** A listener's briefing, assembled from the shared day's clips. */
 data class Pack(val briefing: Briefing, val clips: List<Clip>, val version: String)
@@ -79,8 +87,17 @@ object StoryPack {
         val counts = LinkedHashMap<String, Int>()
         var cursor = 0.0
 
+        /** A silent clip between two voiced ones, so a story never starts on the last word. */
+        fun breath() {
+            if (cursor <= 0.0) return
+            clips += Clip("gap-${clips.size}", clips.last().title, "", BREATH, cursor, cursor + BREATH,
+                note = false, gap = true)
+            cursor += BREATH
+        }
+
         fun sayNote(key: String) {
             val note = noteByKey[key] ?: return
+            breath()
             val duration = note.optDouble("duration", 0.0)
             val text = note.optString("text")
             clips += Clip(key, text, clipUrl(note.optString("audio_path")), duration, cursor, cursor + duration, note = true)
@@ -97,6 +114,7 @@ object StoryPack {
             if (chosen.isEmpty()) continue
             sayNote("intro_$key")
             for (row in chosen) {
+                breath()
                 val duration = row.optDouble("duration", 0.0)
                 val id = "$key-${row.optInt("rank")}"
                 val title = row.optString("title")
