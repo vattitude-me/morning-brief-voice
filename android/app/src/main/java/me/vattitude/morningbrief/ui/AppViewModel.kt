@@ -150,9 +150,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---- Lifecycle ------------------------------------------------------------------------
 
     fun onOpen() {
-        refreshBriefings()
         connectPlayer()
         packInstalled.value = KokoroPack.current(getApplication())
+        // Coming back to the app must not empty the screen. This used to re-list the phone's own
+        // recordings, which the shared pack replaced: with none on disk it selected nothing, so the
+        // news vanished while the audio, which plays from the service, carried on regardless.
+        val today = LocalDate.now().toString()
+        when (val shown = selected.value) {
+            null -> select(today)
+            today -> if (packs[today] == null) { packs.remove(today); fetchPack(today) }  // retry a miss
+            else -> select(today)                                                       // a new day came around
+        }
         viewModelScope.launch {
             repo.pullSettings()
             refreshSaved()
@@ -270,14 +278,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun refreshBriefings(selectLatest: Boolean = false) {
         val list = repo.briefings.dates()
         dates.value = list
+        // The phone's own recordings are the older path. When the day on screen came from the
+        // shared pack, leave it alone: this list is empty for anyone who never built on the phone.
+        if (!selectLatest && selected.value?.let { packs[it]?.briefing } != null) return
         val keep = selected.value?.takeIf { it in list && !selectLatest }
-        select(keep ?: list.firstOrNull())
+        select(keep ?: list.firstOrNull() ?: LocalDate.now().toString())
         // A briefing recorded again replaces its audio: drop the old recording from the player.
         controller?.let { c ->
             val loaded = c.currentMediaItem?.mediaId ?: return@let
             val date = loaded.substringBefore('@')
-            val now = repo.briefings.load(date)?.let { Briefing.from(it).mediaId }
-            if (now != loaded) {
+            val now = packs[date]?.briefing?.mediaId
+                ?: repo.briefings.load(date)?.let { Briefing.from(it).mediaId }
+            if (now != null && now != loaded) {
                 c.stop()
                 c.clearMediaItems()
                 tick()
@@ -337,7 +349,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun refreshPack() {
         val today = LocalDate.now().toString()
         packs.remove(today)
-        select(today)
+        // Keep whatever is on screen while the check runs, so a miss does not blank the news.
+        if (selected.value == today && briefing.value != null) fetchPack(today) else select(today)
     }
 
     fun buildNow() {
