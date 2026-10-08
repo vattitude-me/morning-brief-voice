@@ -78,7 +78,7 @@ function renderNotice() {
   if (!state.briefing) {
     box.replaceChildren(h('div', { class: 'glass notice-card', role: 'status' },
       h('h3', {}, "Today's brief isn't ready yet"),
-      h('p', {}, "It's usually published by 7 am. Come back in a little while.")));
+      h('p', {}, "It's recorded once each morning for everyone. Come back in a little while.")));
     return;
   }
   if (state.briefing.fresh === false) {
@@ -179,7 +179,8 @@ function renderSections() {
   const box = $('sections');
   const b = state.briefing;
   if (!b) {
-    box.replaceChildren(h('div', { class: 'empty' }, h('h3', {}, 'No briefing yet'), h('p', {}, 'Make your first brief above to get started.')));
+    box.replaceChildren(h('div', { class: 'empty' }, h('h3', {}, 'Not published yet'),
+      h('p', {}, "Today's brief is recorded once each morning for everyone. Reload in a minute, or set your topics in Sources.")));
     return;
   }
   const currentSection = (() => {
@@ -483,13 +484,13 @@ async function start() {
     if (cached?.audio_url?.startsWith('http')) {
       state.briefing = cached;
       displayBriefing();
-      toast(`Offline: showing your last briefing. (${err.message})`, { error: true, ms: 8000 });
+      toast(`Offline. Showing your last briefing. ${err.message}`, { error: true, ms: 8000 });
     } else {
       renderHeader();
       renderNotice();
       renderHero();
       renderSections();
-      toast(`Couldn't reach the service: ${err.message}`, { error: true, ms: 8000 });
+      toast(`Couldn't reach the service. ${err.message}`, { error: true, ms: 8000 });
     }
   }
 }

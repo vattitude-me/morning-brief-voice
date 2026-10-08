@@ -166,8 +166,7 @@ private fun Welcome(vm: AppViewModel) {
     AppMark()
     Spacer(Modifier.height(26.dp))
     Title("Morning Brief", "Your news, read aloud every morning.",
-        "Five minutes of the stories you care about, waiting when you wake. No ads, no account, " +
-            "and nothing to build.")
+        "Five minutes of the stories you care about, ready when you wake. No ads, and nothing to build.")
     Glass(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             InkCircle(if (demo != null) Icons.Filled.Pause else Icons.Filled.PlayArrow,
@@ -184,9 +183,9 @@ private fun Welcome(vm: AppViewModel) {
         }
     }
     Column(Modifier.padding(top = 22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Feature(Icons.Outlined.RecordVoiceOver, "Read by a real narrator", "The same warm voice every morning, recorded before you wake")
-        Feature(Icons.Outlined.Schedule, "Ready before your alarm", "A new brief appears each morning — nothing to build or wait for")
-        Feature(Icons.Outlined.AutoAwesome, "Only what you follow", "Pick your topics, and how many stories each one gets")
+        Feature(Icons.Outlined.RecordVoiceOver, "Read by Alice or Mike", "The same narrator every morning, recorded before you wake")
+        Feature(Icons.Outlined.Schedule, "Ready before your alarm", "A new brief appears each morning. Nothing to build or wait for")
+        Feature(Icons.Outlined.AutoAwesome, "Only your topics", "Pick your sections, and how many stories each gets")
     }
 }
 
@@ -239,7 +238,7 @@ private fun TopicsStep(vm: AppViewModel) {
             }
         }
     }
-    if (total == 0) Hint("Pick at least one topic — or start with the balanced mix above.",
+    if (total == 0) Hint("Pick at least one topic, or start with the balanced mix above.",
         Modifier.padding(top = 12.dp, start = 4.dp), color = t.error)
 }
 
@@ -281,6 +280,6 @@ private fun ReadyStep(vm: AppViewModel) {
             )
         }
     }
-    Hint("The day's brief is recorded once, early, and shows up here on its own — there's nothing to build or download.",
+    Hint("The day's brief is recorded once each morning and appears here on its own. There's nothing to build or download.",
         Modifier.padding(top = 14.dp, start = 4.dp))
 }

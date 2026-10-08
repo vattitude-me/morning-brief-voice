@@ -222,7 +222,7 @@ fun TodayScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 ?.format(DateTimeFormatter.ofPattern("EEE · d MMM", Locale.ENGLISH)) ?: b.date
             Notice(Modifier.padding(top = 22.dp)) {
                 Text("Showing the latest brief, from $day", style = Type.title, color = t.ink)
-                Text("Today's recording isn't out yet — this is the most recent one, with your usual topics. " +
+                Text("Today's recording isn't out yet. This is the most recent one, in your usual topics. " +
                     "It'll switch over on its own.",
                     Modifier.padding(top = 4.dp), style = Type.body, color = t.muted)
                 PillButton("Check again", Modifier.padding(top = 14.dp), filled = false) { vm.refreshPack() }

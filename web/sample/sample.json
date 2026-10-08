@@ -2,7 +2,12 @@
  "briefing": {
   "date": "2026-10-07",
   "title": "Your briefing",
-  "duration": 143.04,
+  "voice": {
+   "id": "her_reference",
+   "name": "Alice",
+   "gender": "female"
+  },
+  "duration": 135.24,
   "audio_url": "/sample/sample.mp3",
   "chapters": [
    {
@@ -36,37 +41,37 @@
    {
     "id": "top-3",
     "kind": "story",
-    "title": "Separatists win in Quebec – but does that bring separation from Canada any closer?",
+    "title": "China’s succession crisis: a generation of entrepreneurs is retiring, but are their children ready to take over?",
     "start": 49.4,
-    "end": 69.64
+    "end": 64.04
    },
    {
     "id": "intro-ai",
     "kind": "note",
     "title": "Here's the latest in AI.",
-    "start": 69.64,
-    "end": 72.04
+    "start": 64.04,
+    "end": 66.44
    },
    {
     "id": "ai-1",
     "kind": "story",
-    "title": "The AI industry is booming. Women are getting left behind",
-    "start": 72.04,
-    "end": 90.8
+    "title": "Datacentre company Firmus’s high flying valuation may be coming back down to earth ahead of expected ASX debut",
+    "start": 66.44,
+    "end": 89.12
    },
    {
     "id": "ai-2",
     "kind": "story",
-    "title": "OpenAI’s release of mathematical findings draws concerns from experts",
-    "start": 90.8,
-    "end": 115.76
+    "title": "The AI industry is booming. Women are getting left behind",
+    "start": 89.12,
+    "end": 107.68
    },
    {
     "id": "ai-3",
     "kind": "story",
-    "title": "Mumsnet denies using AI for content after prompt appears on message board",
-    "start": 115.76,
-    "end": 142.56
+    "title": "OpenAI’s release of mathematical findings draws concerns from experts",
+    "start": 107.68,
+    "end": 134.76
    }
   ],
   "stories": [
@@ -95,46 +100,46 @@
    {
     "id": "top-3",
     "section": "top",
-    "headline": "Separatists win in Quebec – but does that bring separation from Canada any closer?",
-    "summary": "The victory of the Parti Québécois in Monday’s election in Quebec might seem to bring its signature goal, of separating the French-speaking province from Canada, much closer – but Canadian unity may not be nearly as threatened as may first seem. The PQ’s victory was both impressive and disappointing.",
+    "headline": "China’s succession crisis: a generation of entrepreneurs is retiring, but are their children ready to take over?",
+    "summary": "Growing up, Ayu would watch his parents put together hand made leather shoes on the ground floor of their three storey home in the Chinese city of Wenzhou. “The factory and the home were the same place. But he is reluctant to join the family business.",
     "source": "The Guardian · Top stories",
-    "url": "https://www.theguardian.com/world/2026/oct/07/quebec-election-canada-separatists-analysis",
-    "image": "https://i.guim.co.uk/img/media/aa64b4e47580dd1fb652fde22f7eec6463f21ef2/808_0_6880_5504/master/6880.jpg?width=1200&height=630&quality=85&auto=format&fit=crop&precrop=40:21,offset-x50,offset-y0&overlay-align=bottom%2Cleft&overlay-width=100p&overlay-base64=L2ltZy9zdGF0aWMvb3ZlcmxheXMvdGctZGVmYXVsdC5wbmc&enable=upscale&s=b5c578f404c88a6a17e6dc878c9033a7",
+    "url": "https://www.theguardian.com/world/2026/oct/08/china-succession-crisis-factory-workers-manufacturing-family-businesses",
+    "image": "https://i.guim.co.uk/img/media/801af4720c72c84f3b46d5bdd7237e872c1a2589/72_185_2904_2324/master/2904.jpg?width=1200&height=630&quality=85&auto=format&fit=crop&precrop=40:21,offset-x50,offset-y0&overlay-align=bottom%2Cleft&overlay-width=100p&overlay-base64=L2ltZy9zdGF0aWMvb3ZlcmxheXMvdGctZGVmYXVsdC5wbmc&enable=upscale&s=d0eac3cb971893c22b6e0bd71ad5df4a",
     "start": 49.4,
-    "end": 69.64
+    "end": 64.04
    },
    {
     "id": "ai-1",
+    "section": "ai",
+    "headline": "Datacentre company Firmus’s high flying valuation may be coming back down to earth ahead of expected ASX debut",
+    "summary": "The momentum behind Firmus Technologies’ high-flying valuation is showing severe cracks just weeks out from its anticipated ASX debut. Multiple sources briefed on the matter told Guardian Australia the AI datacentre company is slashing its valuation to entice sceptical investors – or may even shelve its initial public offering altogether. - Jonathan Barrett is Guardian Australia’s business editor.",
+    "source": "The Guardian · AI",
+    "url": "https://www.theguardian.com/australia-news/2026/oct/08/ai-datacentre-firmus-slash-valuation-before-asx-listing",
+    "image": "https://i.guim.co.uk/img/media/569eb02492eca0edba751bcd408cd19c78468a89/454_0_1977_1582/master/1977.jpg?width=1200&height=630&quality=85&auto=format&fit=crop&precrop=40:21,offset-x50,offset-y0&overlay-align=bottom%2Cleft&overlay-width=100p&overlay-base64=L2ltZy9zdGF0aWMvb3ZlcmxheXMvdGctZGVmYXVsdC5wbmc&enable=upscale&s=d281f255305dba0cb7a1f85276f657c9",
+    "start": 66.44,
+    "end": 89.12
+   },
+   {
+    "id": "ai-2",
     "section": "ai",
     "headline": "The AI industry is booming. Women are getting left behind",
     "summary": "There’s a common fear among people who work in Silicon Valley: snag one of the fast-growing, high-paying jobs in artificial intelligence, or get trapped in the “permanent underclass”, a phrase describing the fate of those who won’t have upward mobility in the age of AI. But for women in tech, it’s starting to look like the present.",
     "source": "The Guardian · AI",
     "url": "https://www.theguardian.com/technology/2026/oct/04/women-ai-jobs-inequality",
     "image": "https://i.guim.co.uk/img/media/887a4a342690f7c675f7ae9e721933650383125d/0_0_3000_2400/master/3000.jpg?width=1200&height=630&quality=85&auto=format&fit=crop&precrop=40:21,offset-x50,offset-y0&overlay-align=bottom%2Cleft&overlay-width=100p&overlay-base64=L2ltZy9zdGF0aWMvb3ZlcmxheXMvdGctZGVmYXVsdC5wbmc&enable=upscale&s=060263602fa1d9f43531fdab27dd7730",
-    "start": 72.04,
-    "end": 90.8
+    "start": 89.12,
+    "end": 107.68
    },
    {
-    "id": "ai-2",
+    "id": "ai-3",
     "section": "ai",
     "headline": "OpenAI’s release of mathematical findings draws concerns from experts",
     "summary": "OpenAI has astounded mathematicians after releasing hundreds of new mathematical findings on Tuesday. The company published over 370 mathematical results across a variety of topics such as algebra, theoretical computer science and mathematical logic, showcasing what some of its most advanced artificial intelligence models are capable of. “We believe that human understanding of mathematics remains of paramount importance.",
     "source": "The Guardian · AI",
     "url": "https://www.theguardian.com/technology/2026/oct/07/openai-mathematical-findings-concerns",
     "image": "https://i.guim.co.uk/img/media/01ef491cddca9dbad5f1f62da12fa75e84a55605/1065_0_6464_5172/master/6464.jpg?width=1200&height=630&quality=85&auto=format&fit=crop&precrop=40:21,offset-x50,offset-y0&overlay-align=bottom%2Cleft&overlay-width=100p&overlay-base64=L2ltZy9zdGF0aWMvb3ZlcmxheXMvdGctZGVmYXVsdC5wbmc&enable=upscale&s=4cb91084db460a6c78202ccd0a47640c",
-    "start": 90.8,
-    "end": 115.76
-   },
-   {
-    "id": "ai-3",
-    "section": "ai",
-    "headline": "Mumsnet denies using AI for content after prompt appears on message board",
-    "summary": "Mumsnet has denied using AI to produce content after detailed instructions to help an AI model write one of its popular “am I being unreasonable” (AIBU) posts appeared on a Mumsnet message board. Again users were unconvinced and speculated the prompt must have leaked from Mumsnet’s internal system. “Mumsnet works because the people on it are real,” Roberts said.",
-    "source": "The Guardian · AI",
-    "url": "https://www.theguardian.com/media/2026/oct/07/mumsnet-denies-using-ai-for-content-message-board-prompt",
-    "image": "https://i.guim.co.uk/img/media/dc2a9c3e8a5f2b681f722120348fbee20c59c9f3/1014_0_6830_5464/master/6830.jpg?width=1200&height=630&quality=85&auto=format&fit=crop&precrop=40:21,offset-x50,offset-y0&overlay-align=bottom%2Cleft&overlay-width=100p&overlay-base64=L2ltZy9zdGF0aWMvb3ZlcmxheXMvdGctZGVmYXVsdC5wbmc&enable=upscale&s=bb3e4a32839f451a837b6aab99f4cd6c",
-    "start": 115.76,
-    "end": 142.56
+    "start": 107.68,
+    "end": 134.76
    }
   ],
   "sections": [

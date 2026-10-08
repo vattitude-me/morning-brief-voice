@@ -199,7 +199,7 @@ export class SettingsPage {
     return GlassGroup(
       h('div', { class: 'voice-list' }, ...rows),
       Hairline(),
-      Hint('Both voices are recorded each morning from the same stories, so switching only changes who you hear — from your next brief.'),
+      Hint('Both voices are recorded each morning from the same stories, so switching only changes who you hear. It starts with your next brief.'),
       Hairline(),
       ListRow({
         label: 'Playback speed',

@@ -114,7 +114,7 @@ export class SourcesPage {
     const n = this.draft.stories.custom || 0;
     const stepper = StoryStepper(n, true, MAX_PER_SECTION, (v) => this.setStories('custom', v));
     const label = SectionLabel(SECTIONS.custom.title, {
-      detail: 'Paste any news link — a site, section, feed or single article.',
+      detail: 'Paste any news link: a site, section, feed or single article.',
       end: stepper,
     });
 
@@ -138,7 +138,7 @@ export class SourcesPage {
         this.sources = sources;
         for (const s of sources) if (!(s.id in this.draft.enabled)) this.draft.enabled[s.id] = !!s.enabled;
         input.value = '';
-        toast('Added. It will be checked at the next briefing.');
+        toast('Saved to your sources.');
         this.render();
       } catch (err) { toast(err.message, { error: true }); }
       finally { working = false; addBtn.classList.remove('busy'); }
@@ -205,7 +205,7 @@ export class SourcesPage {
           body.append(this.sourceRow(s, null));
         });
       }
-      if (n === 0) body.append(Hint('This topic is Off — raise the count to include its stories.', 'var(--err)'));
+      if (n === 0) body.append(Hint('This topic is off. Raise the count to include its stories.', 'var(--err)'));
       card.append(body);
     }
     return card;

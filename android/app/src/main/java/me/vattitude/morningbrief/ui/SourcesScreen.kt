@@ -201,7 +201,7 @@ private fun Topic(
                                 SourceRow(src, on(src), onToggle = { onToggle(src, it) })
                             }
                         }
-                        if (n == 0) Hint("This topic is Off — raise the count to include its stories.",
+                        if (n == 0) Hint("This topic is off. Raise the count to include its stories.",
                             Modifier.padding(bottom = 12.dp), color = t.error)
                     }
                 }

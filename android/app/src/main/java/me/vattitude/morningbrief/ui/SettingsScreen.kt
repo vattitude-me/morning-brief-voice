@@ -90,7 +90,6 @@ import me.vattitude.morningbrief.pipeline.PHONE_VOICE
 import me.vattitude.morningbrief.pipeline.Place
 import me.vattitude.morningbrief.pipeline.kokoroVoice
 import me.vattitude.morningbrief.pipeline.packVoice
-import me.vattitude.morningbrief.work.Scheduler
 
 private val TIME = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)
 
@@ -157,7 +156,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             SectionLabel("Brief")
             GlassGroup {
                 SwitchRow("Make one every morning", st.daily,
-                    detail = if (st.daily) "Starts about ${Scheduler.LEAD_MINUTES} minutes earlier, whenever the phone is online" else null,
+                    detail = if (st.daily) "You get the morning alert" else null,
                 ) { on -> vm.update { it.copy(daily = on) } }
                 Hairline()
                 ListRow("Ready by", value = LocalTime.of(st.readyHour, st.readyMinute).format(TIME), caret = st.daily,
@@ -243,7 +242,7 @@ private fun NarratorGroup(vm: AppViewModel) {
         }
         Hairline()
         Hint(
-            "Both voices are recorded each morning from the same stories, so switching only changes who you hear — from your next brief.",
+            "Both voices are recorded each morning from the same stories, so switching only changes who you hear. It starts with your next brief.",
             Modifier.padding(top = 12.dp, bottom = 4.dp),
         )
         Hairline()

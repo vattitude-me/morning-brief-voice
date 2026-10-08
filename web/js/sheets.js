@@ -1,5 +1,5 @@
 // Install helpers, push notifications, welcome + delete-account sheets.
-import { SECTIONS, api, clockLabel, h, sectionLabel, toast } from './api.js';
+import { SECTIONS, api, h, sectionLabel, toast } from './api.js';
 
 export function wireSheet(dialog) {
   dialog.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => dialog.close()));
@@ -101,18 +101,7 @@ class DeleteAccountSheet {
 
 /* ------------------------------------------------------------------ Welcome */
 // First sign-in: name, which sources to read, then when the first briefing arrives (plus notifications).
-const STEP_TITLE = { name: 'Welcome 👋', sources: 'Your news', morning: "You're all set" };
-
-// "Tomorrow at 5:30 a.m." from the worker's next run (ISO, in the server's time zone).
-function whenLabel(status) {
-  const next = status?.next_run ? new Date(status.next_run) : null;
-  const at = next && !Number.isNaN(next.getTime())
-    ? next.toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' })
-    : clockLabel(status?.batch_time);
-  if (!at) return 'Tomorrow morning';
-  const today = new Date().toDateString();
-  return next && next.toDateString() === today ? `Today at ${at}` : `Tomorrow at ${at}`;
-}
+const STEP_TITLE = { name: 'Welcome', sources: 'Your news', morning: "You're all set" };
 
 export class WelcomeSheet {
   constructor({ onDone }) {
@@ -192,7 +181,7 @@ export class WelcomeSheet {
       this.disabled = new Set(this.sources.filter((s) => !s.enabled).map((s) => s.id));
       this.paintSources();
     } catch (err) {
-      box.replaceChildren(h('p', { class: 'hint' }, `Couldn't load the source list (${err.message}). You can pick them later in Sources.`));
+      box.replaceChildren(h('p', { class: 'hint' }, `Couldn't load the sources. ${err.message} You can pick them later in Sources.`));
     }
   }
 
@@ -214,7 +203,7 @@ export class WelcomeSheet {
           });
           return chip;
         })));
-    }), this.added ? h('p', { class: 'hint' }, `⭐ ${this.added} of your own ${this.added === 1 ? 'link' : 'links'} added.`) : '');
+    }), this.added ? h('p', { class: 'hint' }, `${this.added} of your own ${this.added === 1 ? 'link' : 'links'} added.`) : '');
   }
 
   async addSource() {
@@ -232,7 +221,7 @@ export class WelcomeSheet {
       await api.addSource({ url, section: 'custom' });
       this.added += 1;
       input.value = '';
-      toast('Added. It will be read at the next morning build.');
+      toast('Saved to your sources.');
       if (this.sources) this.paintSources();
     } catch (err) {
       toast(err.message, { error: true });
@@ -250,10 +239,11 @@ export class WelcomeSheet {
     try {
       ready = (await api.storyAudio(new Date().toLocaleDateString('en-CA'))).length > 0;
     } catch { /* offline, or not signed in yet: fall back to the schedule below */ }
-    when.textContent = ready ? 'Ready now' : whenLabel(this.status);
+    // The brief is recorded once each morning, so that is as specific as we can be.
+    when.textContent = ready ? 'Ready now' : 'Tomorrow morning';
     what.textContent = ready
       ? 'Recorded this morning and waiting for you.'
-      : 'The top stories, summarised and read aloud in about five minutes.';
+      : 'The top stories, summarized and read aloud in about five minutes.';
   }
 
   async finish(save) {
