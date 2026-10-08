@@ -35,15 +35,15 @@ class WriterTest {
     @Test fun introAndSectionLeads() {
         val list = stories(3)
         val copies = list.associate { it.id to templateCopy(it) }
-        val script = compose(linkedMapOf("canada" to list.take(1), "tech" to list.subList(1, 2), "custom" to list.drop(2)),
+        val script = compose(linkedMapOf("top" to list.take(1), "tech" to list.subList(1, 2), "sports" to list.drop(2)),
             copies, when_, null, "Ana", false)
         assertEquals("Good morning, Ana! It's Wednesday, September 30. Here's your briefing.", script.intro)
         assertEquals(mapOf(
-            "canada" to "First, the top stories from across Canada.",
-            "tech" to "Next, the latest in AI and technology.",
-            "custom" to "And finally, news on the names and sites you picked.",
+            "top" to "First, the top stories.",
+            "tech" to "Next, the latest in tech.",
+            "sports" to "And finally, sports.",
         ), script.sectionLeads)
-        assertEquals(mapOf("tech" to "The latest in AI and technology."), sectionLeads(listOf("tech")))
+        assertEquals(mapOf("tech" to "The latest in tech."), sectionLeads(listOf("tech")))
     }
 
     @Test fun spokenCopyComesBackAsBeatsOnePerLine() {

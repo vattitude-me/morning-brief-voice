@@ -32,39 +32,37 @@ private val CATALOG: JSONObject by lazy {
     JSONObject(stream.bufferedReader().use { it.readText() })
 }
 
-/** Every section, in the order a briefing reads them. */
-val SECTIONS: LinkedHashMap<String, Section> by lazy {
-    val arr = CATALOG.getJSONArray("sections")
-    LinkedHashMap<String, Section>().apply {
-        for (i in 0 until arr.length()) {
-            val j = arr.getJSONObject(i)
-            put(j.getString("key"), Section(j.getString("key"), j.getString("title"), j.getString("emoji"),
-                j.getString("topic"), j.optInt("stories")))
-        }
-    }
-}
-
 /**
- * What a brand-new phone starts with: every topic off. Nothing is pre-allocated, so the setup
- * (and the Sources tab) let the user choose how their twelve stories are spent.
+ * The seven pack sections, in reading order — exactly the keys the worker publishes
+ * (app/guardian.py) and the web app uses. A section is now one feed (The Guardian),
+ * not a bag of outlets, so these are fixed rather than read from the bundled catalog.
  */
-val DEFAULT_STORIES: Map<String, Int> get() = SECTIONS.mapValues { 0 }
-
-/** A balanced twelve-story first brief, offered as a one-tap start during setup. */
-val QUICK_MIX: Map<String, Int> = mapOf(
-    "canada" to 4,
-    "local" to 2,
-    "world" to 2,
-    "business" to 2,
-    "tech" to 2,
+val SECTIONS: LinkedHashMap<String, Section> = linkedMapOf(
+    "top" to Section("top", "Top stories", "📰", "the top stories"),
+    "ai" to Section("ai", "AI", "🤖", "the latest in AI"),
+    "tech" to Section("tech", "Tech", "💻", "the latest in tech"),
+    "politics" to Section("politics", "Politics", "🏛️", "politics"),
+    "entertainment" to Section("entertainment", "Entertainment", "🎬", "entertainment"),
+    "science" to Section("science", "Science", "🔬", "science"),
+    "sports" to Section("sports", "Sports", "🏅", "sports"),
 )
 
 /**
- * A story takes about 22 seconds to hear, its share of the section leads included, and the greeting,
- * weather and sign-off about half a minute more. Twelve stories keep a brief near five minutes.
+ * What a brand-new phone starts with: every section on, at three stories — the same
+ * default as the web app, so a first brief covers all seven out of the box.
  */
-const val STORY_BUDGET = 12
-const val MAX_PER_SECTION = 4
+val DEFAULT_STORIES: Map<String, Int> get() = SECTIONS.mapValues { DEFAULT_PER_SECTION }
+
+/** A balanced first brief: the same as the default. Offered as a one-tap start during setup. */
+val QUICK_MIX: Map<String, Int> = SECTIONS.mapValues { DEFAULT_PER_SECTION }
+
+/**
+ * A story takes about 22 seconds to hear, its share of the section leads included, and the greeting,
+ * weather and sign-off about half a minute more.
+ */
+const val STORY_BUDGET = 35
+const val MAX_PER_SECTION = 5
+const val DEFAULT_PER_SECTION = 3
 private const val SECONDS_PER_STORY = 22
 private const val SECONDS_AROUND = 30
 

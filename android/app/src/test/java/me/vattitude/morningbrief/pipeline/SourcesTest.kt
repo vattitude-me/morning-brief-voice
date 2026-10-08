@@ -5,12 +5,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SourcesTest {
-    @Test fun everyCategoryHasFiveSources() {
-        for (s in SECTIONS.values.filter { it.isCategory }) {
-            assertEquals(s.key, 5, BUILTIN_SOURCES.count { it.section == s.key })
-        }
+    @Test fun theSectionsAreTheSevenPackSections() {
+        assertEquals(
+            listOf("top", "ai", "tech", "politics", "entertainment", "science", "sports"),
+            SECTIONS.keys.toList(),
+        )
+        assertTrue(SECTIONS.values.all { it.isCategory })
         assertEquals(BUILTIN_SOURCES.size, BUILTIN_SOURCES.map { it.url }.toSet().size)
-        assertEquals(setOf<String>(), DEFAULT_STORIES.filterValues { it > 0 }.keys)
     }
 
     @Test fun localNewsUsesCityOutletsAndGoogleForAnywhere() {
@@ -31,8 +32,9 @@ class SourcesTest {
         assertTrue(!isFollowUrl("https://www.cbc.ca/sports"))
     }
 
-    @Test fun localLeadNamesTheCity() {
-        assertTrue(sectionLeads(listOf("local"), "Toronto, Ontario").getValue("local").contains("Toronto"))
+    @Test fun sectionLeadsNameTheTopic() {
+        assertTrue(sectionLeads(listOf("top"), "Toronto").getValue("top").contains("top stories"))
+        assertTrue(sectionLeads(listOf("top", "sports"), "Toronto").getValue("sports").contains("sports"))
     }
 
     @Test fun googleNewsCreditsTheOutlet() {
@@ -48,30 +50,35 @@ class SourcesTest {
         assertEquals("", items[0].summary)
     }
 
-    @Test fun freshInstallStartsWithNothingOn() {
-        assertTrue(DEFAULT_STORIES.values.all { it == 0 })
+    @Test fun freshInstallStartsWithEverySectionOn() {
+        assertTrue(DEFAULT_STORIES.values.all { it == DEFAULT_PER_SECTION })
         assertTrue(DEFAULT_STORIES.keys.containsAll(SECTIONS.keys))
+        assertEquals(SECTIONS.size * DEFAULT_PER_SECTION, DEFAULT_STORIES.values.sum())
     }
 
-    @Test fun quickMixFillsTheBudgetExactly() {
-        assertEquals(STORY_BUDGET, QUICK_MIX.values.sum())
+    @Test fun quickMixStaysWithinTheBudget() {
+        assertTrue(QUICK_MIX.values.sum() <= STORY_BUDGET)
         val fitted = fitBudget(QUICK_MIX)
-        assertEquals(STORY_BUDGET, fitted.values.sum())
         for ((k, v) in QUICK_MIX) assertEquals(v, fitted[k])
         assertEquals(0, picksCount(fitted))
     }
 
-    @Test fun oldCountsAreTrimmedToTheBudget() {
-        val fitted = fitBudget(mapOf("canada" to 6, "tech" to 6, "world" to 3, "follow" to 3, "custom" to 4))
+    @Test fun aSectionIsCappedAtTheMaximum() {
+        val fitted = fitBudget(SECTIONS.keys.associateWith { 9 })
+        assertTrue(fitted.filterKeys { it in SECTIONS }.values.all { it <= MAX_PER_SECTION })
         assertTrue(fitted.values.sum() <= STORY_BUDGET)
+    }
+
+    @Test fun countsFromTheOldSectionsAreIgnored() {
+        // Sections that no longer exist (canada, world...) contribute nothing now.
+        val fitted = fitBudget(mapOf("canada" to 6, "world" to 3, "follow" to 3, "custom" to 4))
+        assertEquals(0, fitted.filterKeys { it in SECTIONS }.values.sum())
         assertTrue(fitted.filterKeys { it !in PICKS }.values.all { it <= MAX_PER_SECTION })
-        assertTrue(picksCount(fitted) <= MAX_PER_SECTION)
-        assertEquals(STORY_BUDGET, fitted.values.sum())
         assertEquals(mapOf("follow" to 1, "custom" to 2), withPicks(emptyMap(), 3))
     }
 
-    @Test fun aFullBriefIsAboutFiveMinutes() {
-        assertEquals(5, briefMinutes(STORY_BUDGET))
+    @Test fun aFullBriefIsAboutAQuarterHour() {
+        assertEquals(13, briefMinutes(STORY_BUDGET))
         assertEquals(2, briefMinutes(4))
     }
 }

@@ -30,6 +30,8 @@ import me.vattitude.morningbrief.MorningBriefApp
 import me.vattitude.morningbrief.R
 import me.vattitude.morningbrief.pipeline.StoryWriter
 import me.vattitude.morningbrief.data.Settings
+import me.vattitude.morningbrief.data.Pack
+import me.vattitude.morningbrief.data.StoryPack
 import me.vattitude.morningbrief.pipeline.KOKORO_VOICES
 import me.vattitude.morningbrief.pipeline.Kokoro
 import me.vattitude.morningbrief.pipeline.KokoroPack
@@ -93,6 +95,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val showHero = MutableStateFlow(0)
     private var controller: MediaController? = null
     private var ticker: Job? = null
+    /** The shared day's clips assembled for this listener; null while loading or when a day has no pack. */
+    private val packs = mutableMapOf<String, Pack?>()
+    /** The pack the player is on, so positions can be read across the whole playlist. */
+    private var currentPack: Pack? = null
 
     val sources = MutableStateFlow<List<Source>>(emptyList())
     val sourcesNote = MutableStateFlow<String?>(null)
@@ -296,7 +302,28 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun select(date: String?) {
         selected.value = date
-        briefing.value = date?.let { repo.briefings.load(it) }?.let { Briefing.from(it) }
+        briefing.value = date?.let { packs[it] }?.briefing
+            ?: date?.let { repo.briefings.load(it) }?.let { Briefing.from(it) }
+        if (date != null) fetchPack(date)
+    }
+
+    /**
+     * The day's shared clips, assembled for this listener's line-up. Fetched in the background
+     * and kept, so moving between days is instant the second time. Falls back to the on-device
+     * briefing when signed out, or when the day has no pack (an older day, or an empty section).
+     */
+    private fun fetchPack(date: String) {
+        if (!repo.signedIn || packs.containsKey(date)) return
+        viewModelScope.launch {
+            val pack = runCatching { StoryPack.fetch(repo.supabase, date, _settings.value.stories) }.getOrNull()
+            packs[date] = pack
+            if (pack != null && selected.value == date) {
+                nowPlayingTried = null
+                briefing.value = pack.briefing
+                load(date)
+                tick()
+            }
+        }
     }
 
     fun buildNow() {
@@ -331,16 +358,48 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val date = id?.substringBefore('@')
         if (nowPlaying.value?.mediaId != id && nowPlayingTried != id) {
             nowPlayingTried = id
-            nowPlaying.value = date?.let { d -> briefing.value?.takeIf { it.date == d } ?: repo.briefings.load(d)?.let { Briefing.from(it) } }
+            nowPlaying.value = date?.let { d ->
+                packs[d]?.briefing ?: briefing.value?.takeIf { it.date == d }
+                    ?: repo.briefings.load(d)?.let { Briefing.from(it) }
+            }
         }
-        player.value = PlayerState(date = date, playing = c.isPlaying, position = c.currentPosition / 1000.0, ready = true)
+        player.value = PlayerState(date = date, playing = c.isPlaying, position = globalPosition(c), ready = true)
+    }
+
+    /**
+     * Seconds into the whole briefing. A playlist's position is per-item, so the clips before the
+     * current one are added on; with no pack it is just the single file's position.
+     */
+    private fun globalPosition(c: MediaController): Double {
+        val pack = currentPack ?: return c.currentPosition / 1000.0
+        val before = pack.clips.take(c.currentMediaItemIndex.coerceAtLeast(0)).sumOf { it.duration }
+        return before + c.currentPosition / 1000.0
+    }
+
+    /** Seeks across the whole briefing, mapping seconds onto a (clip, offset) pair for a pack. */
+    private fun seekGlobal(c: MediaController, seconds: Double, play: Boolean = false) {
+        val pack = currentPack
+        val target = seconds.coerceAtLeast(0.0)
+        if (pack == null || pack.clips.isEmpty()) {
+            c.seekTo((target * 1000).toLong())
+        } else {
+            var acc = 0.0
+            var index = pack.clips.lastIndex
+            for ((i, clip) in pack.clips.withIndex()) {
+                if (target < acc + clip.duration) { index = i; break }
+                acc += clip.duration
+            }
+            val offset = (target - acc).coerceIn(0.0, pack.clips[index].duration)
+            c.seekTo(index, (offset * 1000).toLong())
+        }
+        if (play) c.play()
     }
 
     /** To the next story, or back to the start of this one (the one before, if this one just began). */
     fun jump(forward: Boolean) {
         val c = controller ?: return
         val b = nowPlaying.value ?: return
-        val pos = c.currentPosition / 1000.0
+        val pos = globalPosition(c)
         val starts = b.cards.map { it.start }
         val target = if (forward) {
             starts.firstOrNull { it > pos + 0.5 } ?: return
@@ -348,7 +407,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val current = starts.lastOrNull { it <= pos + 0.5 }
             if (current != null && pos - current > 3) current else starts.lastOrNull { it < (current ?: pos) - 0.5 } ?: 0.0
         }
-        c.seekTo((target * 1000).toLong())
+        seekGlobal(c, target)
         tick()
     }
 
@@ -366,18 +425,34 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         tick()
     }
 
-    /** Loads [date] into the player if it isn't already there. */
+    /** Loads [date] into the player if it isn't already there. Uses the shared pack when there is one. */
     private fun load(date: String): MediaController? {
         val c = controller ?: return null
-        val b = briefing.value?.takeIf { it.date == date } ?: repo.briefings.load(date)?.let { Briefing.from(it) }
+        val pack = packs[date]
+        val b = pack?.briefing ?: briefing.value?.takeIf { it.date == date }
+            ?: repo.briefings.load(date)?.let { Briefing.from(it) }
         val id = b?.mediaId ?: date
         if (c.currentMediaItem?.mediaId != id) {
-            val item = MediaItem.Builder()
-                .setMediaId(id)
-                .setUri(Uri.fromFile(repo.briefings.audio(date)))
-                .setMediaMetadata(MediaMetadata.Builder().setTitle(b?.title ?: date).setArtist("Morning Brief").build())
-                .build()
-            c.setMediaItem(item)
+            if (pack != null && pack.clips.isNotEmpty()) {
+                // One MediaItem per clip: Media3 queues them, so a section's intro flows
+                // straight into its first story with no gap and no re-encoding.
+                currentPack = pack
+                c.setMediaItems(pack.clips.map { clip ->
+                    MediaItem.Builder()
+                        .setMediaId(id)
+                        .setUri(clip.url)
+                        .setMediaMetadata(MediaMetadata.Builder().setTitle(clip.title).setArtist("Morning Brief").build())
+                        .build()
+                })
+            } else {
+                currentPack = null
+                val item = MediaItem.Builder()
+                    .setMediaId(id)
+                    .setUri(Uri.fromFile(repo.briefings.audio(date)))
+                    .setMediaMetadata(MediaMetadata.Builder().setTitle(b?.title ?: date).setArtist("Morning Brief").build())
+                    .build()
+                c.setMediaItem(item)
+            }
             c.prepare()
         }
         return c
@@ -393,15 +468,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun seekTo(seconds: Double, play: Boolean = true) {
         val date = selected.value ?: return
         val c = load(date) ?: return
-        c.seekTo((seconds * 1000).toLong().coerceAtLeast(0))
-        if (play) c.play()
+        seekGlobal(c, seconds, play)
         tick()
     }
 
     fun skip(seconds: Int) {
         val c = controller ?: return
         if (c.currentMediaItem == null) return
-        c.seekTo((c.currentPosition + seconds * 1000L).coerceAtLeast(0))
+        seekGlobal(c, globalPosition(c) + seconds)
         tick()
     }
 

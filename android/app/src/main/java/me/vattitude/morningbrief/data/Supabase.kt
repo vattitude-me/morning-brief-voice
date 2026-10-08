@@ -123,6 +123,37 @@ class Supabase(private val prefs: Prefs) {
         return rows.optJSONObject(0)?.optJSONObject("settings") ?: JSONObject()
     }
 
+    /**
+     * The day's shared story clips (app/storypack.py): the worker voices each story once and
+     * everyone listens to the same rows, so this is identical for every listener. Read-only.
+     */
+    suspend fun storyAudio(date: String): JSONArray {
+        fresh()
+        val base = "section,rank,voice,title,url,source"
+        val rest = "script,duration,audio_path,created_at"
+        val query = { cols: String -> "/rest/v1/story_audio?select=$cols&date=eq.$date&order=section.asc,rank.asc" }
+        return try {
+            call("GET", query("$base,image,$rest")) as JSONArray
+        } catch (e: SupabaseError) {
+            // An older database without the image column: a brief without thumbnails still works.
+            if (Regex("column .* does not exist", RegexOption.IGNORE_CASE).containsMatchIn(e.message.orEmpty())) {
+                call("GET", query("$base,$rest")) as JSONArray
+            } else throw e
+        }
+    }
+
+    /** The day's greeting and section intros. A database without the table simply has no framing. */
+    suspend fun voiceNotes(date: String): JSONArray {
+        fresh()
+        return try {
+            call("GET", "/rest/v1/voice_notes?select=voice,note_key,text,duration,audio_path&date=eq.$date") as JSONArray
+        } catch (e: SupabaseError) {
+            if (Regex("Could not find the table|does not exist", RegexOption.IGNORE_CASE).containsMatchIn(e.message.orEmpty())) {
+                JSONArray()
+            } else throw e
+        }
+    }
+
     /** Merges the shared fields into the stored settings, leaving the web app's own (voice, daily...) alone. */
     suspend fun saveSettings(shared: JSONObject) {
         val s = fresh()
