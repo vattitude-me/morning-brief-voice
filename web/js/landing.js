@@ -150,7 +150,8 @@ export class Landing {
           class: 'story-thumb', src: s.image, alt: '', loading: 'lazy', decoding: 'async',
           referrerpolicy: 'no-referrer', onerror: (e) => e.target.remove(),
         }) : null));
-    const play = () => this.seekTo(s.start || 0, true);
+    // The dot is this story's own play/pause: tapping the one already playing stops it.
+    const play = () => (this.current === s.id ? this.toggle() : this.seekTo(s.start || 0, true));
     dot.addEventListener('click', (e) => { e.stopPropagation(); play(); });
     row.querySelector('.story-main').addEventListener('click', play);
     return row;

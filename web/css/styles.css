@@ -152,8 +152,8 @@ body { padding-bottom: 132px; }
 .ink-circle:hover { transform: scale(1.04); }
 .ink-circle:active { transform: scale(.96); }
 .ink-circle svg { width: 23px; height: 23px; }
-.ink-circle .i-pause, .playing .ink-circle .i-play { display: none; }
-.playing .ink-circle .i-pause { display: block; }
+.ink-circle .i-pause, .playing .ink-circle .i-play, .playing-now .ink-circle .i-play { display: none; }
+.playing .ink-circle .i-pause, .playing-now .ink-circle .i-pause { display: block; }
 .ink-circle.sm { width: 42px; height: 42px; }
 .ink-circle.sm svg { width: 17px; height: 17px; }
 .skip-btn { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; color: var(--ink); }
