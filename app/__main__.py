@@ -177,7 +177,7 @@ def main() -> None:
     pack.add_argument("--no-notes", action="store_true", dest="no_notes",
                       help="skip the greeting and section intros")
     pack.add_argument("--force", action="store_true",
-                      help="re-voice every story, even ones already published")
+                      help="re-voice everything, including clips and notes already published")
     sub.add_parser("check", help="test the Supabase and Groq connections")
     sub.add_parser("setup", help="download the Kokoro voice model (~350 MB)")
     args = parser.parse_args()

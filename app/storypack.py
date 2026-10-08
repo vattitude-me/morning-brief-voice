@@ -391,6 +391,10 @@ async def build(cfg, store, *, day: str | None = None, per_section: int | None =
     rows upsert on ``(date, section, rank, voice)``, so a retry or a new voice simply adds
     to the day's pack.
 
+    ``force`` re-records the spoken notes as well as the stories: a narrator whose reference
+    clip changed has to re-read the greeting and the intros too, or the brief comes out half
+    in the old voice.
+
     ``on_step(text, fraction)`` is called as the work moves, which is how the admin page
     shows a long rebuild while it runs.
     """
@@ -422,7 +426,7 @@ async def build(cfg, store, *, day: str | None = None, per_section: int | None =
     log.info("Published %d clips (%.1fs of audio)", len(rows), total_seconds(rows))
     if notes:
         for name in voices:
-            await build_notes(cfg, store, day=day, voice=name, voice_url=base,
+            await build_notes(cfg, store, day=day, voice=name, voice_url=base, force=force,
                               on_note=lambda key, who=name: tick(f"{voice_name(who)}: {key}"))
     # The landing page's sample rides along with the pack, so it can't quietly go stale.
     try:
@@ -499,7 +503,7 @@ def main() -> int:
     ap.add_argument("--sample-bundle", nargs="?", const=SAMPLE_BUNDLE_DIR, metavar="DIR",
                     help="write the fixed landing sample (audio + manifest) into DIR")
     ap.add_argument("--force", action="store_true",
-                    help="re-voice every story, even ones already published")
+                    help="re-voice every clip and note, even ones already published")
     args = ap.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")

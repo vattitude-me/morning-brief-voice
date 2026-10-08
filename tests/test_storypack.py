@@ -1,5 +1,8 @@
 """The shared story pack: the per-user lineup and the clip order both clients mirror."""
-from app import guardian
+import asyncio
+import dataclasses
+
+from app import guardian, storypack
 from app.storypack import (GREETINGS, INTROS, NOTES, clips_for, default_lineup, greeting_key,
                            lineup, total_seconds)
 
@@ -61,3 +64,49 @@ def test_the_greeting_follows_the_listeners_clock():
     assert greeting_key(16) == "greeting_afternoon"
     assert greeting_key(17) == "greeting_evening"
     assert greeting_key(23) == "greeting_evening"
+
+
+DAY = "2026-10-07"
+
+
+def test_notes_are_reused_unless_forced(cfg, store, monkeypatch):
+    """Re-running the pack must not pay for the same eight words again, but a new narrator has to."""
+    cfg = dataclasses.replace(cfg, voice_url="http://voice.test")
+    for key, text in NOTES.items():
+        store.tables.setdefault("voice_notes", []).append(
+            {"date": DAY, "voice": "him_reference", "note_key": key, "text": text,
+             "duration": 1.0, "audio_path": f"notes/{DAY}/{key}-him_reference.mp3"})
+
+    spoken: list[str] = []
+
+    async def fake_synthesise(client, base, text, voice, *args, **kwargs):
+        spoken.append(text)
+        return b"mp3\x00", 2.0
+
+    monkeypatch.setattr(storypack, "synthesise", fake_synthesise)
+
+    asyncio.run(storypack.build_notes(cfg, store, day=DAY, voice="him_reference"))
+    assert spoken == []                      # unchanged text, so the recording stands
+
+    asyncio.run(storypack.build_notes(cfg, store, day=DAY, voice="him_reference", force=True))
+    assert spoken == [NOTES[key] for key in NOTES]   # a replaced reference clip re-reads them all
+
+
+def test_build_forces_the_notes_along_with_the_stories(cfg, store, monkeypatch):
+    """--force has to mean the whole briefing: framing in the old voice sounds broken."""
+    cfg = dataclasses.replace(cfg, voice_url="http://voice.test")
+    seen: dict = {}
+
+    async def fake_pack(per_section=5, sections=None, max_words=60):
+        return []
+
+    async def fake_notes(*args, **kwargs):
+        seen.update(kwargs)
+        return []
+
+    monkeypatch.setattr(guardian, "build_pack", fake_pack)
+    monkeypatch.setattr(storypack, "build_notes", fake_notes)
+
+    asyncio.run(storypack.build(cfg, store, day=DAY, voice="him_reference", force=True))
+
+    assert seen["force"] is True
