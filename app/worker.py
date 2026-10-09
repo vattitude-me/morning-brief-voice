@@ -268,7 +268,7 @@ class Worker:
             self.scheduler.add_job(self.daily, CronTrigger(hour=hour, minute=minute, timezone=self.tz),
                                    id="daily", misfire_grace_time=3 * 3600, coalesce=True, max_instances=1)
             self.scheduler.add_job(self.catch_up, id="catch-up")
-        self.scheduler.add_job(self.poll_requests, "interval", seconds=60, id="requests",
+        self.scheduler.add_job(self.poll_requests, "interval", seconds=10, id="requests",
                                coalesce=True, max_instances=1)
         self.scheduler.add_job(self.upload_previews, id="previews")
         if self.cfg.daily_batch:
