@@ -105,7 +105,7 @@ fun SourcesScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         }
 
         item {
-            Hint("Tap a topic to see its sources, and use − and + to set how many stories it gets. A topic set to Off is skipped.",
+            Hint("Set story counts, turn topics off, or open one to review its sources.",
                 Modifier.padding(start = 4.dp, top = 4.dp))
         }
 
@@ -113,25 +113,28 @@ fun SourcesScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Picks(vm, picksCount(st.stories), canRaise = true, sources.filter { it.section in PICKS }, ::on) { removing = it }
         }
 
-        SECTIONS.values.filter { it.isCategory || it.key == "local" }.forEach { s ->
-            item(key = "s:${s.key}") {
-                val n = st.stories[s.key] ?: 0
-                val city = st.localCity.substringBefore(",").trim()
-                val label = if (s.key == "local" && city.isNotBlank()) "${s.title} · $city" else s.title
-                val open = expanded[s.key] ?: false
-                Topic(
-                    section = s,
-                    label = label,
-                    n = n,
-                    canRaise = true,
-                    open = open,
-                    onExpand = { expanded[s.key] = !open },
-                    onChange = { vm.setStories(s.key, it) },
-                    sources = sources.filter { it.section == s.key },
-                    on = ::on,
-                    onToggle = { src, enabled -> vm.setEnabled(src, enabled) },
-                ) {
-                    if (s.key == "local") LocalCity(vm, st.newsCity, st.city)
+        item(key = "topics") {
+            GlassGroup {
+                SECTIONS.values.filter { it.isCategory || it.key == "local" }.forEachIndexed { i, s ->
+                    if (i > 0) Hairline()
+                    val n = st.stories[s.key] ?: 0
+                    val city = st.localCity.substringBefore(",").trim()
+                    val label = if (s.key == "local" && city.isNotBlank()) "${s.title} · $city" else s.title
+                    val open = expanded[s.key] ?: false
+                    Topic(
+                        section = s,
+                        label = label,
+                        n = n,
+                        canRaise = true,
+                        open = open,
+                        onExpand = { expanded[s.key] = !open },
+                        onChange = { vm.setStories(s.key, it) },
+                        sources = sources.filter { it.section == s.key },
+                        on = ::on,
+                        onToggle = { src, enabled -> vm.setEnabled(src, enabled) },
+                    ) {
+                        if (s.key == "local") LocalCity(vm, st.newsCity, st.city)
+                    }
                 }
             }
         }
@@ -167,39 +170,46 @@ private fun Topic(
 ) {
     val t = Mb.t
     val openable = sources.isNotEmpty()
-    Glass(Modifier.fillMaxWidth().padding(top = 12.dp)) {
-        Column {
-            Row(
-                Modifier.fillMaxWidth().clickable(enabled = openable, onClick = onExpand)
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(label, Modifier.weight(1f), style = Type.title, color = t.ink, maxLines = 1,
-                    overflow = TextOverflow.Ellipsis)
-                StoryStepper(n, canRaise, MAX_PER_SECTION, onChange)
-                if (openable) {
-                    Spacer(Modifier.width(4.dp))
-                    Icon(if (open) Icons.Outlined.KeyboardArrowDown else Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                        if (open) "Hide ${section.title}" else "Show ${section.title}",
-                        Modifier.size(20.dp), tint = t.muted)
+    Column {
+        Row(
+            Modifier.fillMaxWidth().clickable(enabled = openable, onClick = onExpand)
+                .padding(horizontal = 4.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f).padding(end = 10.dp)) {
+                Text(label, style = Type.title, color = t.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val sourceCount = when (sources.size) {
+                    0 -> "No sources"
+                    1 -> "1 source"
+                    else -> "${sources.size} sources"
                 }
+                val storyCount = if (n == 0) "Off" else "$n ${if (n == 1) "story" else "stories"}"
+                Text("$sourceCount · $storyCount", Modifier.padding(top = 3.dp), style = Type.meta, color = t.muted,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            AnimatedVisibility(open, enter = expandVertically(), exit = shrinkVertically()) {
-                Column {
-                    Hairline()
-                    Column(Modifier.padding(horizontal = 14.dp)) {
-                        local()
-                        if (sources.isEmpty()) {
-                            Hint("No sources for this topic yet.", Modifier.padding(vertical = 14.dp))
-                        } else {
-                            sources.forEachIndexed { i, src ->
-                                if (i > 0 || section.key == "local") Hairline()
-                                SourceRow(src, on(src), onToggle = { onToggle(src, it) })
-                            }
+            StoryStepper(n, canRaise, MAX_PER_SECTION, onChange)
+            if (openable) {
+                Spacer(Modifier.width(2.dp))
+                Icon(if (open) Icons.Outlined.KeyboardArrowDown else Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                    if (open) "Hide ${section.title}" else "Show ${section.title}",
+                    Modifier.size(20.dp), tint = t.muted)
+            }
+        }
+        AnimatedVisibility(open, enter = expandVertically(), exit = shrinkVertically()) {
+            Column {
+                Hairline()
+                Column(Modifier.padding(horizontal = 4.dp)) {
+                    local()
+                    if (sources.isEmpty()) {
+                        Hint("No sources for this topic yet.", Modifier.padding(vertical = 14.dp))
+                    } else {
+                        sources.forEachIndexed { i, src ->
+                            if (i > 0 || section.key == "local") Hairline()
+                            SourceRow(src, on(src), onToggle = { onToggle(src, it) })
                         }
-                        if (n == 0) Hint("This topic is off. Raise the count to include its stories.",
-                            Modifier.padding(bottom = 12.dp), color = t.error)
                     }
+                    if (n == 0) Hint("This topic is off. Raise the count to include its stories.",
+                        Modifier.padding(bottom = 12.dp), color = t.error)
                 }
             }
         }

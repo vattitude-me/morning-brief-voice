@@ -97,9 +97,12 @@ export class SourcesPage {
     if (!this.draft) return;
     this.root.replaceChildren(
       this.header(),
-      Hint('Tap a topic to see its sources, and use − and + to set how many stories it gets. A topic set to Off is skipped.'),
+      Hint('Set story counts, turn topics off, or open one to review its sources.'),
       ...(SHOW_MY_SOURCES ? [this.picks()] : []),
-      ...TOPIC_KEYS.map((k) => this.topic(k)),
+      GlassGroup(...TOPIC_KEYS.flatMap((key, i) => [
+        ...(i ? [Hairline()] : []),
+        this.topic(key),
+      ])),
     );
   }
 
@@ -170,19 +173,25 @@ export class SourcesPage {
     const city = (this.city || '').split(',')[0].trim();
     const label = key === 'local' && city ? `${sec.title} · ${city}` : sec.title;
 
-    const head = h('button', { type: 'button', class: 'topic-head', 'aria-expanded': String(open) },
-      h('span', { class: 'emoji-circle', 'aria-hidden': 'true' }, sec.emoji),
-      h('span', { class: 'topic-titles' }, h('span', { class: 'topic-title' }, label)),
-      StoryStepper(n, true, MAX_PER_SECTION, (v) => this.setStories(key, v)),
-      h('span', { class: 'caret' + (open ? ' open' : ''), 'aria-hidden': 'true' }, icon(open ? 'chev-d' : 'chev-r')));
-    head.addEventListener('click', (e) => {
-      // The stepper handles its own taps; anything else toggles the card.
-      if (e.target.closest('.pill-stepper')) return;
+    const sourceCount = items.length === 0 ? 'No sources' : `${items.length} ${items.length === 1 ? 'source' : 'sources'}`;
+    const storyCount = n === 0 ? 'Off' : `${n} ${n === 1 ? 'story' : 'stories'}`;
+    const toggle = () => {
       if (this.expanded.has(key)) this.expanded.delete(key); else this.expanded.add(key);
       this.render();
-    });
+    };
+    const head = h('div', { class: 'topic-head' },
+      h('button', { type: 'button', class: 'topic-toggle', 'aria-expanded': String(open) },
+        h('span', { class: 'topic-title' }, label),
+        h('span', { class: 'topic-summary' }, `${sourceCount} · ${storyCount}`)),
+      StoryStepper(n, true, MAX_PER_SECTION, (v) => this.setStories(key, v)),
+      h('button', {
+        type: 'button', class: 'topic-expand', 'aria-label': `${open ? 'Hide' : 'Show'} ${label} sources`,
+        'aria-expanded': String(open), disabled: !items.length,
+      }, h('span', { class: 'caret' + (open ? ' open' : ''), 'aria-hidden': 'true' }, icon(open ? 'chev-d' : 'chev-r'))));
+    head.querySelector('.topic-toggle').addEventListener('click', toggle);
+    head.querySelector('.topic-expand').addEventListener('click', toggle);
 
-    const card = h('div', { class: 'glass topic-card' }, head);
+    const card = h('section', { class: 'topic-card' }, head);
     if (open) {
       const body = h('div', { class: 'topic-body' }, Hairline());
       if (key === 'local') {
