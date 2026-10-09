@@ -200,6 +200,13 @@ class Worker:
                 "force": force, "detail": detail, "seconds": round(time.monotonic() - clock, 1),
                 "started_at": started, "at": now_iso(), "ok": True, "by": (profile or {}).get("email"),
             })
+            # The run log is what the admin page reads, so a rebuild from here belongs in it.
+            storypack.record(self.store, day=day, status="ok",
+                             title=f"✓ Rebuild finished: {detail.split(',')[0]}",
+                             body=detail, detail=f"Rebuilt from the admin page by {(profile or {}).get('email') or 'the worker'}",
+                             voices=[{"id": v, "name": storypack.voice_name(v),
+                                      "ready": storypack.ready(self.store, day=day, voice=v)}
+                                     for v in (chosen or list(self.cfg.story_voices or ()))])
             log.info("Pack rebuilt: %s", detail)
             return "done", detail
         except Exception as exc:  # noqa: BLE001 - the request row carries the reason
@@ -208,6 +215,10 @@ class Worker:
                 "error": f"{exc.__class__.__name__}: {exc}"[:300], "at": now_iso(), "ok": False,
                 "by": (profile or {}).get("email"),
             })
+            storypack.record(self.store, day=(options.get("day") or datetime.now(self.tz).date().isoformat()),
+                             status="failed", title="✗ Rebuild failed",
+                             body=f"{exc.__class__.__name__}: {exc}"[:300],
+                             detail=f"Rebuilt from the admin page by {(profile or {}).get('email') or 'the worker'}")
             return "error", f"{exc.__class__.__name__}: {exc}"[:300]
         finally:
             self.lock.release()

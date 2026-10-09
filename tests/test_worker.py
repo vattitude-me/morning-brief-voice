@@ -76,6 +76,34 @@ def test_admin_rebuilds_the_pack_from_the_admin_page(cfg, store, monkeypatch):
     assert store.status["progress"] == 1
     # The admin watches these lines while a long rebuild runs.
     assert any(step == "Alice: top #1" for step in (row.get("step") for row in published))
+    # A rebuild from the page lands in the same log as the nightly run.
+    entry = store.tables["run_log"][0]
+    assert (entry["run_date"], entry["status"]) == ("2026-10-07", "ok")
+    assert "boss@example.com" in entry["detail"]
+    assert entry["voices"] == [{"id": "her_reference", "name": "Alice", "ready": True}]
+
+
+def test_a_failed_rebuild_is_recorded_and_reported(cfg, store, monkeypatch):
+    uid = store.add_user("boss@example.com")
+    store.set_admins(["boss@example.com"])
+    store.requests.append({"id": 1, "user_id": uid, "kind": "pack", "status": "queued",
+                           "payload": {"day": "2026-10-07", "voices": ["her_reference"]}})
+
+    async def fake_pack(per_section=5, sections=None, max_words=60):
+        return [SCRIPT]
+
+    async def broken(client, base, text, voice, *args, **kwargs):
+        raise RuntimeError("voice service is down")
+
+    monkeypatch.setattr(guardian, "build_pack", fake_pack)
+    monkeypatch.setattr(storypack, "synthesise", broken)
+
+    Worker(dataclasses.replace(cfg, voice_url="http://voice.test"), store).poll_requests()
+
+    assert store.requests[0]["status"] == "error"
+    entry = store.tables["run_log"][0]
+    assert (entry["run_date"], entry["status"], entry["title"]) == ("2026-10-07", "failed", "✗ Rebuild failed")
+    assert "voice service is down" in entry["body"]
 
 
 def test_pack_request_from_a_customer_is_refused(cfg, store):
