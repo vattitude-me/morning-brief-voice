@@ -25,6 +25,9 @@
   --ok: #1a9b5b;
   --warn: #c7811a;
   --err: #B3261E;
+  --danger: #DC2626;
+  --danger-hover: #B91C1C;
+  --danger-shadow: rgba(220, 38, 38, .28);
   --hero-a: #BDBDB8;
   --hero-b: #C9C9C4;
   --hero-c: #B3B3AE;
@@ -49,6 +52,9 @@
     --canada: #ff5a4e; --tech: #9c88ff; --custom: #2fd1bd;
     --hero-a: #2B2B28; --hero-b: #242422; --hero-c: #30302D; --hero-ink: #EDEDE9;
     --err: #F2B8B5;
+    --danger: #E03E3E;
+    --danger-hover: #EF4848;
+    --danger-shadow: rgba(224, 62, 62, .38);
     --shadow: 0 10px 30px -12px rgba(0, 0, 0, .6); --shadow-lg: 0 30px 60px -20px rgba(0, 0, 0, .7);
     color-scheme: dark;
   }
@@ -61,6 +67,9 @@
   --canada: #ff5a4e; --tech: #9c88ff; --custom: #2fd1bd;
   --hero-a: #2B2B28; --hero-b: #242422; --hero-c: #30302D; --hero-ink: #EDEDE9;
   --err: #F2B8B5;
+  --danger: #E03E3E;
+  --danger-hover: #EF4848;
+  --danger-shadow: rgba(224, 62, 62, .38);
   --shadow: 0 10px 30px -12px rgba(0, 0, 0, .6); --shadow-lg: 0 30px 60px -20px rgba(0, 0, 0, .7);
   color-scheme: dark;
 }
@@ -635,15 +644,71 @@ body.signed-out > :not(.landing):not(.toast):not(svg) { display: none; }
 .first-brief-what { display: block; font-size: 13.5px; color: var(--ink-2); }
 
 /* Delete account */
-.btn-danger { background: var(--err); color: #fff; }
-.btn-danger[disabled] { opacity: .4; cursor: not-allowed; }
-.btn-danger-ghost { background: transparent; border-color: color-mix(in srgb, var(--err) 45%, var(--line)); color: var(--err); }
-.btn-danger-ghost:hover { background: color-mix(in srgb, var(--err) 8%, transparent); }
-.danger-box { padding: 14px 16px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--err) 40%, var(--line)); background: color-mix(in srgb, var(--err) 8%, var(--surface)); font-size: 14.5px; margin-bottom: 14px; }
+.btn-danger {
+  background: var(--danger, #DC2626);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, .1);
+  box-shadow: 0 2px 10px var(--danger-shadow, rgba(220, 38, 38, .28));
+  font-weight: 600;
+  transition: transform .12s ease, background .15s ease, box-shadow .15s ease, opacity .15s ease;
+}
+.btn-danger:hover:not([disabled]) {
+  background: var(--danger-hover, #B91C1C);
+  box-shadow: 0 4px 16px var(--danger-shadow, rgba(220, 38, 38, .4));
+  transform: translateY(-1px);
+}
+.btn-danger:active:not([disabled]) {
+  transform: translateY(1px);
+}
+.btn-danger[disabled] {
+  opacity: .35;
+  cursor: not-allowed;
+  box-shadow: none;
+  background: var(--danger, #DC2626);
+  color: #fff;
+  filter: saturate(70%);
+}
+.btn-danger-ghost {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--danger, #DC2626) 45%, var(--line));
+  color: var(--danger, #DC2626);
+}
+.btn-danger-ghost:hover:not([disabled]) {
+  background: color-mix(in srgb, var(--danger, #DC2626) 12%, transparent);
+}
+.danger-box {
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--danger, #DC2626) 35%, var(--line));
+  background: color-mix(in srgb, var(--danger, #DC2626) 8%, var(--surface));
+  font-size: 14.5px;
+  margin-bottom: 14px;
+}
 .danger-box ul { margin: 8px 0 0; padding-left: 20px; color: var(--ink-2); }
 .danger-box li + li { margin-top: 4px; }
-.confirm-check { display: flex; gap: 10px; align-items: flex-start; font-size: 14.5px; font-weight: 600; cursor: pointer; padding: 12px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); }
-.confirm-check input { width: 20px; height: 20px; margin: 1px 0 0; flex: none; accent-color: var(--err); }
+.confirm-check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  transition: border-color .15s ease;
+}
+.confirm-check:hover {
+  border-color: color-mix(in srgb, var(--danger, #DC2626) 40%, var(--line));
+}
+.confirm-check input {
+  width: 20px;
+  height: 20px;
+  margin: 1px 0 0;
+  flex: none;
+  accent-color: var(--danger, #DC2626);
+}
 #deleteStatus { margin: 12px 0 0; }
 #deleteStatus:empty { display: none; }
 
