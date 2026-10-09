@@ -11,6 +11,7 @@ import { applyPhotoMode } from './design.js';
 
 const state = {
   briefing: null,
+  briefingLoading: true,
   profile: null,
   status: null,
   archiveDates: [],
@@ -83,6 +84,14 @@ function renderHeader() {
 /** The only notice left: today's brief isn't published yet, so the latest one is playing. */
 function renderNotice() {
   const box = $('notice');
+  if (state.briefingLoading) {
+    box.replaceChildren(h('div', { class: 'glass notice-card loading-card', role: 'status' },
+      h('span', { class: 'spinner', 'aria-hidden': 'true' }),
+      h('div', {},
+        h('h3', {}, "Checking for today's briefing"),
+        h('p', {}, 'Loading the latest audio and stories.'))));
+    return;
+  }
   if (!state.briefing) {
     box.replaceChildren(h('div', { class: 'glass notice-card', role: 'status' },
       h('h3', {}, "Today's brief isn't ready yet"),
@@ -485,6 +494,8 @@ async function enterApp() {
 
 /* -------------------------------------------------------------------- boot */
 async function start() {
+  state.briefingLoading = true;
+  renderNotice();
   $('sections').replaceChildren(...Array.from({ length: 3 }, () => h('div', { class: 'skeleton' })));
   const today = new Date().toLocaleDateString('en-CA');
   try {
@@ -497,8 +508,10 @@ async function start() {
     // The shared pack *is* the briefing now. When today's hasn't been published yet,
     // loadStoryPack falls back to the most recent one and renderNotice says so.
     state.briefing = await loadStoryPack(today);
+    state.briefingLoading = false;
     displayBriefing();
   } catch (err) {
+    state.briefingLoading = false;
     const cached = store.get('last-briefing', null);
     if (cached?.audio_url?.startsWith('http')) {
       state.briefing = cached;

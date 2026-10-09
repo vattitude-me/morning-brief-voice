@@ -52,6 +52,7 @@ import androidx.compose.material.icons.outlined.Umbrella
 import androidx.compose.material.icons.outlined.WbCloudy
 import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.Icon
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -94,6 +95,7 @@ fun clock(seconds: Double): String {
 @Composable
 fun TodayScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     val briefing by vm.briefing.collectAsState()
+    val packLoadingDate by vm.packLoadingDate.collectAsState()
     val dates by vm.dates.collectAsState()
     val selected by vm.selected.collectAsState()
     val build by vm.build.collectAsState()
@@ -204,12 +206,24 @@ fun TodayScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
 
         if (b == null) {
             entry {
-                Notice(Modifier.padding(top = 22.dp)) {
-                    Text("Today's brief isn't ready yet", style = Type.title, color = t.ink)
-                    Text("It's recorded once each morning for everyone listening, so there's nothing to build here. " +
-                        "Check back in a moment.",
-                        Modifier.padding(top = 6.dp), style = Type.body, color = t.muted)
-                    PillButton("Check again", Modifier.padding(top = 16.dp), filled = false) { vm.refreshPack() }
+                if (selected != null && selected == packLoadingDate) {
+                    Notice(Modifier.padding(top = 22.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(22.dp), color = t.ink, strokeWidth = 2.dp,
+                            )
+                            Text("Checking for today's briefing", Modifier.padding(start = 12.dp), style = Type.title, color = t.ink)
+                        }
+                        Hint("Loading the latest audio and stories.", Modifier.padding(top = 6.dp))
+                    }
+                } else {
+                    Notice(Modifier.padding(top = 22.dp)) {
+                        Text("Today's brief isn't ready yet", style = Type.title, color = t.ink)
+                        Text("It's recorded once each morning for everyone listening, so there's nothing to build here. " +
+                            "Check back in a moment.",
+                            Modifier.padding(top = 6.dp), style = Type.body, color = t.muted)
+                        PillButton("Check again", Modifier.padding(top = 16.dp), filled = false) { vm.refreshPack() }
+                    }
                 }
             }
             return@LazyColumn

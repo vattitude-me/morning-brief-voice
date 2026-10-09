@@ -1,6 +1,6 @@
 // Offline shell: our static files network-first with a cache fallback.
 // Supabase (data, audio) and CDN requests are cross-origin and go straight to the network.
-const CACHE = 'morning-brief-v29';
+const CACHE = 'morning-brief-v30';
 const SHELL = ['/', '/config.js', '/css/styles.css', '/js/app.js', '/js/api.js', '/js/storypack.js', '/js/player.js', '/js/sheets.js', '/js/landing.js',
   '/js/design.js', '/js/pages/sources.js', '/js/pages/settings.js', '/js/pages/admin.js',
   '/icons/icon.svg', '/manifest.webmanifest', '/audio/gap.mp3'];

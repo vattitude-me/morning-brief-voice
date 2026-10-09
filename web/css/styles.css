@@ -121,6 +121,8 @@ body { padding-bottom: 132px; }
 .notice-card .progress-bar { margin-top: 14px; height: 6px; border-radius: 6px; background: color-mix(in srgb, var(--ink) 12%, transparent); overflow: hidden; }
 .notice-card .progress-bar span { display: block; height: 100%; width: 0; background: var(--ink); border-radius: inherit; transition: width .5s ease; }
 .notice-card .pill-btn { margin-top: 16px; }
+.notice-card.loading-card { display: flex; align-items: center; gap: 12px; }
+.notice-card.loading-card .spinner { display: block; flex: none; }
 
 /* ---------- Hero player card ---------- */
 .hero { margin-top: 22px; border-radius: 26px; overflow: hidden; }

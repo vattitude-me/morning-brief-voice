@@ -87,6 +87,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val dates = MutableStateFlow<List<String>>(emptyList())
     val selected = MutableStateFlow<String?>(null)
     val briefing = MutableStateFlow<Briefing?>(null)
+    val packLoadingDate = MutableStateFlow<String?>(null)
     val build: StateFlow<BuildState.Progress> = BuildState.progress
 
     val player = MutableStateFlow(PlayerState())
@@ -326,21 +327,26 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      */
     private fun fetchPack(date: String) {
         if (!repo.signedIn || packs.containsKey(date)) return
+        if (selected.value == date && briefing.value == null) packLoadingDate.value = date
         viewModelScope.launch {
-            val pack = runCatching {
-                StoryPack.fetch(repo.supabase, date, _settings.value.stories, _settings.value.voice)
-            }.getOrNull()
-            packs[date] = pack
-            if (pack != null && selected.value == date) {
-                nowPlayingTried = null
-                briefing.value = pack.briefing
-                val c = load(date)
-                tick()
-                // A narrator switch keeps the listener where they were.
-                resumeAt?.let { at ->
-                    if (c != null) seekGlobal(c, at, play = resumePlaying)
-                    resumeAt = null
+            try {
+                val pack = runCatching {
+                    StoryPack.fetch(repo.supabase, date, _settings.value.stories, _settings.value.voice)
+                }.getOrNull()
+                packs[date] = pack
+                if (pack != null && selected.value == date) {
+                    nowPlayingTried = null
+                    briefing.value = pack.briefing
+                    val c = load(date)
+                    tick()
+                    // A narrator switch keeps the listener where they were.
+                    resumeAt?.let { at ->
+                        if (c != null) seekGlobal(c, at, play = resumePlaying)
+                        resumeAt = null
+                    }
                 }
+            } finally {
+                if (packLoadingDate.value == date) packLoadingDate.value = null
             }
         }
     }
@@ -822,6 +828,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.pullSettings()
         refreshSaved()
         loadSources()
+        if (repo.prefs.onboarded) select(LocalDate.now().toString())
         message.value = "Signed in. Your sources and settings now match the web app."
     }
 
