@@ -7,7 +7,7 @@ import {
   GlassGroup, Hairline, Hint, ListRow, Overline, PillButton, PillStepper,
   SectionLabel, Segmented, SwitchRow, Tag, applyPhotoMode,
 } from '../design.js';
-import { enablePush, pushSupported, subscribedWith } from '../sheets.js';
+import { DeleteAccountSheet, enablePush, pushSupported, subscribedWith } from '../sheets.js';
 
 const speedLabel = (v) => `${Number(v).toFixed(2).replace(/0$/, '')}×`;
 
@@ -21,6 +21,7 @@ export class SettingsPage {
     this.saved = null;
     this.draft = null;
     this.previewAudio = new Audio();
+    this.deleteSheet = new DeleteAccountSheet();
     this.notes = null;      // today's greeting per voice, for the "hear it" buttons
     this.notesDay = null;
     this.loaded = false;
@@ -283,6 +284,6 @@ export class SettingsPage {
   }
 
   openDelete() {
-    document.getElementById('deleteSheet').showModal();
+    this.deleteSheet.open(this.email);
   }
 }

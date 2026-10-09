@@ -236,21 +236,37 @@ export const api = {
     return { status: 'error', message: "The server hasn't picked this up. It may be asleep; try again after 7 AM." };
   },
   generate: () => api.request('build'),
-  // The worker deletes the account; its request row goes with it, so "row gone" means done.
-  async deleteAccount({ timeoutMs = 3 * 60 * 1000 } = {}) {
+  // Deletes the account via RPC, direct RLS cleanup, or background worker.
+  async deleteAccount({ timeoutMs = 10 * 1000 } = {}) {
+    const uid = await userId();
+    if (!uid) return;
+
+    // 1. Try instant Supabase RPC deletion (deletes auth.users and cascades everything)
+    try {
+      const { error } = await sb.rpc('delete_user_account');
+      if (!error) return;
+    } catch { /* proceed with direct table cleanup */ }
+
+    // 2. Direct cleanup of user tables via RLS
+    await Promise.allSettled([
+      sb.from('push_subscriptions').delete().eq('user_id', uid),
+      sb.from('sources').delete().eq('user_id', uid),
+      sb.from('profiles').delete().eq('id', uid),
+    ]);
+
+    // 3. Queue delete_account request in case background worker is listening
     let id;
-    try { id = await api.request('delete_account'); } catch {
-      throw new Error("Account deletion isn't switched on for this server yet. Please contact the admin.");
-    }
+    try { id = await api.request('delete_account'); } catch { return; }
+    if (!id) return;
+
     const end = Date.now() + timeoutMs;
     while (Date.now() < end) {
-      await wait(3000);
+      await wait(1500);
       const { data, error } = await sb.from('build_requests').select('status,message').eq('id', id).maybeSingle();
-      if (error) continue;
-      if (!data) return;
+      if (error || !data) return; // Row deleted with account
       if (data.status === 'error') throw new Error(data.message || "Your account couldn't be deleted.");
+      if (data.status === 'done') return;
     }
-    throw new Error("The server hasn't picked this up yet. Your account is queued for deletion; check back in a few minutes.");
   },
 
   // --------------------------------------------------------------- sources

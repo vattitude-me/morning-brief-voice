@@ -333,3 +333,21 @@ create policy "admins read the run log" on public.run_log for select to authenti
 
 revoke all on public.run_log from anon, authenticated;
 grant select on public.run_log to authenticated;
+
+-- ------------------------------------------------------------- account deletion
+-- Allows an authenticated user to permanently delete their own account.
+-- auth.users cascades to profiles, sources, push_subscriptions, briefings, etc.
+create or replace function public.delete_user_account()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from auth.users where id = auth.uid();
+end;
+$$;
+
+revoke all on function public.delete_user_account() from anon;
+grant execute on function public.delete_user_account() to authenticated;
+

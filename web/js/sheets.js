@@ -61,16 +61,39 @@ export async function enablePush(publicKey) {
 }
 
 /* ----------------------------------------------------------- Delete account */
-class DeleteAccountSheet {
+export class DeleteAccountSheet {
   constructor() {
     this.dialog = document.getElementById('deleteSheet');
     this.box = document.getElementById('deleteConfirm');
     this.go = document.getElementById('deleteGo');
+    if (!this.dialog || !this.box || !this.go) return;
+
     // Like wireSheet, but nothing closes it while the deletion is running.
     this.dialog.querySelectorAll('[data-close]').forEach((btn) => btn.addEventListener('click', () => this.dialog.close()));
     this.dialog.addEventListener('click', (e) => { if (e.target === this.dialog && !this.busy) this.dialog.close(); });
-    this.box.addEventListener('change', () => { this.go.disabled = !this.box.checked; });
-    document.getElementById('deleteForm').addEventListener('submit', (e) => { e.preventDefault(); this.run(); });
+
+    const sync = () => {
+      if (this.go && this.box) {
+        this.go.disabled = !this.box.checked;
+      }
+    };
+    this.box.addEventListener('change', sync);
+    this.box.addEventListener('input', sync);
+    this.box.addEventListener('click', sync);
+
+    const form = document.getElementById('deleteForm');
+    if (form) {
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        this.run();
+      });
+    }
+    this.go.addEventListener('click', (e) => {
+      if (this.box && this.box.checked && !this.busy) {
+        e.preventDefault();
+        this.run();
+      }
+    });
     this.dialog.addEventListener('cancel', (e) => { if (this.busy) e.preventDefault(); });
   }
 
