@@ -53,7 +53,7 @@ gcloud run jobs deploy "$JOB_NAME" \
   --project="$PROJECT_ID" \
   --command="python" \
   --args="-m,app,pack,--notify" \
-  --set-env-vars="VOICE_SERVICE_URL=${VOICE_URL},SUPABASE_URL=${SUPABASE_URL:-},SUPABASE_SECRET_KEY=${SUPABASE_SECRET_KEY:-},GROQ_API_KEY=${GROQ_API_KEY:-},TZ=${TIMEZONE}" \
+  --set-env-vars="VOICE_SERVICE_URL=${VOICE_URL},SUPABASE_URL=${SUPABASE_URL:-},SUPABASE_SECRET_KEY=${SUPABASE_SECRET_KEY:-},GROQ_API_KEY=${GROQ_API_KEY:-},TZ=${TIMEZONE},BRIEFING_TIMEZONE=${TIMEZONE},ADMIN_EMAILS=vatsakrish@gmail.com" \
   --cpu=2 \
   --memory=2Gi \
   --task-timeout=30m

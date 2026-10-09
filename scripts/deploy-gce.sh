@@ -10,7 +10,7 @@ cd "$(dirname "$0")/.."
 ROOT="$PWD"
 
 INSTANCE_NAME="morning-brief-voice"
-ZONE="${2:-us-central1-a}"
+ZONE="${2:-us-central1-c}"
 REGION="us-central1"
 PROJECT_ID="${1:-$(gcloud config get-value project 2>/dev/null || echo 'project-67937e0a-4d2d-43ea-9ba')}"
 IMAGE_TAG="us-central1-docker.pkg.dev/${PROJECT_ID}/voice-service/morning-brief-voice:latest"

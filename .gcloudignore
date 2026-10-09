@@ -1,0 +1,15 @@
+.gcloudignore
+.git
+.gitignore
+.venv
+venv
+data/
+voice_service/
+web/
+android/
+scripts/
+tests/
+__pycache__/
+*.py[cod]
+*.md
+.DS_Store
