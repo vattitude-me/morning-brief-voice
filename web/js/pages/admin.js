@@ -31,6 +31,8 @@ export class AdminPage {
     this.status = {};
     this.pack = null;
     this.requests = [];
+    this.log = [];
+    this.logError = null;
     this.dates = [];
     this.day = today();
     this.voices = new Set(VOICES.map((v) => v.id));   // both narrators unless trimmed
@@ -45,11 +47,15 @@ export class AdminPage {
     if (this.loading) return;
     this.loading = true;
     try {
-      const [status, dates, requests] = await Promise.all([api.status(), api.storyDates(), api.packRequests()]);
+      const [status, dates, requests, log] = await Promise.all([
+        api.status(), api.storyDates(), api.packRequests(),
+        api.runLog(3).catch((err) => { this.logError = err.message; return []; }),
+      ]);
       this.status = status;
       this.dates = [...new Set([today(), ...(dates || [])])].slice(0, 10);
       if (!this.dates.includes(this.day)) this.day = this.dates[0];
       this.requests = requests;
+      this.log = log;
       this.pack = await api.packState(this.day);
       this.render();
       this.keepWatching();
@@ -79,6 +85,9 @@ export class AdminPage {
 
       SectionLabel('The morning run'),
       this.runGroup(st),
+
+      SectionLabel('Recent runs', { detail: 'Last three days, newest first' }),
+      this.logGroup(),
 
       SectionLabel('Rebuild the audio', { detail: 'One recording, heard by every listener' }),
       this.rebuildGroup(),
@@ -214,6 +223,46 @@ export class AdminPage {
     ]);
     rows.pop();
     return GlassGroup(...rows);
+  }
+
+  /**
+   * The morning's own record. The same line is pushed to the admin's phone, but a phone can be
+   * asleep, out of data or signed out, so the report is written here where it cannot be missed.
+   */
+  logGroup() {
+    if (this.logError) {
+      return GlassGroup(
+        ListRow({ label: 'Not switched on yet' }),
+        Hint('The database needs the run log section of supabase/schema.sql. Run it in the Supabase SQL editor, then reload.'),
+      );
+    }
+    if (!this.log.length) {
+      return GlassGroup(
+        ListRow({ label: 'Nothing reported yet' }),
+        Hint('Every pack and every morning report writes a line here, whether or not the phone was told.'),
+      );
+    }
+    const rows = [];
+    let day = null;
+    for (const entry of this.log) {
+      if (entry.run_date !== day) {
+        day = entry.run_date;
+        rows.push(h('div', { class: 'run-log-day' }, dayLabel(day)));
+      }
+      rows.push(h('div', { class: 'run-log-entry' },
+        h('div', { class: 'run-log-head' },
+          h('span', { class: `run-log-dot ${entry.status}` }),
+          h('span', { class: 'run-log-title' }, entry.title),
+          h('span', { class: 'run-log-time' }, at(entry.created_at))),
+        entry.body && entry.body !== entry.title ? h('p', { class: 'run-log-body' }, entry.body) : null,
+        entry.detail && entry.detail !== entry.body ? h('p', { class: 'run-log-detail' }, entry.detail) : null,
+        entry.voices?.length
+          ? h('div', { class: 'run-log-voices' },
+            ...entry.voices.map((v) => h('span', { class: v.ready ? '' : 'bad' },
+              `${v.name} ${v.ready ? 'ready' : 'missing'}`)))
+          : null));
+    }
+    return GlassGroup(h('div', { class: 'run-log', role: 'log' }, ...rows));
   }
 
   async pickDay(day) {

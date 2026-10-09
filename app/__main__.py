@@ -129,6 +129,13 @@ def _split(cfg, store, day: str, voice: str | None) -> tuple[list[str], list[str
     return here, [n for n in names if n not in here]
 
 
+def _narrator(voice: str, is_ready: bool) -> dict:
+    """One narrator's line in a run log entry."""
+    from .storypack import voice_name
+
+    return {"id": voice, "name": voice_name(voice), "ready": bool(is_ready)}
+
+
 def _publish_key(cfg, store) -> bool:
     """Put this machine's notification key in the status row clients read.
 
@@ -177,13 +184,16 @@ def cmd_report(args) -> int:
     good = ", ".join(voice_name(n) for n in here) or "nobody"
     bad = ", ".join(voice_name(n) for n in missing)
     detail = ". ".join(tried)
+    voices = [_narrator(n, n in here) for n in here + missing]
     print(f"{'✗' if missing else '✓'} {day} is ready for {good}" + (f"; missing {bad}" if missing else ""))
     if missing:
-        notify_admins(cfg, store, title=f"✗ Morning Brief incomplete: {bad}",
+        notify_admins(cfg, store, day=day, status="incomplete", detail=detail, voices=voices,
+                      title=f"✗ Morning Brief incomplete: {bad}",
                       body=f"{day} is ready for {good}. "
                            + (detail or "The 05:00 run did not finish for them, and a retry did not happen."))
         return 1
-    notify_admins(cfg, store, title=f"✓ Morning Brief ready: {good}",
+    notify_admins(cfg, store, day=day, status="ok", detail=detail, voices=voices,
+                  title=f"✓ Morning Brief ready: {good}",
                   body=f"{day} is complete for every narrator." + (f" {detail}." if detail else ""))
     if tried:
         # The 05:00 run failed, so listeners never got their nudge; this one goes out now.
@@ -281,11 +291,13 @@ def cmd_pack(args) -> int:
                                  notes=not getattr(args, "no_notes", False),
                                  force=getattr(args, "force", False)))
     except Exception as exc:  # noqa: BLE001 — say why and fail the run
-        print(f"✗ {exc.__class__.__name__}: {exc}")
+        text = f"{exc.__class__.__name__}: {exc}"
+        print(f"✗ {text}")
         if getattr(args, "notify", False):
-            # A failure at 05:00 is otherwise silent until someone opens the app.
-            notify_admins(cfg, _store(cfg), title="✗ Morning Brief failed",
-                          body=f"{exc.__class__.__name__}: {exc}")
+            # A failure at 05:00 is otherwise silent until someone opens the app. The run log gets it
+            # too, so a phone that was asleep is not the only place the news lived.
+            notify_admins(cfg, _store(cfg), day=_day(cfg, args), status="failed",
+                          title="✗ Morning Brief failed", detail=text, body=text)
         return 1
     print(f"✓ Published {len(rows)} clips ({total_seconds(rows):.1f}s of audio) as {args.voice or cfg.story_voice}")
     for row in rows:
@@ -295,15 +307,19 @@ def cmd_pack(args) -> int:
         day = _day(cfg, args)
         here, missing = _split(cfg, store, day, args.voice)
         names = [voice_name(n) for n in here]
+        voices = [_narrator(n, n in here) for n in here + missing]
         if missing:
-            notify_admins(cfg, store, title=f"✗ Morning Brief incomplete: {', '.join(voice_name(n) for n in missing)}",
+            notify_admins(cfg, store, day=day, status="incomplete", voices=voices,
+                          title=f"✗ Morning Brief incomplete: {', '.join(voice_name(n) for n in missing)}",
                           body=f"{day} is ready for {', '.join(names) or 'nobody'}. "
                                f"{len(rows)} clips were published; the rest failed.")
         else:
             per_voice = len(rows) // max(1, len(here))
-            notify_admins(cfg, store, title=f"✓ Morning Brief ready: {', '.join(names)}",
+            notify_admins(cfg, store, day=day, status="ok", voices=voices,
+                          title=f"✓ Morning Brief ready: {', '.join(names)}",
                           body=f"{day}: {per_voice} stories for {', '.join(names)}, "
-                               f"{total_seconds(rows) / max(1, len(here)) / 60:.0f} min each.")
+                               f"{total_seconds(rows) / max(1, len(here)) / 60:.0f} min each.",
+                          detail=f"{len(rows)} clips, {total_seconds(rows) / 60:.0f} min of audio")
             if rows:
                 notify_listeners(cfg, store, title="☀️ Your Morning Brief is ready",
                                  body=f"{rows[0]['title']}, and the rest of the day's stories.")

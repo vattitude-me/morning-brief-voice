@@ -334,3 +334,58 @@ def test_a_failed_push_does_not_break_the_render(cfg, store, monkeypatch):
     assert storypack.notify_listeners(cfg, store, title="x", body="y") == 0
     assert storypack.notify_admins(cfg, store, title="x", body="y") == 0
 
+
+# --- the run log: what the admin page reads when the phone was never told ----------------------
+
+def test_a_failed_morning_reaches_the_run_log_even_when_the_push_does_not(cfg, store, monkeypatch):
+    """A phone can be asleep, out of data or signed out. The database cannot."""
+    from app import push
+
+    def boom(cfg, subs, title, body):
+        raise RuntimeError("push service is down")
+
+    monkeypatch.setattr(push, "send", boom)
+
+    storypack.notify_admins(cfg, store, day=DAY, status="failed", title="✗ Morning Brief failed",
+                            body="RuntimeError: voice service is down",
+                            detail="RuntimeError: voice service is down")
+
+    row = store.tables["run_log"][0]
+    assert (row["run_date"], row["status"], row["title"]) == (DAY, "failed", "✗ Morning Brief failed")
+    assert "voice service is down" in row["detail"]
+
+
+def test_the_run_log_names_each_narrator(cfg, store, monkeypatch):
+    sent = _pushes(monkeypatch)
+    store.subs = [{"endpoint": "https://push.test/a", "user_id": "u-1"}]
+    store.profiles_.append({"id": "u-1", "email": cfg.admin_emails[0], "is_admin": True})
+
+    storypack.notify_admins(cfg, store, day=DAY, status="incomplete", title="✗ incomplete: Mike",
+                            body="Ready for Alice.", voices=[
+                                {"id": "her_reference", "name": "Alice", "ready": True},
+                                {"id": "him_reference", "name": "Mike", "ready": False}])
+
+    assert sent  # the push still goes
+    voices = store.tables["run_log"][0]["voices"]
+    assert [(v["name"], v["ready"]) for v in voices] == [("Alice", True), ("Mike", False)]
+
+
+def test_a_missing_run_log_table_does_not_break_a_morning(cfg, store, monkeypatch):
+    """The table is created by hand in the SQL editor, so it may not be there on the first run."""
+    def boom(table, values, on_conflict=None):
+        raise RuntimeError('relation "run_log" does not exist')
+
+    monkeypatch.setattr(store, "insert", boom)
+    assert storypack.record(store, day=DAY, status="ok", title="✓ ready") is False
+    assert storypack.notify_admins(cfg, store, day=DAY, status="ok", title="✓ ready", body="") == 0
+
+
+def test_the_run_log_outlives_the_audio_by_a_fortnight(cfg, store):
+    """The audio is one day deep; the record of what happened is what the admin reads."""
+    for day in ("2026-09-01", "2026-10-01", DAY):
+        storypack.record(store, day=day, status="ok", title="✓ ready")
+
+    storypack.prune_older(store, keep=DAY)
+
+    assert [r["run_date"] for r in store.tables["run_log"]] == ["2026-10-01", DAY]
+

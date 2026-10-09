@@ -848,6 +848,30 @@ button.list-row {
 .admin-actions .pill-btn { flex: 1; }
 .glass-btn.wide { justify-content: center; }
 
+/* What the morning runs reported, newest first. Scrolls inside the group so a week of
+   failures cannot push the rest of the page off screen. */
+.run-log { max-height: 46vh; overflow-y: auto; overscroll-behavior: contain; padding: 4px 0; }
+.run-log-day {
+  padding: 10px 2px 4px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted);
+}
+.run-log-entry { padding: 10px 2px; border-top: 1px solid var(--line); }
+.run-log-entry:first-of-type { border-top: 0; }
+.run-log-head { display: flex; align-items: baseline; gap: 8px; }
+.run-log-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--muted); }
+.run-log-dot.ok { background: var(--ok); }
+.run-log-dot.incomplete, .run-log-dot.failed { background: var(--err); }
+.run-log-title { flex: 1; font-size: 14px; }
+.run-log-time { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.run-log-body { margin: 4px 0 0 16px; font-size: 13px; color: var(--ink-2); }
+.run-log-detail { margin: 4px 0 0 16px; font-size: 12px; color: var(--muted); word-break: break-word; }
+.run-log-voices { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0 16px; }
+.run-log-voices span {
+  font-size: 11px; letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px;
+  border-radius: 99px; background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--ink-2);
+}
+.run-log-voices span.bad { background: color-mix(in srgb, var(--err) 16%, transparent); color: var(--err); }
+
 /* APK-style snackbar toast */
 .toast {
   position: fixed; left: 50%; top: auto;

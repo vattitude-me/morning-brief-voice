@@ -166,6 +166,14 @@ export const api = {
       .select('id,kind,status,message,created_at,finished_at').order('id', { ascending: false }).limit(limit));
     return rows || [];
   },
+  /** What every run of the last few days reported, so a missed push is not a missed morning. */
+  async runLog(days = 3, limit = 60) {
+    const since = new Date(Date.now() - days * 86400000).toLocaleDateString('en-CA');
+    const rows = check(await sb.from('run_log')
+      .select('id,run_date,status,title,body,detail,voices,created_at')
+      .gte('run_date', since).order('created_at', { ascending: false }).limit(limit));
+    return rows || [];
+  },
   /** Asks the worker to re-voice the pack. The options mirror `python -m app pack`. */
   async queuePack({ day = null, voices = [], notesOnly = false, force = false } = {}) {
     const payload = { day, voices, notes_only: notesOnly, force };

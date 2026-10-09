@@ -306,3 +306,30 @@ create policy "read voice notes" on public.voice_notes for select to authenticat
 
 revoke all on public.voice_notes from anon, authenticated;
 grant select on public.voice_notes to authenticated;
+-- ------------------------------------------------------------- the run log
+-- Every morning the pack writes what happened: the day, whether it is whole, one line per
+-- narrator, and the reason for anything that failed. The same text is pushed to the admins'
+-- phones, but a phone can be asleep, out of data or signed out, so the log is the copy that
+-- cannot be missed. The admin page reads the last few days of it.
+--
+-- Written by the worker (secret key), read by admins only.
+create table if not exists public.run_log (
+  id         bigserial primary key,
+  run_date   date not null,                                    -- the day the report is about
+  status     text not null check (status in ('ok', 'incomplete', 'failed')),
+  title      text not null check (char_length(title) <= 200),
+  body       text,                                             -- the line the admins were pushed
+  detail     text,                                             -- error text, retries, timings
+  voices     jsonb not null default '[]'::jsonb,               -- [{id,name,ready}] per narrator
+  created_at timestamptz not null default now()
+);
+create index if not exists run_log_created_at_idx on public.run_log (created_at desc);
+create index if not exists run_log_run_date_idx on public.run_log (run_date desc);
+
+alter table public.run_log enable row level security;
+drop policy if exists "admins read the run log" on public.run_log;
+create policy "admins read the run log" on public.run_log for select to authenticated
+  using (public.is_admin());
+
+revoke all on public.run_log from anon, authenticated;
+grant select on public.run_log to authenticated;

@@ -27,8 +27,9 @@ if [ "$DRY" = 1 ]; then
   exit 0
 fi
 
-if .venv/bin/python -m app pack --check && .venv/bin/python -m app pack --report; then
-  # Complete, and the report went out: one line per narrator, which is the success notification.
+if .venv/bin/python -m app pack --check; then
+  # Complete. The report is the success notification: one line per narrator.
+  .venv/bin/python -m app pack --report
   echo "=== $(date '+%H:%M:%S') complete"
   exit 0
 fi

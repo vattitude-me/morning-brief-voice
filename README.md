@@ -103,6 +103,8 @@ natively; on a Linux GPU host switch to `Dockerfile`, as described in
 - **Nightly pack:** `scripts/nightly-pack.sh` at 05:00 renders the shared pack and pushes the outcome; `scripts/nightly-report.sh`
   at 06:00 checks the day, retries a missing narrator once and reports to the admins either way. Both are LaunchAgents here:
   [`docs/nightly.md`](docs/nightly.md).
+- **Run log:** every pack and every report writes a line to the `run_log` table, so a morning that failed is
+  readable in the admin page even if the push never arrived. Created by the run log section of [`supabase/schema.sql`](supabase/schema.sql).
 - **One day of audio:** a complete pack deletes the older days, rows and storage files together. A morning that failed keeps
   yesterday's brief so clients can fall back to it.
 

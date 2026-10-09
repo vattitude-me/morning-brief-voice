@@ -28,7 +28,18 @@ Two more flags ride along on the nightly call and keep the run honest:
 - The prune. One day of audio is kept: a successful pack deletes the older days, rows and storage
   files together. It only runs when the day is complete for **every** narrator, so a morning that
   failed leaves yesterday's brief in place for clients to fall back on.
+### The run log
 
+Every outcome is also written to the `run_log` table: the day it was about, `ok`, `incomplete` or
+`failed`, the line the admins were pushed, the error text, and one entry per narrator. A phone can
+be asleep, out of data or signed out, so the admin page reads the log instead of trusting the push.
+It shows the last three days, newest first, in a scrollable panel.
+
+The table is created by the last section of `supabase/schema.sql`, which has to be run once in the
+Supabase SQL editor. Until then the panel says so, and the push still works.
+
+The log is trimmed to a fortnight by the same prune that deletes the audio, so it is a record of the
+recent past rather than a growing table.
 ### The 06:00 report
 
 `scripts/nightly-report.sh` runs an hour after the pack, which is the point of the gap: a transient

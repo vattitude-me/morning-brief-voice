@@ -23,7 +23,7 @@ import shutil
 import subprocess
 import tempfile
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -121,7 +121,7 @@ def prune_older(store, *, keep: str) -> list[str]:
 
     Only ever called once [keep] is complete for every narrator. A morning that failed must still
     have yesterday's brief for listeners to fall back on, so the old days stay until the new one is
-    whole.
+    whole. The run log outlives the audio by a fortnight, since it is the record of what happened.
     """
     days: list[str] = []
     for table in ("story_audio", "voice_notes"):
@@ -134,6 +134,11 @@ def prune_older(store, *, keep: str) -> list[str]:
         store.delete(table, {"date": f"lt.{keep}"})
         days += [str(r["date"]) for r in rows]
         log.info("[prune] %s: %d rows, %d files removed", table, len(rows), len(paths))
+    cutoff = (datetime.fromisoformat(keep) - timedelta(days=14)).isoformat()
+    try:
+        store.delete("run_log", {"run_date": f"lt.{cutoff}"})
+    except Exception as exc:  # noqa: BLE001 — an unpruned log is harmless
+        log.debug("Could not trim the run log: %s", exc)
     return sorted(set(days))
 
 
@@ -153,11 +158,31 @@ def notify_listeners(cfg, store, *, title: str, body: str) -> int:
         return 0
 
 
-def notify_admins(cfg, store, *, title: str, body: str) -> int:
-    """Push the run's outcome to the admins, who are the only ones who can fix it."""
+def record(store, *, day: str, status: str, title: str, body: str = "", detail: str = "",
+           voices: list[dict] | None = None) -> bool:
+    """Write one line of the run log.
+
+    The admin page reads this, so a morning that failed is on record even when the phone that
+    should have been told was asleep, out of signal or signed out. `status` is 'ok', 'incomplete'
+    or 'failed'; `voices` is one entry per narrator, {id, name, ready}.
+    """
+    try:
+        store.insert("run_log", {"run_date": day, "status": status, "title": title,
+                                 "body": body, "detail": detail, "voices": voices or []})
+        return True
+    except Exception as exc:  # noqa: BLE001 — a missing log line must not break the morning
+        log.warning("Could not write to the run log: %s", exc)
+        return False
+
+
+def notify_admins(cfg, store, *, title: str, body: str, day: str = "", status: str = "ok",
+                  detail: str = "", voices: list[dict] | None = None) -> int:
+    """Record the outcome, then push it to the admins, who are the only ones who can fix it."""
     from . import push
     from .batch import admin_subscriptions
 
+    if day:
+        record(store, day=day, status=status, title=title, body=body, detail=detail, voices=voices)
     try:
         subs = admin_subscriptions(cfg, store)
         if not subs:
