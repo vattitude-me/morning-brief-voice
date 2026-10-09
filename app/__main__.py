@@ -119,11 +119,24 @@ def cmd_pack(args) -> int:
     from zoneinfo import ZoneInfo
 
     from .config import load
-    from .storypack import NOTES, build, build_notes, mark_ready, publish_showcase, total_seconds, write_sample_bundle
+    from .storypack import (NOTES, build, build_notes, mark_ready, publish_showcase, ready,
+                           total_seconds, write_sample_bundle)
 
     cfg = load()
     sections = args.sections.split(",") if args.sections else None
     try:
+        if getattr(args, "if_missing", False):
+            # What a scheduled run wants: today's pack, unless it is already on the air. A later run
+            # on the same day would re-cut the brief to whatever the feed says now, because a story
+            # whose URL moved is rendered again.
+            store = _store(cfg)
+            day = args.day or datetime.now(ZoneInfo(cfg.timezone)).date().isoformat()
+            names = [args.voice] if args.voice else list(cfg.story_voices or ())
+            missing = [n for n in names if not ready(store, day=day, voice=n)]
+            if not missing:
+                print(f"✓ {day} is already published for {', '.join(names)}; nothing to do")
+                return 0
+            print(f"→ {day} still needs {', '.join(missing)}")
         if getattr(args, "mark_ready", False):
             # Days published before the completeness marker existed are otherwise unplayable. Marks
             # a narrator's day only when its clips and all of its framing are actually there.
@@ -200,6 +213,8 @@ def main() -> None:
                       help="re-voice everything, including clips and notes already published")
     pack.add_argument("--mark-ready", action="store_true", dest="mark_ready",
                       help="mark a finished day playable (for packs published before the marker)")
+    pack.add_argument("--if-missing", action="store_true", dest="if_missing",
+                      help="do nothing if the day is already published (for the nightly job)")
     sub.add_parser("check", help="test the Supabase and Groq connections")
     sub.add_parser("setup", help="download the Kokoro voice model (~350 MB)")
     args = parser.parse_args()
