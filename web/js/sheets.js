@@ -119,7 +119,7 @@ class DeleteAccountSheet {
 
 /* ------------------------------------------------------------------ Welcome */
 // First sign-in: name, which sources to read, then when the first briefing arrives (plus notifications).
-const STEP_TITLE = { name: 'Welcome', sources: 'Your news', morning: "You're all set" };
+const STEP_TITLE = { name: 'A few details', sources: 'Choose your topics', morning: 'Ready for your morning' };
 
 export class WelcomeSheet {
   constructor({ onDone }) {
@@ -172,8 +172,8 @@ export class WelcomeSheet {
     this.dialog.querySelectorAll('#welcomeDots span').forEach((d, j) => d.classList.toggle('on', j === i));
     document.getElementById('welcomeTitle').textContent = this.steps.length > 1 ? STEP_TITLE[step] : 'Morning notification';
     const last = i === this.steps.length - 1;
-    document.getElementById('welcomeGo').textContent = last ? 'Done' : 'Next';
-    document.getElementById('welcomeBack').textContent = i === 0 ? 'Skip' : 'Back';
+    document.getElementById('welcomeGo').textContent = last ? 'Finish setup' : 'Continue';
+    document.getElementById('welcomeBack').textContent = i === 0 ? 'Skip setup' : 'Back';
     document.getElementById('welcomeError').textContent = '';
     if (step === 'morning') this.paintMorning();
     this.dialog.querySelector('.sheet-body').scrollTop = 0;
