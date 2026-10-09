@@ -37,7 +37,7 @@ Progress = Callable[[str, float], None]
 
 DEFAULT_SETTINGS = {
     "name": "",
-    "voice": "kokoro:af_heart",
+    "voice": "chatterbox:alice",
     "speed": 1.0,
     "daily": True,
     "stories": DEFAULT_STORIES,

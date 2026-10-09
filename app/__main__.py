@@ -4,7 +4,6 @@
     python -m app run [--fresh] [--user EMAIL]   # build briefings now and print them
     python -m app pack [--voice NAME]            # voice the day's stories into the shared pack
     python -m app check                          # test the Supabase and Groq connections
-    python -m app setup                          # download the Kokoro voice model
 """
 from __future__ import annotations
 
@@ -382,7 +381,6 @@ def main() -> None:
     pack.add_argument("--prune", action="store_true",
                       help="delete the audio of the days before --day (the nightly pack does this itself)")
     sub.add_parser("check", help="test the Supabase and Groq connections")
-    sub.add_parser("setup", help="download the Kokoro voice model (~350 MB)")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -400,21 +398,6 @@ def main() -> None:
         sys.exit(cmd_pack(args))
     elif args.cmd == "check":
         sys.exit(cmd_check())
-    elif args.cmd == "setup":
-        from .config import load
-        from .tts.kokoro import download_models
-
-        cfg = load()
-        last = {}
-
-        def progress(name: str, done: int, total: int) -> None:
-            pct = done * 100 // total
-            if last.get(name) != pct and pct % 10 == 0:
-                last[name] = pct
-                print(f"  {name}: {pct}%")
-
-        download_models(cfg.model_dir, progress)
-        print(f"Voice model ready in {cfg.model_dir}")
 
 
 if __name__ == "__main__":

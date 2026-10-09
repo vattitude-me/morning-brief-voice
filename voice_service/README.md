@@ -1,8 +1,7 @@
 # Morning Brief v2 — voice service
 
-Server-side **Chatterbox-Turbo** voice for the Morning Brief briefing. The v1 web
-app and PWA keep working unchanged; they call this service over the LAN when they
-want the cloned narrator instead of Kokoro.
+Server-side **Chatterbox-Turbo** voice for the Morning Brief briefing. It synthesizes
+the daily news stories using custom neural cloned narrators (Alice & Mike).
 
 ## What this folder is
 

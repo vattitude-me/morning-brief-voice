@@ -18,7 +18,7 @@ trap cleanup EXIT
 echo "[$(date -u)] Starting GPU instance $INSTANCE..."
 gcloud compute instances start "$INSTANCE" --zone="$ZONE" --project="$PROJECT" --quiet
 
-echo "[$(date -u)] Waiting for Kokoro voice service to be healthy..."
+echo "[$(date -u)] Waiting for Chatterbox-Turbo voice service to be healthy..."
 for i in {1..30}; do
   if curl -sf "$HEALTH_URL" > /dev/null 2>&1; then
     echo "[$(date -u)] Voice service is online and healthy!"

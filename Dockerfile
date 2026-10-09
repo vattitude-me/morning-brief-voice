@@ -11,10 +11,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 
-# Bake the Kokoro voice model (~350 MB) into the image so the first briefing is instant.
-# Build with --build-arg BAKE_MODEL=0 to download it on first use instead.
-ARG BAKE_MODEL=1
-RUN if [ "$BAKE_MODEL" = "1" ]; then python -m app setup; fi
-
 VOLUME ["/data"]
 CMD ["python", "-m", "app", "worker"]
