@@ -69,6 +69,24 @@ function summaryLine(b) {
   return line;
 }
 
+export function formatFreshnessDate(dateStr) {
+  let d;
+  if (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const [y, m, day] = dateStr.split('-').map(Number);
+    d = new Date(y, m - 1, day);
+  } else {
+    d = new Date();
+  }
+  const wd = d.toLocaleDateString('en-US', { weekday: 'short' });
+  const mon = d.toLocaleDateString('en-US', { month: 'short' });
+  const num = d.getDate();
+  const sfx = (num % 10 === 1 && num !== 11) ? 'st'
+            : (num % 10 === 2 && num !== 12) ? 'nd'
+            : (num % 10 === 3 && num !== 13) ? 'rd'
+            : 'th';
+  return `${wd} ${mon} ${num}${sfx}`;
+}
+
 function renderHeader() {
   const now = new Date();
   const wd = now.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
@@ -77,6 +95,17 @@ function renderHeader() {
   const w = state.briefing?.weather;
   $('wxChip').textContent = w ? `${w.city} ${w.now}°` : '';
   $('screenSubtitle').textContent = state.briefing ? summaryLine(state.briefing) : 'Your news, read aloud each morning.';
+
+  const tag = $('freshnessTag');
+  if (tag) {
+    const bDate = state.briefing?.date;
+    const formatted = formatFreshnessDate(bDate);
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    const isToday = Boolean(bDate && bDate === todayStr);
+    tag.textContent = `New as of - ${formatted}`;
+    tag.className = 'freshness-tag' + (isToday ? ' fresh' : ' stale');
+    tag.title = isToday ? "Today's fresh briefing" : `Archived briefing from ${formatted}`;
+  }
 }
 
 /* ------------------------------------------------------------------ notice */

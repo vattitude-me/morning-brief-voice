@@ -40,7 +40,7 @@ export function pickVoice(rows, chosen) {
 }
 
 /** Order one listener's clips: their voice, then section order, then rank. */
-export function clipsFor(rows, wanted, voice) {
+export function clipsFor(rows, wanted, voice, sectionOrder = SECTION_ORDER) {
   const bySection = new Map();
   for (const row of rows || []) {
     if (voice && row.voice !== voice) continue;
@@ -48,7 +48,10 @@ export function clipsFor(rows, wanted, voice) {
     bySection.get(row.section).push(row);
   }
   const ordered = [];
-  for (const key of SECTION_ORDER) {
+  const order = (Array.isArray(sectionOrder) && sectionOrder.length)
+    ? [...sectionOrder.filter((k) => SECTION_ORDER.includes(k)), ...SECTION_ORDER.filter((k) => !sectionOrder.includes(k))]
+    : SECTION_ORDER;
+  for (const key of order) {
     const count = wanted[key] || 0;
     if (count <= 0) continue;
     const picked = (bySection.get(key) || []).slice().sort((a, b) => (a.rank || 0) - (b.rank || 0)).slice(0, count);
@@ -92,7 +95,11 @@ export function greetingKey(hour = new Date().getHours()) {
  */
 export function buildBriefing(rows, settings, { date, voice, notes = [], hour } = {}) {
   const id = pickVoice(rows, voice);
-  const chosen = clipsFor(rows, lineup(settings), id);
+  const userOrder = (settings && Array.isArray(settings.section_order) && settings.section_order.length)
+    ? settings.section_order
+    : SECTION_ORDER;
+  const order = [...userOrder.filter((k) => SECTION_ORDER.includes(k)), ...SECTION_ORDER.filter((k) => !userOrder.includes(k))];
+  const chosen = clipsFor(rows, lineup(settings), id, order);
   if (!chosen.length) return null;
 
   const byKey = new Map(
@@ -158,7 +165,7 @@ export function buildBriefing(rows, settings, { date, voice, notes = [], hour } 
   // The sign-off, after a breath, so the brief does not stop dead on the last story.
   sayNote('outro');
 
-  const sections = SECTION_ORDER
+  const sections = order
     .filter((key) => counts.has(key))
     .map((key) => ({ key, title: SECTIONS[key].title, count: counts.get(key) }));
 

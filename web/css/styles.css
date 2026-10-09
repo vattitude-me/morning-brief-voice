@@ -105,8 +105,47 @@ svg { width: 22px; height: 22px; flex: none; }
 .wx svg { width: 14px; height: 14px; }
 .overline-row .icon-btn { width: 34px; height: 34px; color: var(--muted); }
 .overline-row .icon-btn svg { width: 18px; height: 18px; }
-.overline-row .icon-btn:hover { color: var(--ink); }
 .display { margin: 10px 0 0; font: 500 32px/1.06 var(--font-head); letter-spacing: -.025em; }
+.header-headline {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 10px;
+}
+.header-headline .display { margin: 0; }
+.freshness-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: .01em;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 9%, transparent);
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+.freshness-tag::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+}
+.freshness-tag.stale {
+  color: var(--ink);
+  background: color-mix(in srgb, #f59e0b 12%, transparent);
+  border-color: color-mix(in srgb, #f59e0b 28%, transparent);
+}
+.freshness-tag.stale::before {
+  background: #f59e0b;
+}
 .subtitle { margin: 6px 0 0; font-size: 15px; line-height: 1.4; color: var(--muted); }
 
 /* ---------- Glass panel ---------- */
@@ -811,7 +850,64 @@ select.pill-field { appearance: auto; }
 .add-field .pill-field { flex: 1; min-width: 0; }
 .ink-circle.busy { opacity: .5; pointer-events: none; }
 
-.topic-card { margin: 0; }
+.topic-card {
+  margin: 0;
+  position: relative;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.topic-card.dragging {
+  opacity: 0.4;
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+}
+.topic-card.drag-over-top::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--ink);
+  border-radius: 3px;
+  z-index: 10;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--ink) 40%, transparent);
+}
+.topic-card.drag-over-bottom::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--ink);
+  border-radius: 3px;
+  z-index: 10;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--ink) 40%, transparent);
+}
+.drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 32px;
+  flex: none;
+  color: var(--muted);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  border-radius: 6px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.drag-handle:hover, .drag-handle:focus-visible {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+.drag-handle:active {
+  cursor: grabbing;
+}
+.drag-handle svg {
+  width: 16px;
+  height: 16px;
+}
 .topic-head {
   display: flex; align-items: center; gap: 10px; width: 100%;
   padding: 10px 0; text-align: left;

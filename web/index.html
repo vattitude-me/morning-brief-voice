@@ -55,6 +55,7 @@
     <symbol id="i-chev-d" viewBox="0 0 24 24"><path d="M5 9l7 7 7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4L2.5 20h19L12 4Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.2" r="1.2" fill="currentColor"/></symbol>
+    <symbol id="i-drag" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.5" fill="currentColor"/><circle cx="15" cy="6" r="1.5" fill="currentColor"/><circle cx="9" cy="12" r="1.5" fill="currentColor"/><circle cx="15" cy="12" r="1.5" fill="currentColor"/><circle cx="9" cy="18" r="1.5" fill="currentColor"/><circle cx="15" cy="18" r="1.5" fill="currentColor"/></symbol>
   </svg>
 
   <a class="skip-link" href="#sections">Skip to stories</a>
@@ -186,7 +187,10 @@
           <button class="icon-btn sm hidden" id="installBtn" aria-label="Install the app" title="Install the app"><svg><use href="#i-download"/></svg></button>
           <button class="icon-btn sm" id="themeToggle" aria-label="Toggle dark mode" title="Theme"><svg><use href="#i-moon"/></svg></button>
         </div>
-        <h1 class="display">Morning Brief</h1>
+        <div class="header-headline">
+          <h1 class="display">Morning Brief</h1>
+          <span class="freshness-tag" id="freshnessTag"></span>
+        </div>
         <p class="subtitle" id="screenSubtitle"></p>
       </header>
 

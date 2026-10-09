@@ -31,12 +31,19 @@ export class SourcesPage {
     const [{ settings }, { sources }] = await Promise.all([api.settings(), api.sources()]);
     this.city = settings.city || '';
     this.sources = sources;
+    const rawOrder = Array.isArray(settings.section_order) ? settings.section_order : [];
+    const order = [
+      ...rawOrder.filter((k) => TOPIC_KEYS.includes(k)),
+      ...TOPIC_KEYS.filter((k) => !rawOrder.includes(k)),
+    ];
     this.saved = {
       stories: { ...settings.stories },
+      section_order: [...order],
       enabled: Object.fromEntries(sources.map((s) => [s.id, !!s.enabled])),
     };
     this.draft = {
       stories: { ...settings.stories },
+      section_order: [...order],
       enabled: { ...this.saved.enabled },
     };
     this.loaded = true;
@@ -47,6 +54,7 @@ export class SourcesPage {
 
   isDirty() {
     if (!this.draft) return false;
+    if (JSON.stringify(this.saved.section_order) !== JSON.stringify(this.draft.section_order)) return true;
     const keys = new Set([...Object.keys(this.saved.stories), ...Object.keys(this.draft.stories)]);
     for (const k of keys) if ((this.saved.stories[k] || 0) !== (this.draft.stories[k] || 0)) return true;
     for (const id of Object.keys(this.draft.enabled)) {
@@ -59,10 +67,11 @@ export class SourcesPage {
 
   async save() {
     const changedToggles = this.sources.filter((s) => !!this.draft.enabled[s.id] !== !!this.saved.enabled[s.id]);
-    await api.saveSettings({ stories: this.draft.stories });
+    await api.saveSettings({ stories: this.draft.stories, section_order: this.draft.section_order });
     for (const s of changedToggles) await api.updateSource(s, { enabled: this.draft.enabled[s.id] });
     this.saved = {
       stories: { ...this.draft.stories },
+      section_order: [...this.draft.section_order],
       enabled: { ...this.draft.enabled },
     };
     this.markDirty();
@@ -72,8 +81,19 @@ export class SourcesPage {
   discard() {
     this.draft = {
       stories: { ...this.saved.stories },
+      section_order: [...this.saved.section_order],
       enabled: { ...this.saved.enabled },
     };
+    this.markDirty();
+    this.render();
+  }
+
+  moveTopic(fromIndex, toIndex) {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return;
+    const list = [...this.draft.section_order];
+    const [item] = list.splice(fromIndex, 1);
+    list.splice(toIndex, 0, item);
+    this.draft.section_order = list;
     this.markDirty();
     this.render();
   }
@@ -95,13 +115,14 @@ export class SourcesPage {
   /* ------------------------------------------------------------ rendering */
   render() {
     if (!this.draft) return;
+    const order = this.draft.section_order || TOPIC_KEYS;
     this.root.replaceChildren(
       this.header(),
-      Hint('Set story counts, turn topics off, or open one to review its sources.'),
+      Hint('Drag topics to set playback order, adjust story counts, or open one to review sources.'),
       ...(SHOW_MY_SOURCES ? [this.picks()] : []),
-      GlassGroup(...TOPIC_KEYS.flatMap((key, i) => [
+      GlassGroup(...order.flatMap((key, i) => [
         ...(i ? [Hairline()] : []),
-        this.topic(key),
+        this.topic(key, i),
       ])),
     );
   }
@@ -165,7 +186,7 @@ export class SourcesPage {
     return h('section', { class: 'picks-section' }, label, addField, chips, list, offHint);
   }
 
-  topic(key) {
+  topic(key, index) {
     const sec = SECTIONS[key];
     const n = this.draft.stories[key] || 0;
     const items = this.sources.filter((s) => s.section === key);
@@ -181,7 +202,27 @@ export class SourcesPage {
       if (this.expanded.has(key)) this.expanded.delete(key); else this.expanded.add(key);
       this.render();
     };
+
+    const dragHandle = h('span', {
+      class: 'drag-handle',
+      title: 'Drag to reorder topics (or press Arrow Up/Down)',
+      'aria-label': `Reorder ${label}`,
+      role: 'button',
+      tabindex: '0',
+    }, icon('drag'));
+
+    dragHandle.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowUp' && index > 0) {
+        e.preventDefault();
+        this.moveTopic(index, index - 1);
+      } else if (e.key === 'ArrowDown' && index < this.draft.section_order.length - 1) {
+        e.preventDefault();
+        this.moveTopic(index, index + 1);
+      }
+    });
+
     const head = h('div', { class: 'topic-head' },
+      dragHandle,
       h('button', { type: 'button', class: 'topic-toggle', 'aria-expanded': String(open), disabled: !items.length },
         h('span', { class: 'topic-title' }, label),
         h('span', { class: 'topic-summary' }, summary)),
@@ -193,7 +234,92 @@ export class SourcesPage {
     head.querySelector('.topic-toggle').addEventListener('click', toggle);
     head.querySelector('.topic-expand')?.addEventListener('click', toggle);
 
-    const card = h('section', { class: 'topic-card' }, head);
+    const card = h('section', {
+      class: 'topic-card',
+      draggable: 'true',
+      'data-key': key,
+      'data-index': String(index),
+    }, head);
+
+    card.addEventListener('dragstart', (e) => {
+      this.draggedIndex = index;
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', key);
+    });
+
+    card.addEventListener('dragend', () => {
+      card.classList.remove('dragging');
+      this.root.querySelectorAll('.topic-card').forEach((el) => {
+        el.classList.remove('drag-over-top', 'drag-over-bottom');
+      });
+      this.draggedIndex = null;
+    });
+
+    card.addEventListener('dragover', (e) => {
+      if (this.draggedIndex == null || this.draggedIndex === index) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const rect = card.getBoundingClientRect();
+      const mid = rect.top + rect.height / 2;
+      card.classList.toggle('drag-over-top', e.clientY < mid);
+      card.classList.toggle('drag-over-bottom', e.clientY >= mid);
+    });
+
+    card.addEventListener('dragleave', () => {
+      card.classList.remove('drag-over-top', 'drag-over-bottom');
+    });
+
+    card.addEventListener('drop', (e) => {
+      e.preventDefault();
+      card.classList.remove('drag-over-top', 'drag-over-bottom');
+      if (this.draggedIndex == null || this.draggedIndex === index) return;
+      const rect = card.getBoundingClientRect();
+      const isAbove = e.clientY < (rect.top + rect.height / 2);
+      let targetIndex = isAbove ? index : index + 1;
+      if (this.draggedIndex < targetIndex) targetIndex--;
+      this.moveTopic(this.draggedIndex, targetIndex);
+    });
+
+    // Touch support for reordering on mobile screens
+    dragHandle.addEventListener('touchstart', () => {
+      this.draggedIndex = index;
+      card.classList.add('dragging');
+    }, { passive: true });
+
+    dragHandle.addEventListener('touchmove', (e) => {
+      const touch = e.touches[0];
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      const targetCard = target?.closest('.topic-card');
+      this.root.querySelectorAll('.topic-card').forEach((el) => {
+        if (el !== targetCard) el.classList.remove('drag-over-top', 'drag-over-bottom');
+      });
+      if (targetCard && targetCard !== card) {
+        const rect = targetCard.getBoundingClientRect();
+        const isAbove = touch.clientY < (rect.top + rect.height / 2);
+        targetCard.classList.toggle('drag-over-top', isAbove);
+        targetCard.classList.toggle('drag-over-bottom', !isAbove);
+      }
+    }, { passive: true });
+
+    dragHandle.addEventListener('touchend', (e) => {
+      card.classList.remove('dragging');
+      const touch = e.changedTouches[0];
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      const targetCard = target?.closest('.topic-card');
+      if (targetCard && targetCard !== card && targetCard.dataset.index != null) {
+        const tIndex = parseInt(targetCard.dataset.index, 10);
+        const rect = targetCard.getBoundingClientRect();
+        const isAbove = touch.clientY < (rect.top + rect.height / 2);
+        let targetIndex = isAbove ? tIndex : tIndex + 1;
+        if (this.draggedIndex < targetIndex) targetIndex--;
+        this.moveTopic(this.draggedIndex, targetIndex);
+      }
+      this.root.querySelectorAll('.topic-card').forEach((el) => {
+        el.classList.remove('drag-over-top', 'drag-over-bottom');
+      });
+      this.draggedIndex = null;
+    });
     if (open) {
       const body = h('div', { class: 'topic-body' }, Hairline());
       if (key === 'local') {
