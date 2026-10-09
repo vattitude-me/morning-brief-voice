@@ -169,27 +169,29 @@ export class SourcesPage {
     const sec = SECTIONS[key];
     const n = this.draft.stories[key] || 0;
     const items = this.sources.filter((s) => s.section === key);
-    const open = this.expanded.has(key);
+    const open = this.expanded.has(key) && items.length > 0;
     const city = (this.city || '').split(',')[0].trim();
     const label = key === 'local' && city ? `${sec.title} · ${city}` : sec.title;
 
-    const sourceCount = items.length === 0 ? 'No sources' : `${items.length} ${items.length === 1 ? 'source' : 'sources'}`;
+    const sourceCount = items.length ? `${items.length} ${items.length === 1 ? 'source' : 'sources'}` : '';
     const storyCount = n === 0 ? 'Off' : `${n} ${n === 1 ? 'story' : 'stories'}`;
+    const summary = sourceCount ? `${sourceCount} · ${storyCount}` : storyCount;
     const toggle = () => {
+      if (!items.length) return;
       if (this.expanded.has(key)) this.expanded.delete(key); else this.expanded.add(key);
       this.render();
     };
     const head = h('div', { class: 'topic-head' },
-      h('button', { type: 'button', class: 'topic-toggle', 'aria-expanded': String(open) },
+      h('button', { type: 'button', class: 'topic-toggle', 'aria-expanded': String(open), disabled: !items.length },
         h('span', { class: 'topic-title' }, label),
-        h('span', { class: 'topic-summary' }, `${sourceCount} · ${storyCount}`)),
+        h('span', { class: 'topic-summary' }, summary)),
       StoryStepper(n, true, MAX_PER_SECTION, (v) => this.setStories(key, v)),
-      h('button', {
+      items.length ? h('button', {
         type: 'button', class: 'topic-expand', 'aria-label': `${open ? 'Hide' : 'Show'} ${label} sources`,
-        'aria-expanded': String(open), disabled: !items.length,
-      }, h('span', { class: 'caret' + (open ? ' open' : ''), 'aria-hidden': 'true' }, icon(open ? 'chev-d' : 'chev-r'))));
+        'aria-expanded': String(open),
+      }, h('span', { class: 'caret' + (open ? ' open' : ''), 'aria-hidden': 'true' }, icon(open ? 'chev-d' : 'chev-r'))) : null);
     head.querySelector('.topic-toggle').addEventListener('click', toggle);
-    head.querySelector('.topic-expand').addEventListener('click', toggle);
+    head.querySelector('.topic-expand')?.addEventListener('click', toggle);
 
     const card = h('section', { class: 'topic-card' }, head);
     if (open) {
@@ -203,14 +205,10 @@ export class SourcesPage {
         body.append(cityRow);
         if (items.length) body.append(Hairline());
       }
-      if (!items.length) {
-        body.append(Hint('No sources for this topic yet.'));
-      } else {
-        items.forEach((s, i) => {
-          if (i > 0) body.append(Hairline());
-          body.append(this.sourceRow(s, null));
-        });
-      }
+      items.forEach((s, i) => {
+        if (i > 0) body.append(Hairline());
+        body.append(this.sourceRow(s, null));
+      });
       if (n === 0) body.append(Hint('This topic is off. Raise the count to include its stories.', 'var(--err)'));
       card.append(body);
     }

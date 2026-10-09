@@ -120,7 +120,8 @@ fun SourcesScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                     val n = st.stories[s.key] ?: 0
                     val city = st.localCity.substringBefore(",").trim()
                     val label = if (s.key == "local" && city.isNotBlank()) "${s.title} · $city" else s.title
-                    val open = expanded[s.key] ?: false
+                    val topicSources = sources.filter { it.section == s.key }
+                    val open = (expanded[s.key] ?: false) && topicSources.isNotEmpty()
                     Topic(
                         section = s,
                         label = label,
@@ -129,7 +130,7 @@ fun SourcesScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                         open = open,
                         onExpand = { expanded[s.key] = !open },
                         onChange = { vm.setStories(s.key, it) },
-                        sources = sources.filter { it.section == s.key },
+                        sources = topicSources,
                         on = ::on,
                         onToggle = { src, enabled -> vm.setEnabled(src, enabled) },
                     ) {
@@ -179,12 +180,13 @@ private fun Topic(
             Column(Modifier.weight(1f).padding(end = 10.dp)) {
                 Text(label, style = Type.title, color = t.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val sourceCount = when (sources.size) {
-                    0 -> "No sources"
                     1 -> "1 source"
+                    0 -> ""
                     else -> "${sources.size} sources"
                 }
                 val storyCount = if (n == 0) "Off" else "$n ${if (n == 1) "story" else "stories"}"
-                Text("$sourceCount · $storyCount", Modifier.padding(top = 3.dp), style = Type.meta, color = t.muted,
+                val summary = if (sourceCount.isEmpty()) storyCount else "$sourceCount · $storyCount"
+                Text(summary, Modifier.padding(top = 3.dp), style = Type.meta, color = t.muted,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             StoryStepper(n, canRaise, MAX_PER_SECTION, onChange)
@@ -200,13 +202,9 @@ private fun Topic(
                 Hairline()
                 Column(Modifier.padding(horizontal = 4.dp)) {
                     local()
-                    if (sources.isEmpty()) {
-                        Hint("No sources for this topic yet.", Modifier.padding(vertical = 14.dp))
-                    } else {
-                        sources.forEachIndexed { i, src ->
-                            if (i > 0 || section.key == "local") Hairline()
-                            SourceRow(src, on(src), onToggle = { onToggle(src, it) })
-                        }
+                    sources.forEachIndexed { i, src ->
+                        if (i > 0 || section.key == "local") Hairline()
+                        SourceRow(src, on(src), onToggle = { onToggle(src, it) })
                     }
                     if (n == 0) Hint("This topic is off. Raise the count to include its stories.",
                         Modifier.padding(bottom = 12.dp), color = t.error)
