@@ -1,0 +1,26 @@
+.gcloudignore
+.git
+.gitignore
+
+# Python caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+/out/
+.DS_Store
+.env
+.env.*
+
+# Explicitly allow voice reference clips
+!data/
+!data/voices/
+!data/voices/**

@@ -31,18 +31,25 @@ nightly_env() {   # the Supabase and voice service settings the render reads
   export VOICE_SERVICE_URL="${VOICE_SERVICE_URL:-http://localhost:8090}"
 }
 
-nightly_voice_service() {   # colima if it is down, the container, then a wait for the model
-  if ! docker info >/dev/null 2>&1; then
-    echo "→ starting colima"
-    colima start --cpu 4 --memory 8 --disk 60 >>"$LOG" 2>&1 || { echo "✗ colima would not start"; return 1; }
+nightly_voice_service() {   # colima if local and down, or health check for remote Cloud Run
+  local url="${VOICE_SERVICE_URL:-http://localhost:8090}"
+
+  if [[ "$url" =~ ^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?(/.*)?$ ]]; then
+    # Local container on Mac
+    if ! docker info >/dev/null 2>&1; then
+      echo "→ starting colima"
+      colima start --cpu 4 --memory 8 --disk 60 >>"$LOG" 2>&1 || { echo "✗ colima would not start"; return 1; }
+    fi
+    echo "→ starting the local voice service"
+    docker compose -f docker-compose.deploy.yml up -d voice
+  else
+    echo "→ using remote voice service at $url"
   fi
-  echo "→ starting the voice service"
-  docker compose -f docker-compose.deploy.yml up -d voice
-  # Loading the model takes a minute on CPU, so wait for it rather than racing it.
-  echo "→ waiting for the voice service"
+
+  echo "→ waiting for the voice service ($url/health)"
   local _
   for _ in $(seq 1 90); do
-    if curl -fsS --max-time 5 http://localhost:8090/health 2>/dev/null | grep -q '"loaded":true'; then
+    if curl -fsS --max-time 10 "$url/health" 2>/dev/null | grep -q '"status":"ok"'; then
       echo "→ voice service ready"
       return 0
     fi

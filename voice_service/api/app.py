@@ -56,6 +56,14 @@ _voice: TurboVoice | None = None
 _voice_lock = threading.Lock()
 
 
+@app.on_event("startup")
+def _on_startup() -> None:
+    """Pre-warm the model in the background so the first inference doesn't block."""
+    if os.getenv("PRELOAD_VOICE", "0").strip().lower() in ("1", "true", "yes"):
+        log.info("PRELOAD_VOICE enabled: warming up TurboVoice in background thread...")
+        threading.Thread(target=get_voice, daemon=True).start()
+
+
 # ---------------------------------------------------------------------- setup
 def voice_dir() -> Path:
     return Path(os.getenv("VOICE_DIR", "data/voices"))

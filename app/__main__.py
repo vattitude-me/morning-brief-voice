@@ -12,6 +12,7 @@ import argparse
 import logging
 import sys
 import textwrap
+import time
 
 
 def _store(cfg):
@@ -286,10 +287,13 @@ def cmd_pack(args) -> int:
             for note in notes:
                 print(f"  {note['note_key']:20} {note['text'][:52]!r} — {note['duration']:.1f}s")
             return 0 if notes else 1
+        t0 = time.monotonic()
         rows = asyncio.run(build(cfg, _store(cfg), day=args.day, voice=args.voice,
                                  sections=sections, per_section=args.per_section,
                                  notes=not getattr(args, "no_notes", False),
                                  force=getattr(args, "force", False)))
+        elapsed_sec = time.monotonic() - t0
+        duration_fmt = f"{int(elapsed_sec // 60)}m {int(elapsed_sec % 60):02d}s" if elapsed_sec >= 60 else f"{elapsed_sec:.1f}s"
     except Exception as exc:  # noqa: BLE001 — say why and fail the run
         text = f"{exc.__class__.__name__}: {exc}"
         print(f"✗ {text}")
@@ -297,9 +301,9 @@ def cmd_pack(args) -> int:
             # A failure at 05:00 is otherwise silent until someone opens the app. The run log gets it
             # too, so a phone that was asleep is not the only place the news lived.
             notify_admins(cfg, _store(cfg), day=_day(cfg, args), status="failed",
-                          title="✗ Morning Brief failed", detail=text, body=text)
+                          title="✗ Morning Brief failed", detail=f"Failed: {text}", body=text)
         return 1
-    print(f"✓ Published {len(rows)} clips ({total_seconds(rows):.1f}s of audio) as {args.voice or cfg.story_voice}")
+    print(f"✓ Published {len(rows)} clips ({total_seconds(rows):.1f}s of audio in {duration_fmt}) as {args.voice or cfg.story_voice}")
     for row in rows:
         print(f"  [{row['section']} #{row['rank']}] {row['title'][:70]} — {row['duration']:.1f}s")
     if getattr(args, "notify", False):
@@ -308,18 +312,20 @@ def cmd_pack(args) -> int:
         here, missing = _split(cfg, store, day, args.voice)
         names = [voice_name(n) for n in here]
         voices = [_narrator(n, n in here) for n in here + missing]
+        audio_mins = total_seconds(rows) / 60
         if missing:
             notify_admins(cfg, store, day=day, status="incomplete", voices=voices,
                           title=f"✗ Morning Brief incomplete: {', '.join(voice_name(n) for n in missing)}",
                           body=f"{day} is ready for {', '.join(names) or 'nobody'}. "
-                               f"{len(rows)} clips were published; the rest failed.")
+                               f"{len(rows)} clips were published; the rest failed.",
+                          detail=f"Took {duration_fmt} · {len(rows)} clips published ({audio_mins:.1f}m audio)")
         else:
             per_voice = len(rows) // max(1, len(here))
             notify_admins(cfg, store, day=day, status="ok", voices=voices,
                           title=f"✓ Morning Brief ready: {', '.join(names)}",
                           body=f"{day}: {per_voice} stories for {', '.join(names)}, "
                                f"{total_seconds(rows) / max(1, len(here)) / 60:.0f} min each.",
-                          detail=f"{len(rows)} clips, {total_seconds(rows) / 60:.0f} min of audio")
+                          detail=f"Took {duration_fmt} · {len(rows)} clips ({audio_mins:.1f} min audio)")
             if rows:
                 notify_listeners(cfg, store, title="☀️ Your Morning Brief is ready",
                                  body=f"{rows[0]['title']}, and the rest of the day's stories.")

@@ -15,8 +15,8 @@ DRY=0
 # shellcheck source=scripts/nightly-common.sh
 source "$(dirname "$0")/nightly-common.sh"
 nightly_init pack
-nightly_voice_service
 nightly_env
+nightly_voice_service
 
 if [ "$DRY" = 1 ]; then
   echo "✓ dry run: the voice service is up and .env loaded; skipping the render"

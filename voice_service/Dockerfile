@@ -10,12 +10,14 @@
 # what chatterbox-tts 0.1.7 wants, so nothing re-downloads torch. Mount a volume at
 # HF_HOME to keep the model weights (and the precomputed .conds.pt files) across
 # container restarts; otherwise each cold start re-fetches them.
-FROM pytorch/pytorch:2.4.1-cuda12.4-cudnn9-runtime
+FROM pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime
 
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     HF_HOME=/models \
-    VOICE_DIR=/app/data/voices
+    VOICE_DIR=/app/data/voices \
+    PORT=8090 \
+    PRELOAD_VOICE=1
 
 # libsndfile for soundfile; ffmpeg for librosa's non-WAV inputs.
 RUN apt-get update \
@@ -26,8 +28,11 @@ WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY api ./api
 COPY turbo_voice ./turbo_voice
+COPY data/voices ./data/voices
 RUN pip install -e .
 
-# One worker: the model lives in memory and generate() is serialised behind a lock.
+# Pre-download the Chatterbox-Turbo weights during build so cold-starts never fetch over WAN
+RUN python -c "from huggingface_hub import snapshot_download; snapshot_download('ResembleAI/chatterbox-turbo', allow_patterns=['*.safetensors', '*.json', '*.txt', '*.pt', '*.model'])"
+
 EXPOSE 8090
-CMD ["uvicorn", "--app-dir", ".", "api.app:app", "--host", "0.0.0.0", "--port", "8090", "--workers", "1"]
+CMD ["sh", "-c", "exec uvicorn --app-dir . api.app:app --host 0.0.0.0 --port ${PORT:-8090} --workers 1"]

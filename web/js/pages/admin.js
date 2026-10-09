@@ -255,7 +255,10 @@ export class AdminPage {
           h('span', { class: 'run-log-title' }, entry.title),
           h('span', { class: 'run-log-time' }, at(entry.created_at))),
         entry.body && entry.body !== entry.title ? h('p', { class: 'run-log-body' }, entry.body) : null,
-        entry.detail && entry.detail !== entry.body ? h('p', { class: 'run-log-detail' }, entry.detail) : null,
+        entry.detail && entry.detail !== entry.body
+          ? h('div', { class: 'run-log-meta' },
+              h('span', { class: 'run-log-badge' }, entry.detail.startsWith('Took') ? `⏱ ${entry.detail}` : entry.detail))
+          : null,
         entry.voices?.length
           ? h('div', { class: 'run-log-voices' },
             ...entry.voices.map((v) => h('span', { class: v.ready ? '' : 'bad' },

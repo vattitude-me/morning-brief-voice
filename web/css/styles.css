@@ -912,6 +912,12 @@ button.list-row {
 .run-log-time { font-size: 12px; color: var(--muted); white-space: nowrap; }
 .run-log-body { margin: 4px 0 0 16px; font-size: 13px; color: var(--ink-2); }
 .run-log-detail { margin: 4px 0 0 16px; font-size: 12px; color: var(--muted); word-break: break-word; }
+.run-log-meta { margin: 6px 0 0 16px; display: flex; align-items: center; gap: 8px; }
+.run-log-badge {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 11px;
+  font-weight: 500; letter-spacing: .02em; padding: 3px 9px; border-radius: 99px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent);
+}
 .run-log-voices { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0 16px; }
 .run-log-voices span {
   font-size: 11px; letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px;
