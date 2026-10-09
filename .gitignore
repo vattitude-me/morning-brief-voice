@@ -15,7 +15,10 @@ venv/
 htmlcov/
 
 # App data (database, audio, voice models, generated clips)
-data/
+/data/
+!voice_service/data/voices/
+!voice_service/data/voices/*.wav
+!voice_service/data/voices/*.pt
 voice_service/out/
 
 # Environment
