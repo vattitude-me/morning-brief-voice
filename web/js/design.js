@@ -115,8 +115,9 @@ export function Chip(text, { selected = false, onClick = null } = {}) {
   return b;
 }
 
-/** A small ink tag, e.g. FREE / OFFLINE. */
-export const Tag = (label) => h('span', { class: 'tag-ink' }, label);
+/** A small ink tag, e.g. FREE / OFFLINE, with optional color variant (custom, tech, warn, accent). */
+export const Tag = (label, variant = null) =>
+  h('span', { class: 'tag-ink' + (variant ? ` tag-${variant}` : '') }, label);
 
 /** A pill button: ink-filled for the main action, glass for the rest. */
 export function PillButton(text, { filled = true, onClick = null, iconName = null } = {}) {

@@ -7,7 +7,7 @@ import {
   GlassGroup, Hairline, Hint, ListRow, Overline, PillButton, PillStepper,
   SectionLabel, Segmented, SwitchRow, Tag, applyPhotoMode,
 } from '../design.js';
-import { DeleteAccountSheet, enablePush, pushSupported, subscribedWith } from '../sheets.js';
+import { DeleteAccountSheet, SuggestSheet, enablePush, pushSupported, subscribedWith } from '../sheets.js';
 
 const speedLabel = (v) => `${Number(v).toFixed(2).replace(/0$/, '')}×`;
 
@@ -22,6 +22,7 @@ export class SettingsPage {
     this.draft = null;
     this.previewAudio = new Audio();
     this.deleteSheet = new DeleteAccountSheet();
+    this.suggestSheet = new SuggestSheet();
     this.notes = null;      // today's greeting per voice, for the "hear it" buttons
     this.notesDay = null;
     this.loaded = false;
@@ -170,6 +171,9 @@ export class SettingsPage {
       SectionLabel('Appearance'),
       this.appearanceGroup(d),
 
+      SectionLabel('Upcoming Features', { detail: 'In active development for future updates' }),
+      this.upcomingFeaturesGroup(),
+
       SectionLabel('Account'),
       GlassGroup(
         ListRow({ label: this.email || 'Signed in', end: Tag('SYNCED') }),
@@ -281,6 +285,52 @@ export class SettingsPage {
         detail: 'Cover and thumbnails in full color',
         onChange: (on) => this.set({ color_photos: on }),
       })));
+  }
+
+  upcomingFeaturesGroup() {
+    return GlassGroup(
+      ListRow({
+        label: 'New News Sources & Feeds',
+        detail: 'Substack newsletters, financial market desks, indie tech blogs, and custom RSS link feeds.',
+        end: Tag('IN PROGRESS', 'tech'),
+        onClick: () => this.openSuggest('News Source'),
+      }),
+      Hairline(),
+      ListRow({
+        label: 'Expanded Voice Roster',
+        detail: 'More curated narrators, cultural accents, and guest voices (joining Jerry & C-3PO) powered by Chatterbox-Turbo.',
+        end: Tag('PREVIEW', 'warn'),
+        onClick: () => this.openSuggest('New Voice'),
+      }),
+      Hairline(),
+      ListRow({
+        label: 'Custom Voice Capabilities',
+        detail: 'Train personal voice clones or upload reference audio to hear briefings delivered in custom sound styles.',
+        end: Tag('SOON', 'custom'),
+        onClick: () => this.openSuggest('Custom Voice / Styles'),
+      }),
+      Hairline(),
+      ListRow({
+        label: 'Interactive Voice Q&A',
+        detail: 'Ask follow-up questions and explore stories deeper during playback with Gemini streaming voice AI.',
+        end: Tag('ROADMAP', 'accent'),
+        onClick: () => this.openSuggest('Feature Idea'),
+      }),
+      Hairline(),
+      h('div', { class: 'suggest-callout-row' },
+        h('div', { class: 'suggest-callout-text' },
+          h('span', { class: 'suggest-title' }, 'Have a favorite voice or publication?'),
+          h('span', { class: 'suggest-sub' }, 'Tell us what you want to hear next in Morning Brief.')),
+        PillButton('Suggest an idea', {
+          filled: false,
+          onClick: () => this.openSuggest('News Source'),
+        })
+      )
+    );
+  }
+
+  openSuggest(category = 'News Source') {
+    this.suggestSheet.open(category);
   }
 
   openDelete() {

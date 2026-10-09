@@ -883,8 +883,58 @@ body::before {
 
 /* Small ink tag */
 .tag-ink {
-  display: inline-grid; place-items: center; height: 22px; padding: 0 8px; border-radius: 99px;
+  display: inline-grid; place-items: center; height: 22px; padding: 0 9px; border-radius: 99px;
   background: var(--ink); color: var(--on-ink); font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  white-space: nowrap; flex-shrink: 0;
+}
+.tag-ink.tag-custom {
+  background: color-mix(in srgb, var(--custom) 18%, var(--surface));
+  color: var(--custom);
+  border: 1px solid color-mix(in srgb, var(--custom) 35%, transparent);
+}
+.tag-ink.tag-tech {
+  background: color-mix(in srgb, var(--tech) 18%, var(--surface));
+  color: var(--tech);
+  border: 1px solid color-mix(in srgb, var(--tech) 35%, transparent);
+}
+.tag-ink.tag-warn {
+  background: color-mix(in srgb, var(--warn) 18%, var(--surface));
+  color: var(--warn);
+  border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+}
+.tag-ink.tag-accent {
+  background: color-mix(in srgb, var(--focus) 18%, var(--surface));
+  color: var(--focus);
+  border: 1px solid color-mix(in srgb, var(--focus) 35%, transparent);
+}
+
+/* Roadmap suggestion callout */
+.suggest-callout-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 0;
+}
+.suggest-callout-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.suggest-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.suggest-sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+@media (max-width: 480px) {
+  .suggest-callout-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 /* Pill text field on glass */

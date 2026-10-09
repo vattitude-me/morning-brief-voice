@@ -408,6 +408,24 @@
     </div>
   </dialog>
 
+  <!-- Suggest a feature, voice, or news source -->
+  <dialog class="sheet" id="suggestSheet" aria-labelledby="suggestTitle">
+    <div class="sheet-head">
+      <h2 id="suggestTitle">Suggest an idea</h2>
+      <button class="icon-btn" data-close aria-label="Close"><svg><use href="#i-close"/></svg></button>
+    </div>
+    <div class="sheet-body">
+      <p class="hint">What news publication, narrator voice, or capability would you love in Morning Brief?</p>
+      <div class="chip-row" id="suggestReasons" role="group" aria-label="Suggestion category"></div>
+      <textarea id="suggestNote" class="text-input" style="width:100%;margin-top:12px;min-height:90px;font-family:inherit;resize:vertical;" maxlength="1000" placeholder="e.g. Add Wall Street Journal tech feed, or David Attenborough voice..." aria-label="Your suggestion"></textarea>
+      <p class="form-error" id="suggestError" role="alert"></p>
+    </div>
+    <div class="sheet-foot">
+      <button class="btn btn-ghost" data-close>Cancel</button>
+      <button class="btn btn-primary" id="suggestSend">Submit idea</button>
+    </div>
+  </dialog>
+
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script type="module" src="/js/app.js"></script>

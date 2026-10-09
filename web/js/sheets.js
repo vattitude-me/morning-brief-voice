@@ -316,3 +316,89 @@ export class WelcomeSheet {
     }
   }
 }
+
+/* ----------------------------------------------------------- Suggest idea / feature */
+export class SuggestSheet {
+  constructor() {
+    this.dialog = document.getElementById('suggestSheet');
+    if (!this.dialog) return;
+    wireSheet(this.dialog);
+    this.reasonsBox = document.getElementById('suggestReasons');
+    this.note = document.getElementById('suggestNote');
+    this.error = document.getElementById('suggestError');
+    this.sendBtn = document.getElementById('suggestSend');
+    this.category = 'News Source';
+
+    const categories = [
+      { id: 'news_source', label: 'News Source' },
+      { id: 'new_voice', label: 'New Voice' },
+      { id: 'custom_voice', label: 'Custom Voice / Styles' },
+      { id: 'feature_idea', label: 'Feature Idea' },
+    ];
+
+    if (this.reasonsBox) {
+      this.reasonsBox.replaceChildren(...categories.map((c) => {
+        const b = h('button', {
+          type: 'button',
+          class: 'chip-btn' + (c.label === this.category ? ' active' : ''),
+          'aria-pressed': String(c.label === this.category),
+        }, c.label);
+        b.addEventListener('click', () => {
+          this.category = c.label;
+          this.reasonsBox.querySelectorAll('.chip-btn').forEach((x) => {
+            const on = x === b;
+            x.classList.toggle('active', on);
+            x.setAttribute('aria-pressed', String(on));
+          });
+        });
+        return b;
+      }));
+    }
+
+    if (this.sendBtn) {
+      this.sendBtn.addEventListener('click', () => this.send());
+    }
+  }
+
+  open(defaultCategory = 'News Source') {
+    if (!this.dialog) return;
+    this.category = defaultCategory;
+    if (this.reasonsBox) {
+      this.reasonsBox.querySelectorAll('.chip-btn').forEach((x) => {
+        const on = x.textContent === defaultCategory;
+        x.classList.toggle('active', on);
+        x.setAttribute('aria-pressed', String(on));
+      });
+    }
+    if (this.note) this.note.value = '';
+    if (this.error) this.error.textContent = '';
+    if (this.sendBtn) this.sendBtn.disabled = false;
+    this.dialog.showModal();
+  }
+
+  async send() {
+    const text = this.note?.value.trim() || '';
+    if (!text) {
+      if (this.error) this.error.textContent = 'Please type a suggestion or link before submitting.';
+      return;
+    }
+    if (this.sendBtn) this.sendBtn.disabled = true;
+    try {
+      await api.report({
+        reason: 'feature_suggestion',
+        note: `[${this.category}] ${text}`,
+        headline: `Feature Suggestion: ${this.category}`,
+        summary: text,
+        url: '',
+        source: 'settings_roadmap',
+      });
+      this.dialog.close();
+      toast('Thanks! Your suggestion has been added to our roadmap.', { ms: 4000 });
+    } catch (err) {
+      if (this.error) this.error.textContent = err.message || "Couldn't send suggestion. Please try again.";
+    } finally {
+      if (this.sendBtn) this.sendBtn.disabled = false;
+    }
+  }
+}
+
