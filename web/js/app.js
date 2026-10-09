@@ -1,5 +1,4 @@
-// Morning Brief: main UI (APK Today layout, tab pages).
-import { api, fmtTime, h, icon, isAdmin, sb, store, timeAgo, toast } from './api.js';
+import { api, fmtTime, h, icon, isAdmin, recordError, sb, store, timeAgo, toast } from './api.js';
 import { Player } from './player.js';
 import { Landing } from './landing.js';
 import { WelcomeSheet, installMode, onInstallChange, promptInstall, pushSupported, wireSheet } from './sheets.js';
@@ -369,7 +368,7 @@ async function switchTab(tab) {
   window.scrollTo({ top: 0 });
   if (tab === 'sources' && !sourcesPage) {
     sourcesPage = new SourcesPage({ onDirty: syncSaveBar });
-    try { await sourcesPage.load(); } catch (err) { toast(err.message, { error: true }); }
+    try { await sourcesPage.load(); } catch (err) { recordError(err, 'sourcesPage.load'); toast("Couldn't load your sources.", { error: true }); }
   }
   if (tab === 'settings' && !settingsPage) {
     settingsPage = new SettingsPage({
@@ -378,11 +377,11 @@ async function switchTab(tab) {
       email: state.profile?.email,
       setRate: (rate) => player.setRate(rate),
     });
-    try { await settingsPage.load(); } catch (err) { toast(err.message, { error: true }); }
+    try { await settingsPage.load(); } catch (err) { recordError(err, 'settingsPage.load'); toast("Couldn't load settings.", { error: true }); }
   }
   if (tab === 'admin' && !adminPage) {
     adminPage = new AdminPage();
-    try { await adminPage.load(); } catch (err) { toast(err.message, { error: true, ms: 9000 }); }
+    try { await adminPage.load(); } catch (err) { recordError(err, 'adminPage.load'); toast("Couldn't load admin state.", { error: true, ms: 6000 }); }
   }
   // Back on Today the hero card takes over; the floating player returns when it scrolls away.
   if (tab === 'today') player.showMini();
@@ -512,22 +511,25 @@ async function start() {
     displayBriefing();
   } catch (err) {
     state.briefingLoading = false;
+    recordError(err, 'loadBriefing');
     const cached = store.get('last-briefing', null);
     if (cached?.audio_url?.startsWith('http')) {
       state.briefing = cached;
       displayBriefing();
-      toast(`Offline. Showing your last briefing. ${err.message}`, { error: true, ms: 8000 });
+      toast('Offline mode active. Showing your saved briefing.', { error: true, ms: 5000 });
     } else {
       renderHeader();
       renderNotice();
       renderHero();
       renderSections();
-      toast(`Couldn't reach the service. ${err.message}`, { error: true, ms: 8000 });
+      toast("Couldn't reach the briefing service. Please try again shortly.", { error: true, ms: 5000 });
     }
   }
 }
 
 async function init() {
+  window.addEventListener('error', (e) => { recordError(e.error || e.message, 'window.onerror'); });
+  window.addEventListener('unhandledrejection', (e) => { recordError(e.reason, 'window.unhandledrejection'); });
   syncThemeIcon();
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', syncThemeIcon);
   bindEvents();

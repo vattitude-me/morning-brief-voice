@@ -108,6 +108,16 @@ def cmd_check() -> int:
         else:
             ok = False
             print(f"✗ Groq: HTTP {resp.status_code} {resp.text[:150]}")
+    if cfg.gemini_api_key:
+        try:
+            resp = httpx.get("https://generativelanguage.googleapis.com/v1beta/openai/models",
+                             headers={"Authorization": f"Bearer {cfg.gemini_api_key}"}, timeout=20)
+            if resp.status_code == 200:
+                print("✓ Gemini AI Studio connected")
+            else:
+                print(f"✗ Gemini: HTTP {resp.status_code} {resp.text[:150]}")
+        except Exception as exc:
+            print(f"✗ Gemini: {exc}")
     print(f"• Daily batch at {cfg.batch_time} {cfg.timezone}, keeping {cfg.keep_days} day(s)")
     print(f"• Admins: {', '.join(cfg.admin_emails) or '(none; set ADMIN_EMAILS)'}")
     return 0 if ok else 1

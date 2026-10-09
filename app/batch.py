@@ -106,7 +106,14 @@ class Batch:
         self.store = store
         self.report = report
         self.progress = progress
-        self.writer = writer or StoryWriter(cfg.cache_dir, report, api_key=cfg.groq_api_key, models=cfg.groq_models)
+        self.writer = writer or StoryWriter(
+            cfg.cache_dir,
+            report,
+            api_key=cfg.groq_api_key,
+            models=cfg.groq_models,
+            gemini_api_key=cfg.gemini_api_key,
+            gemini_models=cfg.gemini_models,
+        )
         self.notify = notify
         self.tz = ZoneInfo(cfg.timezone)
         self.tts_cache = cfg.cache_dir / "tts"

@@ -54,19 +54,52 @@ export const DEFAULT_SETTINGS = {
   disabled_sources: [],
 };
 
+export function recordError(err, context = '') {
+  const rawMsg = typeof err === 'string' ? err : err?.message || String(err || 'Unknown error');
+  const entry = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    timestamp: new Date().toISOString(),
+    context: context || (typeof window !== 'undefined' ? window.location.pathname : 'app'),
+    message: rawMsg,
+    stack: err?.stack || null,
+  };
+  try {
+    const logs = store.get('diagnostics-log', []);
+    logs.unshift(entry);
+    if (logs.length > 50) logs.pop();
+    store.set('diagnostics-log', logs);
+  } catch {}
+  return entry;
+}
+
 const FRIENDLY = [
   [/row-level security.*sources/i, 'You can have up to 25 links. Remove one to add another.'],
   [/duplicate key.*sources/i, "You've already added that link."],
-  [/check constraint.*url/i, 'That doesn\'t look like a web link (it should start with https://).'],
-  [/row-level security.*build_requests/i, 'Only admins can rebuild on demand for now.'],
-  [/Failed to fetch|NetworkError|Load failed/i, "You're offline or the service can't be reached."],
+  [/check constraint.*url/i, "That doesn't look like a web link (it should start with https://)."],
+  [/row-level security.*build_requests/i, 'Only admins can trigger on-demand rebuilds.'],
+  [/Failed to fetch|NetworkError|Load failed|timeout|ERR_CONNECTION/i, "Couldn't connect right now. Showing saved content."],
+  [/jwt expired|invalid claim|invalid token|refresh_token_not_found/i, 'Your sign-in session expired. Please sign in again.'],
+  [/column .* does not exist|relation .* does not exist|violates check constraint/i, 'System synchronization in progress. Please retry.'],
 ];
+
+export function sanitizeError(err, fallback = "Couldn't reach the service right now. Please try again.") {
+  if (!err) return fallback;
+  const raw = typeof err === 'string' ? err : err.message || String(err);
+  recordError(err, 'sanitized');
+  const hit = FRIENDLY.find(([re]) => re.test(raw));
+  if (hit) return hit[1];
+  if (raw.length < 80 && !raw.includes('Error:') && !raw.includes('violates') && !raw.includes('HTTP ') && !raw.includes('Postgres') && !raw.includes('column') && !raw.includes('relation') && !raw.includes('syntax')) {
+    return raw;
+  }
+  return fallback;
+}
 
 function check({ data, error }) {
   if (error) {
     const raw = error.message || String(error);
+    recordError(error, 'supabase');
     const hit = FRIENDLY.find(([re]) => re.test(raw));
-    throw new Error(hit ? hit[1] : raw);
+    throw new Error(hit ? hit[1] : (raw.includes('violates') || raw.includes('does not exist') ? 'System synchronization in progress. Please retry.' : raw));
   }
   return data;
 }
@@ -273,6 +306,10 @@ export const api = {
     const id = await api.request('push_test');
     return api.waitForRequest(id, { timeoutMs: 3 * 60 * 1000 });
   },
+
+  // ----------------------------------------------------------- diagnostics
+  diagnostics: () => store.get('diagnostics-log', []),
+  clearDiagnostics: () => { store.set('diagnostics-log', []); },
 };
 
 // Tiny DOM helper: h('div', {class: 'x', onclick}, child, 'text')
@@ -334,10 +371,30 @@ export const store = {
 };
 
 let toastTimer;
-export function toast(message, { error = false, ms = 3500 } = {}) {
+export function toast(message, { error = false, type = null, ms = 3800 } = {}) {
   const el = document.getElementById('toast');
-  el.textContent = message;
-  el.classList.toggle('error', error);
+  if (!el) return;
+  const isErr = !!error || type === 'error';
+
+  let cleanMsg = message;
+  if (isErr && typeof message === 'string') {
+    cleanMsg = sanitizeError(message, "Unable to complete request. Please try again.");
+  }
+
+  el.className = 'toast';
+  if (isErr) el.classList.add('toast-error');
+  else if (type === 'success') el.classList.add('toast-success');
+  else el.classList.add('toast-info');
+
+  el.replaceChildren();
+  const dot = document.createElement('span');
+  dot.className = 'toast-dot';
+  dot.setAttribute('aria-hidden', 'true');
+  const text = document.createElement('span');
+  text.className = 'toast-text';
+  text.textContent = cleanMsg;
+  el.append(dot, text);
+
   el.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('show'), ms);

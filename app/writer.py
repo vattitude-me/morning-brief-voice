@@ -27,6 +27,7 @@ from .summarizer import drop_boilerplate, summarize
 log = logging.getLogger(__name__)
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
 MAX_WAIT = 65          # longest per-minute back-off we'll sit through, in seconds
 MAX_ARTICLE_CHARS = 2500
 
@@ -187,18 +188,25 @@ def _is_daily(resp: httpx.Response) -> bool:
 class StoryWriter:
     """Writes copy for each story once, caches it on disk, and records every limit it runs into."""
 
-    def __init__(self, cache_dir: Path, report: RunReport, *, api_key: str | None, models: tuple[str, ...],
+    def __init__(self, cache_dir: Path, report: RunReport, *,
+                 api_key: str | None = None, models: tuple[str, ...] = (),
+                 gemini_api_key: str | None = None, gemini_models: tuple[str, ...] = (),
                  client: httpx.Client | None = None, sleep=time.sleep):
         self.cache_dir = cache_dir / "copy"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.report = report
         self.api_key = api_key
-        self.models = list(models) if api_key else []
+        self.gemini_api_key = gemini_api_key
+        self.models: list[str] = []
+        if gemini_api_key:
+            self.models.extend(list(gemini_models or ("gemini-2.5-flash", "gemini-1.5-flash")))
+        if api_key:
+            self.models.extend(list(models))
         self.client = client or httpx.Client(timeout=60)
         self.sleep = sleep
         self.failures = 0
-        if not api_key:
-            report.add("ai_off", "GROQ_API_KEY is not set", level="info")
+        if not (api_key or gemini_api_key):
+            report.add("ai_off", "Neither GEMINI_API_KEY nor GROQ_API_KEY is set", level="info")
 
     # ---------------------------------------------------------------- public
     def copy(self, section: str, story: Story) -> StoryCopy:
@@ -223,7 +231,7 @@ class StoryWriter:
             try:
                 return self._call(model, section, story)
             except LimitHit as exc:
-                log.warning("Groq %s unavailable for the rest of this run: %s", model, exc)
+                log.warning("AI model %s unavailable for the rest of this run: %s", model, exc)
                 self.models.pop(0)
             except AuthFailed as exc:
                 self.report.add("ai_auth", str(exc), level="error")
@@ -232,7 +240,7 @@ class StoryWriter:
                 # One bad story (timeout, malformed JSON): fall back for this story only,
                 # but give up on the service after repeated failures.
                 self.failures += 1
-                log.warning("Groq failed on %s: %s", story.id, exc)
+                log.warning("AI failed on %s: %s", story.id, exc)
                 if self.failures >= 3:
                     self.report.add("ai_unavailable", f"{exc.__class__.__name__}: {exc}"[:200])
                     self.models.clear()
@@ -246,6 +254,11 @@ class StoryWriter:
             "headline": lead.title,
             "text": (drop_boilerplate(lead.text) or lead.summary or lead.title)[:MAX_ARTICLE_CHARS],
         }
+        is_gemini = model.startswith("gemini")
+        url = GEMINI_URL if is_gemini else GROQ_URL
+        token = self.gemini_api_key if is_gemini else self.api_key
+        provider = "Gemini" if is_gemini else "Groq"
+
         body = {
             "model": model,
             "temperature": 0.4,
@@ -258,9 +271,9 @@ class StoryWriter:
             ],
         }
         for attempt in range(4):
-            resp = self.client.post(GROQ_URL, json=body, headers={"Authorization": f"Bearer {self.api_key}"})
+            resp = self.client.post(url, json=body, headers={"Authorization": f"Bearer {token}"})
             if resp.status_code in (401, 403):
-                raise AuthFailed(f"Groq returned {resp.status_code}: {resp.text[:150]}")
+                raise AuthFailed(f"{provider} returned {resp.status_code}: {resp.text[:150]}")
             if resp.status_code == 429:
                 wait = _retry_after(resp)
                 if _is_daily(resp) or wait > MAX_WAIT:

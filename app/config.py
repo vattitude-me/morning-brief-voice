@@ -61,6 +61,11 @@ class Config:
     groq_models: tuple[str, ...] = tuple(
         m.strip() for m in os.getenv("GROQ_MODELS", "openai/gpt-oss-120b,openai/gpt-oss-20b").split(",") if m.strip()
     )
+    # Gemini AI Studio support
+    gemini_api_key: str | None = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or None
+    gemini_models: tuple[str, ...] = tuple(
+        m.strip() for m in os.getenv("GEMINI_MODELS", "gemini-2.5-flash,gemini-1.5-flash").split(",") if m.strip()
+    )
     admin_emails: tuple[str, ...] = _list("ADMIN_EMAILS")
     # "issues" pushes the admin only when a run had problems; "always" after every run.
     admin_notify: str = os.getenv("ADMIN_NOTIFY", "issues").strip().lower()

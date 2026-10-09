@@ -98,6 +98,9 @@ export class AdminPage {
       SectionLabel('Requests', { detail: 'One job runs at a time' }),
       this.requestsGroup(),
 
+      SectionLabel('System Diagnostics & Error Log', { detail: 'Captured client & network exceptions' }),
+      this.diagnosticsGroup(),
+
       Hint('A full rebuild takes about as long as the audio it records, so give it a few minutes.'),
     );
   }
@@ -291,6 +294,58 @@ export class AdminPage {
     } catch (err) {
       toast(err.message, { error: true, ms: 9000 });
     }
+  }
+
+  diagnosticsGroup() {
+    const logs = api.diagnostics() || [];
+    if (!logs.length) {
+      return GlassGroup(
+        ListRow({
+          label: 'System status normal',
+          detail: 'No unhandled errors or network failures recorded.',
+          value: '✓ Healthy',
+          color: 'var(--ok)',
+        }),
+      );
+    }
+    const copyBtn = PillButton('Copy diagnostics', {
+      iconName: 'share',
+      onClick: async () => {
+        try {
+          await navigator.clipboard.writeText(JSON.stringify(logs, null, 2));
+          toast('Copied diagnostics report to clipboard.', { type: 'success' });
+        } catch {
+          toast('Unable to access clipboard.', { error: true });
+        }
+      },
+    });
+    const clearBtn = PillButton('Clear error log', {
+      iconName: 'trash',
+      onClick: () => {
+        api.clearDiagnostics();
+        this.render();
+        toast('Error log cleared.', { type: 'success' });
+      },
+    });
+
+    const rows = logs.slice(0, 10).flatMap((err) => {
+      const summary = h('div', { class: 'diag-entry' },
+        h('div', { class: 'diag-head' },
+          h('span', { class: 'diag-dot' }),
+          h('span', { class: 'diag-ctx' }, err.context || 'App'),
+          h('span', { class: 'diag-time' }, at(err.timestamp))),
+        h('p', { class: 'diag-msg' }, err.message),
+        err.stack ? h('details', { class: 'diag-stack-wrap' },
+          h('summary', {}, 'Stack trace'),
+          h('pre', { class: 'diag-stack' }, err.stack)) : null);
+      return [summary, Hairline()];
+    });
+    rows.pop();
+
+    return GlassGroup(
+      ...rows,
+      h('div', { class: 'admin-actions', style: 'margin-top:12px;display:flex;gap:8px;' }, copyBtn, clearBtn),
+    );
   }
 
   /** Waits on our own request, refreshing progress as it runs and the pack when it ends. */
