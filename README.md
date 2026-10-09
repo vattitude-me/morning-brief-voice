@@ -87,6 +87,8 @@ docker compose -f docker-compose.deploy.yml run --rm worker python -m app pack
 `python -m app pack` is the single-source path: it reads The Guardian's feeds (no AI),
 voices each story once through the `voice` service, and publishes the clips to Supabase
 Storage and the `story_audio` table. Every listener is then merged from those same clips.
+A story carried by two feeds is read once, under the earlier section, so the day's brief
+never repeats itself.
 
 On macOS Docker cannot reach MPS, so `voice` uses the CPU image and is slower than running
 natively; on a Linux GPU host switch to `Dockerfile`, as described in
@@ -98,6 +100,11 @@ natively; on a Linux GPU host switch to `Dockerfile`, as described in
 - **Missed runs:** if the host was asleep at `BATCH_TIME`, the worker catches up when it wakes (until noon).
 - **Admin alerts:** problems are pushed to admins, including Groq rate limits, retired models, unreadable links and voice or upload failures.
   Users see a short note only when their briefing is affected.
+- **Nightly pack:** `scripts/nightly-pack.sh` at 05:00 renders the shared pack and pushes the outcome; `scripts/nightly-report.sh`
+  at 06:00 checks the day, retries a missing narrator once and reports to the admins either way. Both are LaunchAgents here:
+  [`docs/nightly.md`](docs/nightly.md).
+- **One day of audio:** a complete pack deletes the older days, rows and storage files together. A morning that failed keeps
+  yesterday's brief so clients can fall back to it.
 
 ## Configuration
 

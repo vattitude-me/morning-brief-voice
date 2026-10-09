@@ -24,6 +24,7 @@ import argparse
 import asyncio
 import json
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -47,6 +48,9 @@ SECTIONS: dict[str, dict] = {
 
 MAX_AGE = timedelta(hours=48)
 DEFAULT_PER_SECTION = 5
+# Extra candidates a section keeps in hand, so losing a story to an earlier section does not leave
+# it short of its count.
+DEDUP_MARGIN = 5
 
 
 def feed_url(key: str) -> str:
@@ -84,6 +88,45 @@ def top_n(items: list[Item], n: int = DEFAULT_PER_SECTION, max_age: timedelta = 
     return (fresh or items)[:n]
 
 
+def bare_url(url: str | None) -> str:
+    """A link stripped of the parts that differ between two pointers to the same article."""
+    return (url or "").split("#")[0].split("?")[0].rstrip("/").lower()
+
+
+def plain_title(title: str | None) -> str:
+    """A headline reduced to its words, for comparing the same story carried by two feeds."""
+    return " ".join(re.findall(r"[a-z0-9]+", (title or "").lower()))
+
+
+def pick_unique(picked: dict[str, list[Item]],
+                per_section: int = DEFAULT_PER_SECTION) -> dict[str, list[Item]]:
+    """Each story is told once, in the first section that carries it.
+
+    The Guardian runs the same article in more than one feed, so without this the day's brief can
+    read its top story twice: once under Top stories and again under Tech or Sport. Sections keep
+    their reading order, so the earlier one wins and the later one moves down its list. Two entries
+    count as the same story when their links agree once query strings are dropped, or when their
+    headlines do.
+    """
+    urls: set[str] = set()
+    titles: set[str] = set()
+    out: dict[str, list[Item]] = {}
+    for key, items in picked.items():
+        chosen: list[Item] = []
+        for item in items:
+            url, title = bare_url(item.url), plain_title(item.title)
+            if url in urls or (title and title in titles):
+                continue
+            urls.add(url)
+            if title:
+                titles.add(title)
+            chosen.append(item)
+            if len(chosen) == per_section:
+                break
+        out[key] = chosen
+    return out
+
+
 def script_for(item: Item, max_words: int = 60, title: str = "") -> str:
     """The spoken script: the built-in extractive summary, never an LLM."""
     body = drop_boilerplate(item.text) or item.summary or item.title
@@ -113,12 +156,20 @@ async def collect(limit: int = DEFAULT_PER_SECTION, sections: list[str] | None =
 
 async def build_pack(per_section: int = DEFAULT_PER_SECTION, sections: list[str] | None = None,
                      max_words: int = 60) -> list[dict]:
-    """The day's story pack: every section's top stories as ready-to-voice scripts."""
-    picked = await collect(per_section, sections)
+    """The day's story pack: every section's top stories as ready-to-voice scripts.
+
+    A story carried by two feeds is told once, under the earlier section, and that section's next
+    candidate takes its place.
+    """
+    keys = [k for k in (sections or list(SECTIONS)) if k in SECTIONS]
+    # Ask each feed for more than we need, since a section can lose its head to an earlier section.
+    collected = await collect(per_section + DEDUP_MARGIN, sections)
+    picked = pick_unique({k: collected.get(k, []) for k in keys}, per_section)
+    # Only the stories that made it are read, which also saves the article fetches for the rest.
     await enrich_items([item for items in picked.values() for item in items])
     pack: list[dict] = []
-    for key, items in picked.items():
-        for rank, item in enumerate(items, 1):
+    for key in keys:
+        for rank, item in enumerate(picked.get(key, []), 1):
             pack.append({
                 "id": item.id,
                 "section": key,

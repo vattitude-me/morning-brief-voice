@@ -2,7 +2,8 @@
 
 `python -m app pack` voices the day's stories once per narrator and publishes them to Supabase.
 Everything else follows from that: the clients refuse a day until its narrator is marked ready, so a
-morning with no pack shows the previous day instead of something half-made.
+morning with no pack shows the previous day instead of something half-made. A story carried by two
+Guardian feeds is read once, under the earlier section, so a brief never repeats itself.
 
 Three ways to make it happen while you are away, in the order I would use them.
 
@@ -19,9 +20,37 @@ by then, so the stories have new URLs and every clip is rendered again, which re
 to the afternoon's news while listeners are part way through the morning's. `--force` is the
 deliberate version of that: it takes the day off the air first, so nobody hears half of each.
 
-It is installed as a LaunchAgent at **05:00 every day**:
+Two more flags ride along on the nightly call and keep the run honest:
+
+- `--notify`. When the day is ready for every narrator, listeners get one push and the admins get a
+  line each. When it is not, or the render throws, the admins get the failure instead, with the
+  reason. A silent 05:00 failure was the worst part of the old setup.
+- The prune. One day of audio is kept: a successful pack deletes the older days, rows and storage
+  files together. It only runs when the day is complete for **every** narrator, so a morning that
+  failed leaves yesterday's brief in place for clients to fall back on.
+
+### The 06:00 report
+
+`scripts/nightly-report.sh` runs an hour after the pack, which is the point of the gap: a transient
+failure has had its chance to clear, and the report describes the final state of the morning rather
+than the middle of it.
+
+It checks readiness first, which needs nothing but Python, so a morning that worked costs no
+container start. If a narrator is missing, it waits up to 30 minutes for a pack that is still
+recording, re-checks, and then brings the voice service up and re-renders the missing narrators once.
+Either way the admins get the outcome, and listeners get their nudge if the day was repaired after
+the 05:00 run had already failed.
+
+```sh
+scripts/nightly-report.sh --dry-run    # readiness only: no retry, no voice service, no report
+python -m app pack --check             # the check by itself; exit 1 if the day is incomplete
+python -m app pack --report --retry    # check, repair, report
+```
+
+It is installed as a LaunchAgent at **05:00 every day**, with the report at **06:00**:
 
 - `~/Library/LaunchAgents/ca.vattitude.morning-brief.pack.plist`
+- `~/Library/LaunchAgents/ca.vattitude.morning-brief.report.plist`
 - loaded with `launchctl bootstrap gui/$UID ~/Library/LaunchAgents/ca.vattitude.morning-brief.pack.plist`
 
 Two things only you can set, both needing sudo:
@@ -46,14 +75,16 @@ previous day, which is the safe failure.
 Checks, any time:
 
 ```sh
-tail -f ~/Library/Logs/morning-brief/pack-$(date +%Y-%m-%d).log   # today's run
-launchctl print gui/$UID/ca.vattitude.morning-brief.pack          # loaded? when does it next fire?
-scripts/nightly-pack.sh --dry-run                                 # plumbing only, no render
-scripts/nightly-pack.sh                                           # the run, by hand
-launchctl kickstart -k gui/$UID/ca.vattitude.morning-brief.pack   # run it right now, as launchd would
+tail -f ~/Library/Logs/morning-brief/pack-$(date +%Y-%m-%d).log     # today's run
+tail -f ~/Library/Logs/morning-brief/report-$(date +%Y-%m-%d).log   # today's check
+launchctl print gui/$UID/ca.vattitude.morning-brief.pack            # loaded? when does it next fire?
+scripts/nightly-pack.sh --dry-run                                   # plumbing only, no render
+scripts/nightly-pack.sh                                             # the run, by hand
+launchctl kickstart -k gui/$UID/ca.vattitude.morning-brief.pack     # run it right now, as launchd would
+launchctl kickstart -k gui/$UID/ca.vattitude.morning-brief.report   # the check, right now
 ```
 
-To stop it: `launchctl bootout gui/$UID/ca.vattitude.morning-brief.pack`.
+To stop them: `launchctl bootout gui/$UID/ca.vattitude.morning-brief.pack` (same for `.report`).
 
 ## 2. Tailscale, for running it by hand or reading the logs
 

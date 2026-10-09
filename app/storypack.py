@@ -116,6 +116,63 @@ def clear_ready(store, *, day: str, voice: str) -> None:
     store.delete("voice_notes", {"date": f"eq.{day}", "voice": f"eq.{voice}", "note_key": f"eq.{PACK_READY}"})
 
 
+def prune_older(store, *, keep: str) -> list[str]:
+    """Keep one day of audio: delete every day older than [keep], rows and files together.
+
+    Only ever called once [keep] is complete for every narrator. A morning that failed must still
+    have yesterday's brief for listeners to fall back on, so the old days stay until the new one is
+    whole.
+    """
+    days: list[str] = []
+    for table in ("story_audio", "voice_notes"):
+        rows = store.select(table, {"date": f"lt.{keep}"})
+        if not rows:
+            continue
+        paths = [r["audio_path"] for r in rows if r.get("audio_path")]
+        if paths:
+            store.remove_objects(paths)
+        store.delete(table, {"date": f"lt.{keep}"})
+        days += [str(r["date"]) for r in rows]
+        log.info("[prune] %s: %d rows, %d files removed", table, len(rows), len(paths))
+    return sorted(set(days))
+
+
+def notify_listeners(cfg, store, *, title: str, body: str) -> int:
+    """Push to everyone who asked for the morning nudge. Returns how many devices were told."""
+    from . import push  # imported here so a machine without web-push installed can still render
+
+    try:
+        subs = store.push_subscriptions()
+        sent, gone = push.send(cfg, subs, title, body)
+        for endpoint in gone:
+            store.delete_push_subscription(endpoint)
+        log.info("[push] %s to %d device(s), %d expired", title, sent, len(gone))
+        return sent
+    except Exception as exc:  # noqa: BLE001 - a failed notification is not a failed brief
+        log.warning("Listener notification failed: %s", exc)
+        return 0
+
+
+def notify_admins(cfg, store, *, title: str, body: str) -> int:
+    """Push the run's outcome to the admins, who are the only ones who can fix it."""
+    from . import push
+    from .batch import admin_subscriptions
+
+    try:
+        subs = admin_subscriptions(cfg, store)
+        if not subs:
+            log.info("[push] no admin devices are subscribed")
+            return 0
+        sent, gone = push.send(cfg, subs, title, body)
+        for endpoint in gone:
+            store.delete_push_subscription(endpoint)
+        log.info("[push] admin report sent to %d device(s)", sent)
+        return sent
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Admin notification failed: %s", exc)
+        return 0
+
+
 def greeting_key(hour: int) -> str:
     """Which greeting a listener hears, by their local hour (mirrors the client)."""
     if hour < 12:
@@ -478,6 +535,14 @@ async def build(cfg, store, *, day: str | None = None, per_section: int | None =
         tick("landing sample")
     except Exception as exc:  # noqa: BLE001 — a sample is worth having, a pack is not
         log.warning("Could not publish the landing sample: %s", exc)
+
+    # One day of audio, and only once the day is whole for every narrator there is, not just the
+    # ones this run was asked for.
+    everything = list(cfg.story_voices or (DEFAULT_VOICE,))
+    if everything and all(ready(store, day=day, voice=n) for n in everything):
+        gone = prune_older(store, keep=day)
+        if gone:
+            log.info("Pruned %d older day(s): %s", len(gone), ", ".join(gone))
     return rows
 
 

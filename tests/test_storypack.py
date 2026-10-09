@@ -5,6 +5,7 @@ import dataclasses
 import pytest
 
 from app import guardian, storypack
+from app.fetcher import Item
 from app.storypack import (GREETINGS, INTROS, NOTES, clips_for, default_lineup, greeting_key,
                            lineup, total_seconds)
 VOICE = "her_reference"
@@ -162,3 +163,174 @@ def test_a_forced_re_render_takes_the_day_off_the_air_first(cfg, store, monkeypa
         asyncio.run(storypack.build(cfg, store, day=DAY, voice="him_reference", force=True))
 
     assert not storypack.ready(store, day=DAY, voice="him_reference")
+
+
+# --- one story a day --------------------------------------------------------------------------
+# The Guardian runs the same article in more than one feed, so without this the day's brief can
+# read its top story twice: once under Top stories and again under Sport.
+
+GU = "https://www.theguardian.com"
+
+
+def _item(title: str, url: str, section: str = "top") -> Item:
+    return Item(title=title, url=url, source_id=1, source_name="The Guardian", section=section)
+
+
+def test_a_story_two_feeds_carry_is_read_once_under_the_earlier_section():
+    top = [_item("Bank of Canada holds its key rate", f"{GU}/business/2026/oct/08/rate"),
+           _item("Storm warning for the west coast", f"{GU}/weather/2026/oct/08/storm")]
+    sports = [_item("Bank of Canada holds its key rate", f"{GU}/business/2026/oct/08/rate#top"),
+              _item("Final goes to penalties", f"{GU}/football/2026/oct/08/final")]
+
+    picked = guardian.pick_unique({"top": top, "sports": sports}, per_section=5)
+
+    assert [i.title for i in picked["top"]] == [
+        "Bank of Canada holds its key rate", "Storm warning for the west coast"]
+    assert [i.title for i in picked["sports"]] == ["Final goes to penalties"]
+
+
+def test_the_same_headline_from_two_links_is_one_story():
+    """Syndicated copies keep the headline and change the link, which the URL check alone misses."""
+    picked = guardian.pick_unique({
+        "top": [_item("Trudeau resigns", f"{GU}/world/2026/oct/08/trudeau")],
+        "politics": [_item("Trudeau resigns", f"{GU}/politics/live/2026/oct/08/live-blog"),
+                     _item("Budget vote tonight", f"{GU}/politics/2026/oct/08/budget")],
+    }, per_section=5)
+    assert [i.title for i in picked["politics"]] == ["Budget vote tonight"]
+
+
+def test_a_section_losing_its_head_takes_the_next_candidate():
+    """A section that gives a story away still gets its full count, from further down its feed."""
+    top = [_item("Fire in the port", f"{GU}/a/1")]
+    sports = [_item("Fire in the port", f"{GU}/a/1"), _item("Final goes to penalties", f"{GU}/sport/2"),
+              _item("Injury doubt for the derby", f"{GU}/sport/3")]
+
+    picked = guardian.pick_unique({"top": top, "sports": sports}, per_section=2)
+
+    assert [i.title for i in picked["sports"]] == ["Final goes to penalties", "Injury doubt for the derby"]
+
+
+def test_a_section_that_only_has_repeats_stays_short():
+    """Better a four-story section than the same headline twice in one brief."""
+    top = [_item("One big story", f"{GU}/a/1")]
+    tech = [_item("One big story", f"{GU}/a/1")]
+    assert guardian.pick_unique({"top": top, "tech": tech}, per_section=5)["tech"] == []
+
+
+# --- one day of audio -------------------------------------------------------------------------
+
+YESTERDAY = "2026-10-06"
+
+
+def _old_day(store, day: str, voice: str) -> None:
+    """A published day, rows and files, as the pack leaves it behind."""
+    path = f"stories/{day}/top-1-{voice}.mp3"
+    store.insert("story_audio", {"date": day, "section": "top", "rank": 1, "voice": voice,
+                                 "duration": 30.0, "audio_path": path, "title": "A story"})
+    store.upload(path, b"mp3")
+    for key in NOTES:
+        note = f"notes/{day}/{key}-{voice}.mp3"
+        store.insert("voice_notes", {"date": day, "voice": voice, "note_key": key, "text": NOTES[key],
+                                     "duration": 2.0, "audio_path": note})
+        store.upload(note, b"mp3")
+    storypack.mark_ready(store, day=day, voice=voice, clips=1, notes=len(NOTES))
+
+
+def _yesterday_is_gone(store) -> bool:
+    return (not store.select("story_audio", {"date": f"eq.{YESTERDAY}"})
+            and not store.select("voice_notes", {"date": f"eq.{YESTERDAY}"})
+            and not [p for p in store.objects if p.startswith(f"stories/{YESTERDAY}/")]
+            and not [p for p in store.objects if p.startswith(f"notes/{YESTERDAY}/")])
+
+
+def test_the_old_day_goes_once_the_new_one_is_whole(cfg, store, monkeypatch):
+    """Yesterday's audio is deleted, rows and files, when today is complete for every narrator."""
+    cfg = dataclasses.replace(cfg, voice_url="http://voice.test",
+                              story_voices=("her_reference", "him_reference"))
+    _one_story(monkeypatch)
+    for voice in cfg.story_voices:
+        _old_day(store, YESTERDAY, voice)
+
+    asyncio.run(storypack.build(cfg, store, day=DAY))
+
+    assert storypack.ready(store, day=DAY, voice="her_reference")
+    assert storypack.ready(store, day=DAY, voice="him_reference")
+    assert _yesterday_is_gone(store), "the previous day should not survive a complete morning"
+
+
+def test_a_failed_morning_keeps_yesterday(cfg, store, monkeypatch):
+    """A listener whose morning failed falls back to yesterday, so it has to still be there."""
+    cfg = dataclasses.replace(cfg, voice_url="http://voice.test",
+                              story_voices=("her_reference", "him_reference"))
+    for voice in cfg.story_voices:
+        _old_day(store, YESTERDAY, voice)
+
+    async def fake_pack(per_section=5, sections=None, max_words=60):
+        return [SCRIPT]
+
+    async def broken(client, base, text, voice, *args, **kwargs):
+        raise RuntimeError("voice service is down")
+
+    monkeypatch.setattr(guardian, "build_pack", fake_pack)
+    monkeypatch.setattr(storypack, "synthesise", broken)
+
+    with pytest.raises(RuntimeError):
+        asyncio.run(storypack.build(cfg, store, day=DAY))
+
+    assert store.select("story_audio", {"date": f"eq.{YESTERDAY}"})
+    assert not _yesterday_is_gone(store)
+
+
+def test_one_narrator_finishing_does_not_drop_the_other_day(cfg, store, monkeypatch):
+    """Today is only whole when every narrator has it, which is the condition for a deletion."""
+    cfg = dataclasses.replace(cfg, voice_url="http://voice.test",
+                              story_voices=("her_reference", "him_reference"))
+    _one_story(monkeypatch)
+    for voice in cfg.story_voices:
+        _old_day(store, YESTERDAY, voice)
+
+    # Only one of the two narrators gets rendered today.
+    asyncio.run(storypack.build(cfg, store, day=DAY, voice="him_reference"))
+
+    assert not storypack.ready(store, day=DAY, voice="her_reference")
+    assert store.select("story_audio", {"date": f"eq.{YESTERDAY}"}), "yesterday must wait for the day to be whole"
+
+
+# --- telling someone what happened ---------------------------------------------------------
+
+def _pushes(monkeypatch) -> list[tuple[str, str, int]]:
+    from app import push
+
+    sent: list[tuple[str, str, int]] = []
+
+    def fake_send(cfg, subs, title, body):
+        sent.append((title, body, len(subs)))
+        return len(subs), []
+
+    monkeypatch.setattr(push, "send", fake_send)
+    return sent
+
+
+def test_a_ready_day_tells_the_listeners_and_the_admin(cfg, store, monkeypatch):
+    sent = _pushes(monkeypatch)
+    store.subs = [{"endpoint": "https://push.test/a", "user_id": "u-1"}]
+    store.profiles_.append({"id": "u-1", "email": cfg.admin_emails[0], "is_admin": True})
+
+    storypack.notify_listeners(cfg, store, title="☀️ Your Morning Brief is ready", body="Top story.")
+    storypack.notify_admins(cfg, store, title="✓ Morning Brief ready: Alice", body=f"{DAY} is complete.")
+
+    assert sent[0][2] == 1 and "ready" in sent[0][0]
+    assert sent[1][2] == 1 and "ready" in sent[1][0]
+
+
+def test_a_failed_push_does_not_break_the_render(cfg, store, monkeypatch):
+    """Notifications are a nicety: the pack must survive a push service that is down."""
+    from app import push
+
+    def boom(cfg, subs, title, body):
+        raise RuntimeError("push service is down")
+
+    monkeypatch.setattr(push, "send", boom)
+    assert storypack.notify_listeners(cfg, store, title="x", body="y") == 0
+    assert storypack.notify_admins(cfg, store, title="x", body="y") == 0
+

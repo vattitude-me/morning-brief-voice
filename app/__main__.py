@@ -112,6 +112,68 @@ def cmd_check() -> int:
     return 0 if ok else 1
 
 
+def _day(cfg, args) -> str:
+    """The day a pack command is working on: the one it was given, or today where the Mac is."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    return args.day or datetime.now(ZoneInfo(cfg.timezone)).date().isoformat()
+
+
+def _split(cfg, store, day: str, voice: str | None) -> tuple[list[str], list[str]]:
+    """Which narrators' days are complete, and which are still missing."""
+    from .storypack import ready
+
+    names = [voice] if voice else list(cfg.story_voices or ())
+    here = [n for n in names if ready(store, day=day, voice=n)]
+    return here, [n for n in names if n not in here]
+
+
+def cmd_report(args) -> int:
+    """The check that runs an hour after the pack.
+
+    By then a transient failure has had its chance, so a missing narrator is first re-rendered and
+    then reported either way. The admin gets a line for each narrator that is on the air, and the
+    reason for any that are not, which is the part a silent 05:00 run never tells you.
+    """
+    import asyncio
+
+    from .config import load
+    from .storypack import build, notify_admins, notify_listeners, voice_name
+
+    cfg = load()
+    store = _store(cfg)
+    day = _day(cfg, args)
+    here, missing = _split(cfg, store, day, args.voice)
+    tried: list[str] = []
+    if missing and getattr(args, "retry", False):
+        for name in missing:
+            try:
+                print(f"→ Re-rendering {day} for {voice_name(name)}")
+                asyncio.run(build(cfg, store, day=day, voice=name))
+                tried.append(f"{voice_name(name)}: re-rendered")
+            except Exception as exc:  # noqa: BLE001 — report it, do not crash the check
+                tried.append(f"{voice_name(name)}: {exc.__class__.__name__}: {exc}")
+                print(f"✗ {voice_name(name)}: {exc.__class__.__name__}: {exc}")
+        here, missing = _split(cfg, store, day, args.voice)
+    good = ", ".join(voice_name(n) for n in here) or "nobody"
+    bad = ", ".join(voice_name(n) for n in missing)
+    detail = ". ".join(tried)
+    print(f"{'✗' if missing else '✓'} {day} is ready for {good}" + (f"; missing {bad}" if missing else ""))
+    if missing:
+        notify_admins(cfg, store, title=f"✗ Morning Brief incomplete: {bad}",
+                      body=f"{day} is ready for {good}. "
+                           + (detail or "The 05:00 run did not finish for them, and a retry did not happen."))
+        return 1
+    notify_admins(cfg, store, title=f"✓ Morning Brief ready: {good}",
+                  body=f"{day} is complete for every narrator." + (f" {detail}." if detail else ""))
+    if tried:
+        # The 05:00 run failed, so listeners never got their nudge; this one goes out now.
+        notify_listeners(cfg, store, title="☀️ Your Morning Brief is ready",
+                         body=f"Today's brief is read by {good}.")
+    return 0
+
+
 def cmd_pack(args) -> int:
     """Voice the day's stories once and publish them as the shared daily clips."""
     import asyncio
@@ -119,11 +181,28 @@ def cmd_pack(args) -> int:
     from zoneinfo import ZoneInfo
 
     from .config import load
-    from .storypack import (NOTES, build, build_notes, mark_ready, publish_showcase, ready,
-                           total_seconds, write_sample_bundle)
+    from .storypack import (NOTES, build, build_notes, mark_ready, notify_admins, notify_listeners,
+                           publish_showcase, ready, total_seconds, voice_name, write_sample_bundle)
 
     cfg = load()
     sections = args.sections.split(",") if args.sections else None
+    if getattr(args, "report", False):
+        return cmd_report(args)
+    if getattr(args, "check", False):
+        # Readiness on its own, so a nightly job can decide whether it needs the voice service at all.
+        store = _store(cfg)
+        day = _day(cfg, args)
+        here, missing = _split(cfg, store, day, args.voice)
+        print(f"{'✗' if missing else '✓'} {day}: ready for "
+              f"{', '.join(voice_name(n) for n in here) or 'nobody'}"
+              + (f"; missing {', '.join(voice_name(n) for n in missing)}" if missing else ""))
+        return 1 if missing else 0
+    if getattr(args, "prune", False):
+        from .storypack import prune_older
+
+        gone = prune_older(_store(cfg), keep=_day(cfg, args))
+        print(f"✓ Removed {len(gone)} older day(s): {', '.join(gone) or 'nothing to remove'}")
+        return 0
     try:
         if getattr(args, "if_missing", False):
             # What a scheduled run wants: today's pack, unless it is already on the air. A later run
@@ -180,10 +259,31 @@ def cmd_pack(args) -> int:
                                  force=getattr(args, "force", False)))
     except Exception as exc:  # noqa: BLE001 — say why and fail the run
         print(f"✗ {exc.__class__.__name__}: {exc}")
+        if getattr(args, "notify", False):
+            # A failure at 05:00 is otherwise silent until someone opens the app.
+            notify_admins(cfg, _store(cfg), title="✗ Morning Brief failed",
+                          body=f"{exc.__class__.__name__}: {exc}")
         return 1
     print(f"✓ Published {len(rows)} clips ({total_seconds(rows):.1f}s of audio) as {args.voice or cfg.story_voice}")
     for row in rows:
         print(f"  [{row['section']} #{row['rank']}] {row['title'][:70]} — {row['duration']:.1f}s")
+    if getattr(args, "notify", False):
+        store = _store(cfg)
+        day = _day(cfg, args)
+        here, missing = _split(cfg, store, day, args.voice)
+        names = [voice_name(n) for n in here]
+        if missing:
+            notify_admins(cfg, store, title=f"✗ Morning Brief incomplete: {', '.join(voice_name(n) for n in missing)}",
+                          body=f"{day} is ready for {', '.join(names) or 'nobody'}. "
+                               f"{len(rows)} clips were published; the rest failed.")
+        else:
+            per_voice = len(rows) // max(1, len(here))
+            notify_admins(cfg, store, title=f"✓ Morning Brief ready: {', '.join(names)}",
+                          body=f"{day}: {per_voice} stories for {', '.join(names)}, "
+                               f"{total_seconds(rows) / max(1, len(here)) / 60:.0f} min each.")
+            if rows:
+                notify_listeners(cfg, store, title="☀️ Your Morning Brief is ready",
+                                 body=f"{rows[0]['title']}, and the rest of the day's stories.")
     return 0 if rows else 1
 
 
@@ -215,6 +315,17 @@ def main() -> None:
                       help="mark a finished day playable (for packs published before the marker)")
     pack.add_argument("--if-missing", action="store_true", dest="if_missing",
                       help="do nothing if the day is already published (for the nightly job)")
+    pack.add_argument("--notify", action="store_true",
+                      help="push the outcome: listeners when the day is ready, admins either way")
+    pack.add_argument("--report", action="store_true",
+                      help="check the day for every narrator, retry what is missing (--retry) and "
+                           "push the outcome to the admins; for an hour after the nightly pack")
+    pack.add_argument("--check", action="store_true",
+                      help="only print whether the day is complete, exit 1 if it is not")
+    pack.add_argument("--retry", action="store_true",
+                      help="with --report: re-render the narrators that are still missing")
+    pack.add_argument("--prune", action="store_true",
+                      help="delete the audio of the days before --day (the nightly pack does this itself)")
     sub.add_parser("check", help="test the Supabase and Groq connections")
     sub.add_parser("setup", help="download the Kokoro voice model (~350 MB)")
     args = parser.parse_args()
