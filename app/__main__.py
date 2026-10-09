@@ -195,8 +195,6 @@ def cmd_report(args) -> int:
 def cmd_pack(args) -> int:
     """Voice the day's stories once and publish them as the shared daily clips."""
     import asyncio
-    from datetime import datetime
-    from zoneinfo import ZoneInfo
 
     from .config import load
     from .storypack import (NOTES, build, build_notes, mark_ready, notify_admins, notify_listeners,
@@ -234,7 +232,7 @@ def cmd_pack(args) -> int:
             # on the same day would re-cut the brief to whatever the feed says now, because a story
             # whose URL moved is rendered again.
             store = _store(cfg)
-            day = args.day or datetime.now(ZoneInfo(cfg.timezone)).date().isoformat()
+            day = _day(cfg, args)
             names = [args.voice] if args.voice else list(cfg.story_voices or ())
             missing = [n for n in names if not ready(store, day=day, voice=n)]
             if not missing:
@@ -245,7 +243,7 @@ def cmd_pack(args) -> int:
             # Days published before the completeness marker existed are otherwise unplayable. Marks
             # a narrator's day only when its clips and all of its framing are actually there.
             store = _store(cfg)
-            day = args.day or datetime.now(ZoneInfo(cfg.timezone)).date().isoformat()
+            day = _day(cfg, args)
             names = [args.voice] if args.voice else list(cfg.story_voices or ())
             done: list[str] = []
             for name in names:
