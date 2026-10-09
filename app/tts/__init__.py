@@ -53,6 +53,8 @@ class ChatterboxEngine:
         return [
             Voice("chatterbox:alice", "chatterbox", "Alice", "British", "female", "Warm, measured narrator", True),
             Voice("chatterbox:mike", "chatterbox", "Mike", "American", "male", "Calm, steady narrator", False),
+            Voice("chatterbox:jerry", "chatterbox", "Jerry", "American", "male", "Observational comedic delivery", False),
+            Voice("chatterbox:c3po", "chatterbox", "C-3PO", "British", "male", "Polite protocol droid delivery", False),
         ]
 
     def synthesize(self, text: str, voice: str, speed: float = 1.0) -> np.ndarray:
@@ -62,7 +64,17 @@ class ChatterboxEngine:
         url = os.getenv("VOICE_SERVICE_URL", "").rstrip("/")
         if not url:
             raise RuntimeError("VOICE_SERVICE_URL is not set")
-        ref = "her_reference" if voice in ("alice", "her_reference") else "him_reference"
+        voice_map = {
+            "alice": "her_reference",
+            "her_reference": "her_reference",
+            "mike": "him_reference",
+            "him_reference": "him_reference",
+            "jerry": "jerry_reference",
+            "jerry_reference": "jerry_reference",
+            "c3po": "c3po_reference",
+            "c3po_reference": "c3po_reference",
+        }
+        ref = voice_map.get(voice, "her_reference")
         with httpx.Client(timeout=180) as client:
             resp = client.post(f"{url}/synthesize", params={"format": "wav"}, json={"text": text, "voice": ref})
             resp.raise_for_status()

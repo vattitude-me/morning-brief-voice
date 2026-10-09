@@ -27,8 +27,10 @@ export const sectionLabel = (key) => { const s = SECTIONS[key] || SECTIONS.top; 
  * per-listener recording.
  */
 export const VOICES = [
-  { id: 'her_reference', name: 'Alice', gender: 'female' },
-  { id: 'him_reference', name: 'Mike', gender: 'male' },
+  { id: 'her_reference', name: 'Alice', gender: 'female', desc: 'Warm British newsreader' },
+  { id: 'him_reference', name: 'Mike', gender: 'male', desc: 'Calm American newsreader' },
+  { id: 'jerry_reference', name: 'Jerry', gender: 'male', desc: 'Observational comedy style' },
+  { id: 'c3po_reference', name: 'C-3PO', gender: 'male', desc: 'Polite protocol droid' },
 ];
 
 /** The voice a listener picked, falling back to the first for anything older or unknown. */

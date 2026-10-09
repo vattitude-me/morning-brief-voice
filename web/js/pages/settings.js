@@ -202,7 +202,7 @@ export class SettingsPage {
       h('span', { class: 'avatar' }, v.name[0]),
       h('span', { class: 'v-text' },
         h('span', { class: 'v-name' }, v.name),
-        h('span', { class: 'v-meta' }, v.gender === 'female' ? 'A woman reads the news' : 'A man reads the news')),
+        h('span', { class: 'v-meta' }, v.desc || (v.gender === 'female' ? 'A woman reads the news' : 'A man reads the news'))),
       h('span', { class: 'preview-btn', role: 'button', tabindex: '0', 'aria-label': `Hear ${v.name}` }, icon('play')));
       row.addEventListener('click', (e) => {
         if (e.target.closest('.preview-btn')) return;

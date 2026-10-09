@@ -41,6 +41,8 @@ MAX_PER_SECTION = 5
 VOICES: dict[str, dict[str, str]] = {
     "her_reference": {"name": "Alice", "gender": "female"},
     "him_reference": {"name": "Mike", "gender": "male"},
+    "jerry_reference": {"name": "Jerry", "gender": "male"},
+    "c3po_reference": {"name": "C-3PO", "gender": "male"},
 }
 DEFAULT_VOICE = "her_reference"
 
