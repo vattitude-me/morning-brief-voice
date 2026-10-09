@@ -73,11 +73,17 @@
         <p class="subtitle">Seven sections of the day's news in one voice. It's recorded before you wake, and every listener hears the same brief.</p>
       </header>
 
+      <div class="sample-intro">
+        <p class="overline">Sample from the app</p>
+        <h2 id="sampleHeading">Hear a real Morning Brief</h2>
+        <p>Play a real briefing here. The player and story list are the same ones you'll use each morning.</p>
+      </div>
+
       <!-- The same player card as the app's Today screen, playing today's real clips -->
       <section class="glass hero" id="sampleHero" aria-label="Sample briefing">
         <img class="hero-cover hidden" id="sampleCover" alt="">
         <div class="hero-body">
-          <p class="overline" id="sampleLabel">Today's briefing</p>
+          <p class="overline" id="sampleLabel">Sample briefing</p>
           <h2 class="hero-title" id="sampleTitle">Loading today's briefing…</h2>
           <div class="seg-progress" id="sampleSegs" role="slider" tabindex="0"
                aria-label="Seek through the briefing" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
@@ -96,6 +102,48 @@
         <audio id="sampleAudio" preload="none"></audio>
       </section>
 
+      <div class="landing-overview">
+        <section class="landing-section">
+          <div class="section-head"><span class="overline">How it works</span></div>
+          <div class="glass-group">
+            <div class="feature-row">
+              <span class="feature-icon"><svg><use href="#i-grid"/></svg></span>
+              <span class="feature-text"><b>Seven sections, the top of each</b>
+                <span class="meta">Top stories, AI, tech, politics, entertainment, science and sports.</span></span>
+            </div>
+            <div class="hairline"></div>
+            <div class="feature-row">
+              <span class="feature-icon"><svg><use href="#i-settings"/></svg></span>
+              <span class="feature-text"><b>Your own length</b>
+                <span class="meta">Choose how many stories each section gets. Five minutes or fifteen.</span></span>
+            </div>
+            <div class="hairline"></div>
+            <div class="feature-row">
+              <span class="feature-icon"><svg><use href="#i-sun"/></svg></span>
+              <span class="feature-text"><b>Waiting when you wake</b>
+                <span class="meta">Recorded before your alarm, with one quiet notification.</span></span>
+            </div>
+          </div>
+        </section>
+
+        <section class="landing-section">
+          <div class="section-head"><span class="overline">What you get</span></div>
+          <div class="glass-group">
+            <div class="feature-row">
+              <span class="feature-icon"><svg><use href="#i-headphones"/></svg></span>
+              <span class="feature-text"><b>One narrator, every morning</b>
+                <span class="meta">The same calm voice reading the news, not a phone robot.</span></span>
+            </div>
+            <div class="hairline"></div>
+            <div class="feature-row">
+              <span class="feature-icon"><svg><use href="#i-check"/></svg></span>
+              <span class="feature-text"><b>Free, no ads, no algorithm</b>
+                <span class="meta">Nothing to download to listen today. Add it to your home screen whenever you like.</span></span>
+            </div>
+          </div>
+        </section>
+      </div>
+
       <div class="landing-cta">
         <button class="pill-btn" type="button" data-signin>Get my morning brief</button>
         <span class="hint">Free. One tap with Google or your email.</span>
@@ -104,46 +152,6 @@
       <!-- The stories in that sample, grouped by section exactly as in the app -->
       <section id="sampleSection" hidden>
         <div id="sampleStories"></div>
-      </section>
-
-      <section class="landing-section">
-        <div class="section-head"><span class="overline">How it works</span></div>
-        <div class="glass-group">
-          <div class="feature-row">
-            <span class="feature-icon"><svg><use href="#i-grid"/></svg></span>
-            <span class="feature-text"><b>Seven sections, the top of each</b>
-              <span class="meta">Top stories, AI, tech, politics, entertainment, science and sports.</span></span>
-          </div>
-          <div class="hairline"></div>
-          <div class="feature-row">
-            <span class="feature-icon"><svg><use href="#i-settings"/></svg></span>
-            <span class="feature-text"><b>Your own length</b>
-              <span class="meta">Choose how many stories each section gets. Five minutes or fifteen.</span></span>
-          </div>
-          <div class="hairline"></div>
-          <div class="feature-row">
-            <span class="feature-icon"><svg><use href="#i-sun"/></svg></span>
-            <span class="feature-text"><b>Waiting when you wake</b>
-              <span class="meta">Recorded before your alarm, with one quiet notification.</span></span>
-          </div>
-        </div>
-      </section>
-
-      <section class="landing-section">
-        <div class="section-head"><span class="overline">What you get</span></div>
-        <div class="glass-group">
-          <div class="feature-row">
-            <span class="feature-icon"><svg><use href="#i-headphones"/></svg></span>
-            <span class="feature-text"><b>One narrator, every morning</b>
-              <span class="meta">The same calm voice reading the news, not a phone robot.</span></span>
-          </div>
-          <div class="hairline"></div>
-          <div class="feature-row">
-            <span class="feature-icon"><svg><use href="#i-check"/></svg></span>
-            <span class="feature-text"><b>Free, no ads, no algorithm</b>
-              <span class="meta">Nothing to download to listen today. Add it to your home screen whenever you like.</span></span>
-          </div>
-        </div>
       </section>
 
       <p class="footnote"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p>

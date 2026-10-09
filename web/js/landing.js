@@ -97,9 +97,8 @@ export class Landing {
   paintHero() {
     const ready = this.clips.length > 0;
     const mins = Math.max(1, Math.round(this.duration / 60));
-    const today = this.briefing.date === new Date().toLocaleDateString('en-CA');
     $('sampleLabel').textContent = ready
-      ? `${today ? "Today's briefing" : 'A recent briefing'} · ${mins} min`
+      ? `Sample briefing · ${mins} min`
       : 'Sample briefing';
     $('sampleTitle').textContent = ready
       ? (this.stories[0]?.headline || 'Tap play to hear the briefing')

@@ -446,11 +446,22 @@ body.signed-out > :not(.landing):not(.toast):not(svg) { display: none; }
   box-shadow: 0 14px 30px color-mix(in srgb, var(--ink) 18%, transparent);
 }
 .landing .pill-btn.sm { height: 36px; padding: 0 16px; font-size: 13.5px; }
-.landing .hero { margin-top: 24px; }
+.sample-intro { margin: 24px 4px 0; }
+.sample-intro .overline { margin: 0; }
+.sample-intro h2 { margin: 5px 0 0; font: 500 21px/1.2 var(--font-head); }
+.sample-intro > p:last-child { max-width: 52ch; margin: 5px 0 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
+.landing .hero { margin-top: 12px; }
 .landing .section-head { padding-top: 18px; }
-.landing-section { margin-top: 0; }
-.landing-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 16px 4px 0; }
+.landing-overview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 20px; margin-top: 8px; }
+.landing-section { min-width: 0; }
+.landing-overview .section-head { padding-top: 12px; }
+.landing-overview .feature-row { padding: 13px 0; }
+.landing-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 20px 4px 0; }
 .landing-cta .hint { margin: 0; }
+
+@media (max-width: 620px) {
+  .landing-overview { grid-template-columns: 1fr; gap: 0; }
+}
 
 /* A row of copy with a line icon, matching a GlassGroup list row */
 .feature-row { display: flex; gap: 12px; align-items: flex-start; padding: 15px 0; }
