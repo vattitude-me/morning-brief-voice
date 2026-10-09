@@ -1,159 +1,110 @@
-# ☀️ Morning Brief Voice
+<div align="center">
 
-Your daily news on cards, **read aloud every morning by a natural neural voice**. Pick topics (top stories, world,
-business, tech, health, science, sports, entertainment), local news for your city, people and teams to follow,
-and any link. Each user gets their own briefing and a phone notification every morning.
+<img src="docs/play-store/feature-graphic.png" alt="Morning Brief — Your news, read aloud every morning" width="100%" style="border-radius: 16px; margin-bottom: 20px;" />
 
-![Morning Brief on desktop](docs/screenshots/archived/desktop.png)
+# ☀️ Morning Brief
 
-| Mobile (dark) | Swipe deck | Voice picker |
-|---|---|---|
-| ![](docs/screenshots/archived/mobile-dark.png) | ![](docs/screenshots/archived/mobile-swipe.png) | ![](docs/screenshots/archived/settings.png) |
+**Wake up to the news, read aloud.**  
+A calm, curated 5-minute audio briefing delivered every morning by a warm, natural neural voice.  
+No ads. No algorithmic clickbait. Zero doom-scrolling.
 
-**Android app**
+[![Web PWA](https://img.shields.io/badge/Web-PWA_Ready-2f6fed?style=flat-square&logo=googlechrome&logoColor=white)](web/)
+[![Android App](https://img.shields.io/badge/Android-APK_v0.2+-1a9b5b?style=flat-square&logo=android&logoColor=white)](android/)
+[![Neural Voice](https://img.shields.io/badge/Voice-Chatterbox--Turbo-6a4cf5?style=flat-square)](voice_service/)
+[![Privacy First](https://img.shields.io/badge/Privacy-No_Ads_%7C_No_Tracking-0D0D0D?style=flat-square)]()
 
-| Today | Following along | Sources | Dark |
-|---|---|---|---|
-| ![](docs/screenshots/android-today-light.png) | ![](docs/screenshots/android-playing-dark.png) | ![](docs/screenshots/android-sources-light.png) | ![](docs/screenshots/android-today-dark.png) |
+[**Try Web Experience**](#-listen-on-the-web) · [**Get Android App**](#-get-the-android-app) · [**Features**](#-why-morning-brief) · [**Technical Guide**](docs/TECHNICAL.md)
 
-## Architecture
+</div>
 
-```
- Browser / PWA (static, Vercel)  ──►  Supabase (auth, tables, MP3 storage)  ◄──  Worker (Docker)
-                                                                                  fetch → rank → summarize (Groq)
- ◄──────────────────────────── Web Push "Your brief is ready" ────────────────  → Chatterbox-Turbo voice → upload
-```
+---
 
-- **Web app** (`web/`): static files only, no secrets.
-- **Supabase**: row-level security keeps each user to their own data.
-- **Worker** (`app/`): makes outbound calls only, and never fetches private-network addresses from user links.
-- **Android app** (`android/`): builds and voices the briefing on the phone, with no worker needed. See [`android/README.md`](android/README.md).
-- **Voice service** (`voice_service/`): the Chatterbox-Turbo narrator service (Cloud Run / GPU). A stateless FastAPI service hosting Alice & Mike that synthesizes stories into audio, uploads to Supabase Storage, and scales to zero when idle. See [`voice_service/README.md`](voice_service/README.md).
+## ☕ Why Morning Brief?
 
-Each morning the worker:
-1. Fetches every feed once.
-2. Ranks and deduplicates stories per user, skipping stories from their last two briefings.
-3. Summarizes each story once with Groq, falling back to a built-in summarizer.
-4. Records each user's MP3.
-5. Notifies each user.
+Start your morning smarter, calmer, and informed. While you make your coffee, head out for a run, or commute to work, **Morning Brief** gathers the stories that matter to you overnight and turns them into a high-quality, five-minute spoken audio briefing ready the moment you wake up.
 
-After the admin's briefing is built, a copy is published as the landing-page demo (falling back to `web/sample/`).
+* **🎙️ Natural Neural Narrators**: Voiced by warm, human-like narrators (**Alice & Mike**) with natural pacing, audio pauses, and expressive delivery.
+* **📰 Personalized to You**: Choose your favorite topics (Top Stories, World, Business, Tech, Science, Health, Sports, Entertainment), set your city for local weather and news, or track specific people, teams, and custom RSS links.
+* **⏱️ Snappy 5-Minute Format**: Around 12 to 16 key stories, each summarized specifically for listening. Hear the essentials without fluff.
+* **💡 Interactive Follow-Along**: Each story card lights up and scrolls into view as it's read aloud. Tap any story card to jump straight to that story, or click through to read the full original article.
+* **🔒 Private by Design**: No sponsored content, no intrusive tracking pixels, and no ad networks. Your preferences stay yours.
 
-## Setup
+---
 
-**Supabase**
-1. Create a project and run [`supabase/schema.sql`](supabase/schema.sql) in the SQL Editor. It's safe to re-run.
-2. **Authentication → Providers → Email**: enabled. Turn "Allow new users to sign up" off to make it invite-only.
-3. **Authentication → URL Configuration**: set the Site URL and Redirect URLs to your web app's address.
-4. Optional: set up custom SMTP and add `{{ .Token }}` to the Magic Link template. The email then includes a code,
-   which lets installed iOS apps sign in.
-5. Put the *publishable* key in [`web/config.js`](web/config.js). The *secret* key goes only in the worker's `.env`.
+## 🖥️ Modern Web & PWA Experience
 
-**Web app**: deploy `web/` to any static host. On Vercel, set the root directory to `web`, with no build step.
+Access your briefing from any modern browser on your desktop, laptop, iPad, or iPhone. Features a modern frosted-glass interface with smooth audio scrubbing and seamless light and dark mode support.
 
-**Worker**
-```bash
-cp .env.example .env              # Supabase URL + secret key, Groq key, admin emails
-docker compose up -d --build
-docker compose exec worker python -m app check
-```
+<div align="center">
 
-## Running the whole stack locally (Docker)
+### Light Mode
+<img src="docs/screenshots/web-desktop-light.png" alt="Morning Brief Web Desktop Light Mode" width="100%" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);" />
 
-[`docker-compose.deploy.yml`](docker-compose.deploy.yml) stands in for the three hosts this
-runs on in production:
+### Dark Mode
+<img src="docs/screenshots/web-desktop-dark.png" alt="Morning Brief Web Desktop Dark Mode" width="100%" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);" />
 
-| Production | Compose service | Local address |
-| --- | --- | --- |
-| GPU box (Linux + CUDA) | `voice` — Chatterbox-Turbo API | <http://localhost:8090> |
-| Vercel (static hosting) | `web` — the PWA | <http://localhost:8080> |
-| NAS (Docker) | `worker` — the nightly batch | profile `worker` |
+</div>
 
-```bash
-docker compose -f docker-compose.deploy.yml up --build     # voice + web
-```
+> **Tip**: On Chrome, Edge, or iOS Safari, click **Install** or **Add to Home Screen** to install Morning Brief as a standalone Progressive Web App (PWA) with offline caching and web push notifications.
 
-Open <http://localhost:8080>; the app talks to Supabase as usual, and the browser can call
-the voice API directly at <http://localhost:8090> (CORS is enabled, `VOICE_CORS_ORIGINS`).
+---
 
-The batch is opt-in because it needs Supabase credentials. Put `SUPABASE_URL` and
-`SUPABASE_SECRET_KEY` in `.env`, then:
+## 📱 Native Android App
 
-```bash
-docker compose -f docker-compose.deploy.yml --profile worker up -d worker
-docker compose -f docker-compose.deploy.yml run --rm worker python -m app pack
-```
+Prefer a dedicated mobile app? The native Android app provides an on-the-go experience with background audio playback, lock-screen media controls, and customizable notifications.
 
-`python -m app pack` is the single-source path: it reads The Guardian's feeds (no AI),
-voices each story once through the `voice` service, and publishes the clips to Supabase
-Storage and the `story_audio` table. Every listener is then merged from those same clips.
-A story carried by two feeds is read once, under the earlier section, so the day's brief
-never repeats itself.
+<div align="center">
 
-On macOS Docker cannot reach MPS, so `voice` uses the CPU image and is slower than running
-natively; on a Linux GPU host switch to `Dockerfile`, as described in
-[`voice_service/README.md`](voice_service/README.md).
+| Today's Briefing | Spoken Audio Follow-Along | Your Topics & Sources | Settings & Voices |
+| :---: | :---: | :---: | :---: |
+| <img src="docs/screenshots/android-today-light.png" width="220" alt="Android Today Light" /> | <img src="docs/screenshots/android-playing-dark.png" width="220" alt="Android Playing Dark" /> | <img src="docs/screenshots/android-sources-light.png" width="220" alt="Android Sources Light" /> | <img src="docs/screenshots/android-settings-light.png" width="220" alt="Android Settings Light" /> |
 
-## Operations
+</div>
 
-- **Build now:** `./scripts/run-now.sh [--user you@example.com] [--no-push]` clears today's brief, rebuilds it and prints the result.
-- **Missed runs:** if the host was asleep at `BATCH_TIME`, the worker catches up when it wakes (until noon).
-- **Admin alerts:** problems are pushed to admins, including Groq rate limits, retired models, unreadable links and voice or upload failures.
-  Users see a short note only when their briefing is affected.
-- **Nightly pack:** `scripts/nightly-pack.sh` at 05:00 renders the shared pack and pushes the outcome; `scripts/nightly-report.sh`
-  at 06:00 checks the day, retries a missing narrator once and reports to the admins either way. Both are LaunchAgents here:
-  [`docs/nightly.md`](docs/nightly.md).
-- **Run log:** every pack and every report writes a line to the `run_log` table, so a morning that failed is
-  readable in the admin page even if the push never arrived. Created by the run log section of [`supabase/schema.sql`](supabase/schema.sql).
-- **One day of audio:** a complete pack deletes the older days, rows and storage files together. A morning that failed keeps
-  yesterday's brief so clients can fall back to it.
+- **Background Audio**: Seamless audio playback with Android Media3 notification controls.
+- **Smart Queueing**: 12 stories balanced across your selected topics, with visual indicators of how full your daily brief is.
+- **Flexible Narrators**: Stream cloud-voiced briefings or generate on-device audio offline.
+- **Custom AI Summaries**: Use default built-in summaries or bring your own free API key from Google Gemini, Groq, or OpenRouter.
 
-## Configuration
+---
 
-| Variable | Default | |
-|---|---|---|
-| `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | | Secret key is server-only |
-| `GROQ_API_KEY` | | Optional; without it, summaries are built-in |
-| `GROQ_MODELS` | `openai/gpt-oss-120b,openai/gpt-oss-20b` | Tried in order |
-| `BRIEFING_TIMEZONE` | `America/Toronto` | |
-| `BATCH_TIME` | `07:05` | 24-hour clock |
-| `KEEP_DAYS` | `2` | Older briefings are deleted |
-| `ADMIN_EMAILS` | | Comma-separated |
-| `ADMIN_NOTIFY` | `issues` | `issues`, `always` or `off` |
-| `VAPID_SUBJECT` | | `mailto:` address for push |
-| `MAX_CUSTOM_SOURCES` | `15` | Links per user each day |
+## 🚀 Getting Started
 
-## Voice service (optional)
+### 🌐 Listen on the Web
+1. Visit the Morning Brief web app.
+2. Hit **Play** on the landing page to listen to today’s public sample briefing immediately—no account required.
+3. Click **Start your brief** to sign in with Google or a magic email link to customize your personal topics and city.
 
-`voice_service/` is a self-contained Chatterbox-Turbo "cloned narrator" API for
-Apple Silicon or a GPU host (native MPS, or CUDA in Docker). The worker calls it over
-the LAN, so PyTorch stays out of the worker image, and `scripts/batch.py` voices a
-whole day's story pack to one WAV per story. Full guide: [`voice_service/README.md`](voice_service/README.md).
+### 🤖 Get the Android App
+1. Download the latest `.apk` from our [GitHub Releases](https://github.com/vattitude-me/morning-brief-voice/releases).
+2. Open the file on your Android device (Android 10+) and complete the quick 2-step setup.
+3. Choose your topics and set the time you want your briefing ready every morning.
 
-**Setup & run** (Python 3.11):
+---
 
-```sh
-cd voice_service
-uv venv --python 3.11 .venv
-uv pip install --python .venv/bin/python -e .
-mkdir -p data/voices && cp your_voice.wav data/voices/reference.wav
-.venv/bin/uvicorn --app-dir . api.app:app --host 0.0.0.0 --port 8090
-```
+## 🗺️ What's Next & Feedback
 
-**Endpoints**
+We're constantly improving Morning Brief based on listener feedback:
+- **Expressive Voice Styles**: Fun promo narrators and custom voice tones ([Voice Roadmap](docs/CUSTOM_VOICE_ROADMAP.md)).
+- **Smart Feedback**: Suggest features or report inaccurate story summaries directly within the app settings.
+- **Interactive Transcripts**: Word-level highlight sync and quick bookmarking.
 
-| Method | Path | Body | Returns |
-| --- | --- | --- | --- |
-| GET | `/health` | — | device, sample rate, reference status |
-| GET | `/voices` | — | reference clips on disk |
-| POST | `/synthesize` | `{"text": "...", "voice": "her_reference"}` | `audio/wav` |
-| POST | `/news/sample` | `{"text": "..."}` or `{}` | JSON: base64 audio, timing marks |
+---
 
-Each clip's filename (without extension) becomes a selectable voice. Interactive
-docs (Swagger UI) are at `/docs`.
+## 🛠️ For Developers & Self-Hosters
 
-## Development
+Looking to deploy your own instance, run the nightly batch worker, or explore the codebase? Technical and operational details are documented in dedicated guides:
 
-```bash
-pip install -r requirements.txt pytest && pytest -q
-```
+- 📖 [**Technical & Architecture Guide (`docs/TECHNICAL.md`)**](docs/TECHNICAL.md) — Complete architecture diagrams, Supabase database schema, Docker Compose environments, configuration variables, nightly automation, and testing.
+- 📱 [**Android App Guide (`android/README.md`)**](android/README.md) — Gradle build steps, Jetpack Compose architecture, and release signing.
+- 🎙️ [**Voice Service Guide (`voice_service/README.md`)**](voice_service/README.md) — Running the Chatterbox-Turbo neural TTS engine, FastAPI endpoints, GPU/MPS acceleration, and adding custom voices.
+- 🌙 [**Nightly Automation (`docs/nightly.md`)**](docs/nightly.md) — Setting up macOS LaunchAgents or cron jobs for scheduled rendering.
+
+---
+
+<div align="center">
+
+Made with care for a more peaceful morning routine.  
+Free · No ads · No tracking
+
+</div>
