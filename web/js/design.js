@@ -51,6 +51,8 @@ export function SwitchRow(label, checked, { detail = null, onChange = null } = {
   const sw = h('label', { class: 'switch' }, input, h('span'));
   const fire = (on) => onChange?.(on);
   input.addEventListener('change', () => fire(input.checked));
+  sw.addEventListener('click', (e) => e.stopPropagation());
+  sw.addEventListener('keydown', (e) => e.stopPropagation());
   return ListRow({
     label, detail,
     onClick: () => { input.checked = !input.checked; fire(input.checked); },

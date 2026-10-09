@@ -41,8 +41,8 @@ export const subscribedWith = (sub) => {
 
 // Asks permission and registers this device. Must be called from a tap. Throws a readable message on failure.
 export async function enablePush(publicKey) {
-  if (await Notification.requestPermission() !== 'granted') throw new Error('Permission was not granted.');
   if (!publicKey) throw new Error("The server hasn't published its notification key yet. Try again later.");
+  if (await Notification.requestPermission() !== 'granted') throw new Error('Permission was not granted.');
   const reg = await navigator.serviceWorker.ready;
   const pad = '='.repeat((4 - (publicKey.length % 4)) % 4);
   const raw = atob((publicKey + pad).replace(/-/g, '+').replace(/_/g, '/'));
@@ -272,7 +272,11 @@ export class WelcomeSheet {
     btn.disabled = true;
     try {
       if (wantPush) {
-        try { await enablePush(this.status?.vapid_public_key); } catch (e) { toast(`Notifications are off: ${e.message}`, { error: true, ms: 6000 }); }
+        if (!this.status?.vapid_public_key) {
+          toast('Notifications are still setting up. Try again in a moment.', { error: true, ms: 6000 });
+        } else {
+          try { await enablePush(this.status.vapid_public_key); } catch (e) { toast(`Notifications are off: ${e.message}`, { error: true, ms: 6000 }); }
+        }
       }
       await api.saveSettings({
         onboarded: true,

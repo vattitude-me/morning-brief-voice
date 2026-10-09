@@ -107,7 +107,13 @@ export class SettingsPage {
         return;
       }
       const { status } = await api.status().catch(() => ({}));
-      await enablePush(status?.vapid_public_key);
+      if (!status?.vapid_public_key) {
+        this.pushOn = false;
+        hint.textContent = 'Notifications are still setting up. Try again in a moment.';
+        this.render();
+        return;
+      }
+      await enablePush(status.vapid_public_key);
       this.pushOn = true;
       hint.textContent = 'You will be notified when your briefing is ready.';
       this.render();
