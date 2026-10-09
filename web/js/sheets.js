@@ -147,11 +147,11 @@ export class WelcomeSheet {
     document.getElementById('welcomeInstallPrompt').classList.toggle('hidden', mode !== 'prompt');
   }
 
-  // askName: first visit, all three steps. Otherwise only the morning step (e.g. after installing on iPhone).
+  // askName: first visit, lean two steps. Otherwise only the morning step (e.g. after installing on iPhone).
   open(status, { askName = true } = {}) {
     this.status = status;
-    this.steps = askName ? ['name', 'sources', 'morning'] : ['morning'];
-    this.disabled = null; // built-in source ids left out; null until the sources step has loaded
+    this.steps = askName ? ['name', 'morning'] : ['morning'];
+    this.disabled = null;
     this.added = 0;
     const canPush = pushSupported() && Notification.permission !== 'denied';
     this.offeredPush = canPush;
@@ -162,7 +162,6 @@ export class WelcomeSheet {
     this.paintInstall();
     this.dialog.showModal();
     this.show(0);
-    if (askName) this.loadSources();
   }
 
   show(i) {
@@ -192,36 +191,37 @@ export class WelcomeSheet {
 
   async loadSources() {
     const box = document.getElementById('welcomeSources');
-    box.replaceChildren(h('p', { class: 'hint' }, 'Loading sources…'));
+    box.replaceChildren(h('p', { class: 'hint' }, 'Loading topics…'));
     try {
-      const { sources } = await api.sources();
-      this.sources = sources.filter((s) => s.builtin);
-      this.disabled = new Set(this.sources.filter((s) => !s.enabled).map((s) => s.id));
       this.paintSources();
     } catch (err) {
-      box.replaceChildren(h('p', { class: 'hint' }, `Couldn't load the sources. ${err.message} You can pick them later in Sources.`));
+      box.replaceChildren(h('p', { class: 'hint' }, 'All 7 topics are included in your briefing.'));
     }
   }
 
   paintSources() {
-    const groups = Object.fromEntries(Object.keys(SECTIONS).filter((k) => k !== 'custom' && k !== 'follow').map((k) => [k, []]));
-    this.sources.forEach((s) => groups[s.section]?.push(s));
-    document.getElementById('welcomeSources').replaceChildren(...Object.entries(groups).filter(([, items]) => items.length).map(([key, items]) => {
-      const count = h('span', { class: 'tag' });
-      const paintCount = () => { count.textContent = `${items.filter((s) => !this.disabled.has(s.id)).length} of ${items.length}`; };
-      paintCount();
-      return h('section', { class: 'source-pick' },
-        h('h3', {}, sectionLabel(key), count),
-        h('div', { class: 'chip-row' }, items.map((s) => {
-          const chip = h('button', { type: 'button', class: 'source-chip', 'aria-pressed': String(!this.disabled.has(s.id)) }, s.name);
+    const topics = Object.entries(SECTIONS).filter(([k]) => k !== 'custom');
+    document.getElementById('welcomeSources').replaceChildren(
+      h('div', { class: 'chip-row', style: 'display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;' },
+        ...topics.map(([key, info]) => {
+          const on = !this.disabled?.has(key);
+          const chip = h('button', {
+            type: 'button',
+            class: 'pill-btn sm' + (on ? '' : ' glass-btn'),
+            'aria-pressed': String(on),
+          }, info.title);
           chip.addEventListener('click', () => {
-            if (this.disabled.has(s.id)) this.disabled.delete(s.id); else this.disabled.add(s.id);
-            chip.setAttribute('aria-pressed', String(!this.disabled.has(s.id)));
-            paintCount();
+            if (!this.disabled) this.disabled = new Set();
+            if (this.disabled.has(key)) this.disabled.delete(key);
+            else this.disabled.add(key);
+            const nowOn = !this.disabled.has(key);
+            chip.className = 'pill-btn sm' + (nowOn ? '' : ' glass-btn');
+            chip.setAttribute('aria-pressed', String(nowOn));
           });
           return chip;
-        })));
-    }), this.added ? h('p', { class: 'hint' }, `${this.added} of your own ${this.added === 1 ? 'link' : 'links'} added.`) : '');
+        })
+      )
+    );
   }
 
   async addSource() {
