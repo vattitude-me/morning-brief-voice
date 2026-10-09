@@ -129,6 +129,24 @@ def _split(cfg, store, day: str, voice: str | None) -> tuple[list[str], list[str
     return here, [n for n in names if n not in here]
 
 
+def _publish_key(cfg, store) -> bool:
+    """Put this machine's notification key in the status row clients read.
+
+    A device subscribes with whatever that row publishes, and a push signed with any other key is
+    refused. So if the key pair on this machine has been replaced, the row has to follow it, or
+    every device ends up subscribed to a channel nothing can post to.
+    """
+    from . import push
+
+    key = push.load_keys(cfg)["public_key"]
+    row = store.app_status()
+    if row.get("vapid_public_key") == key:
+        return False
+    store.set_app_status({**row, "vapid_public_key": key})
+    print("→ Published a new notification key to the app status")
+    return True
+
+
 def cmd_report(args) -> int:
     """The check that runs an hour after the pack.
 
@@ -186,6 +204,13 @@ def cmd_pack(args) -> int:
 
     cfg = load()
     sections = args.sections.split(",") if args.sections else None
+    if not getattr(args, "check", False):
+        # Cheap, and it keeps the key clients subscribe with in step with the one this machine
+        # signs with, on every path that touches a pack.
+        try:
+            _publish_key(cfg, _store(cfg))
+        except Exception as exc:  # noqa: BLE001 — never let a status row stand in the way
+            print(f"• Could not publish the notification key: {exc}")
     if getattr(args, "report", False):
         return cmd_report(args)
     if getattr(args, "check", False):

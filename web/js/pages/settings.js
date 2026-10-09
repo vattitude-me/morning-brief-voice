@@ -7,7 +7,7 @@ import {
   GlassGroup, Hairline, Hint, ListRow, Overline, PillButton, PillStepper,
   SectionLabel, Segmented, SwitchRow, Tag, applyPhotoMode,
 } from '../design.js';
-import { enablePush, pushSupported } from '../sheets.js';
+import { enablePush, pushSupported, subscribedWith } from '../sheets.js';
 
 const speedLabel = (v) => `${Number(v).toFixed(2).replace(/0$/, '')}×`;
 
@@ -77,8 +77,19 @@ export class SettingsPage {
     }
     try {
       const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.getSubscription();
-      this.pushOn = !!sub && Notification.permission === 'granted';
+      let sub = await reg.pushManager.getSubscription();
+      const granted = Notification.permission === 'granted';
+      if (granted && sub) {
+        // The server publishes the key its notifications are signed with. If that key has been
+        // replaced, this device is subscribed to the old one and would hear nothing, so quietly
+        // register it again. Opening this screen is enough; no tapping the switch.
+        const { status } = await api.status().catch(() => ({}));
+        if (status?.vapid_public_key && subscribedWith(sub) !== status.vapid_public_key) {
+          await enablePush(status.vapid_public_key);
+          sub = await reg.pushManager.getSubscription();
+        }
+      }
+      this.pushOn = !!sub && granted;
     } catch { this.pushOn = false; }
     hint.textContent = Notification.permission === 'denied' ? 'Notifications are blocked in this browser\u2019s site settings.' : '';
     this.render();

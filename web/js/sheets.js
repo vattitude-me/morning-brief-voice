@@ -30,6 +30,15 @@ export async function promptInstall() {
 
 export const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && window.isSecureContext;
 
+// The key a subscription was made with, written the way the server publishes it, so the two can be
+// compared as strings.
+export const subscribedWith = (sub) => {
+  const bytes = sub?.options?.applicationServerKey;
+  if (!bytes) return '';
+  return btoa(String.fromCharCode(...new Uint8Array(bytes)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+};
+
 // Asks permission and registers this device. Must be called from a tap. Throws a readable message on failure.
 export async function enablePush(publicKey) {
   if (await Notification.requestPermission() !== 'granted') throw new Error('Permission was not granted.');
@@ -38,7 +47,16 @@ export async function enablePush(publicKey) {
   const pad = '='.repeat((4 - (publicKey.length % 4)) % 4);
   const raw = atob((publicKey + pad).replace(/-/g, '+').replace(/_/g, '/'));
   const key = Uint8Array.from(raw, (c) => c.charCodeAt(0));
-  const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+  let sub = await reg.pushManager.getSubscription();
+  // A subscription is bound for life to the key it was created with, and pushes signed with any
+  // other key are refused. If the server has replaced its key, this device is subscribed to a
+  // channel nothing can post to, so drop it and register again with the current key.
+  if (sub && subscribedWith(sub) !== publicKey) {
+    await api.pushUnsubscribe(sub.toJSON()).catch(() => {});
+    await sub.unsubscribe().catch(() => {});
+    sub = null;
+  }
+  sub = sub || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
   await api.pushSubscribe(sub.toJSON());
 }
 
