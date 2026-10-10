@@ -1,138 +1,252 @@
-# 🛠️ Morning Brief — Technical & Architecture Guide
+# Morning Brief — Technical & Architecture Guide
 
-This document contains full technical specifications, architecture diagrams, backend service setup, Docker environments, operations, and deployment guides for developers and self-hosters running **Morning Brief**.
-
-For an overview of user-facing features, web, and mobile app usage, see the main [README.md](../README.md).
+Morning Brief is an automated news briefing system that compiles, summarizes, and voices daily news into a 5-minute audio briefing. Audio is rendered once per day on a dedicated GPU instance and assembled dynamically by web and Android clients based on user topic preferences and custom ordering.
 
 ---
 
-## 🏗️ System Architecture
+## Architecture Flow
+
+The system runs a daily batch ingestion and synthesis pipeline triggered by Google Cloud Scheduler, writes shared audio clips to Supabase, and serves them to client applications.
+
+```mermaid
+flowchart TD
+    subgraph Scheduler["1. Scheduling"]
+        GCS["Google Cloud Scheduler<br/>(Daily 05:00 AM)"] -->|HTTP Trigger| CRJ["Cloud Run Worker Job<br/>(python -m app pack --notify)"]
+    end
+
+    subgraph Extraction["2. News Ingestion & Extraction"]
+        CRJ -->|Fetch RSS| GDN["The Guardian RSS Feeds<br/>(7 Editorial Categories)"]
+        GDN -->|Article URLs| HTTPX["HTTPX Async Fetch"]
+        HTTPX -->|Raw HTML| TRAF["Trafilatura Extraction<br/>(Title, Metadata, Body Text)"]
+        TRAF -->|Clean Text| SUM["Extractive Summarizer<br/>(Lead Salience, 22s Scripts)"]
+    end
+
+    subgraph GPU["3. On-Demand TTS Generation"]
+        SUM -->|Start VM| GCE_API["Compute Engine REST API<br/>(OAuth2 via Metadata Server)"]
+        GCE_API -->|Boot VM| VM["GCE GPU Instance<br/>(morning-brief-voice, T4 GPU)"]
+        VM -->|Dynamic IP Lookup| HEALTH["Poll /health (Port 8090)"]
+        HEALTH -->|Ready| TTS["Chatterbox-Turbo TTS Service"]
+        TTS -->|POST /synthesize| AUDIO["Synthesize Audio Clips<br/>(Alice, Mike, Jerry, C-3PO)"]
+        AUDIO -->|Finished| STOP["Stop VM immediately<br/>(~12-14 min daily runtime)"]
+    end
+
+    subgraph Storage["4. Persistence & Distribution"]
+        AUDIO -->|Upload MP3s| SB_STORAGE["Supabase Storage<br/>(bucket: briefings)"]
+        AUDIO -->|Insert Metadata| SB_DB["Supabase PostgreSQL<br/>(story_audio, voice_notes)"]
+        AUDIO -->|VAPID Web Push| PUSH["Web Push Service"]
+    end
+
+    subgraph Clients["5. Dynamic Client Assembly"]
+        SB_DB -->|Fetch Rows| PWA["Web PWA<br/>(Static HTML/CSS/JS)"]
+        SB_DB -->|Fetch Rows| ANDROID["Android App<br/>(Kotlin, Compose, Media3)"]
+        SB_STORAGE -->|Stream MP3s| PWA
+        SB_STORAGE -->|Stream MP3s| ANDROID
+    end
+```
+
+---
+
+## 1. News Ingestion & Article Extraction
+
+### The Guardian Single-Source Architecture
+The system ingests stories across 7 fixed categories defined in [`app/guardian.py`](file:///Users/vattitude/Coding/Morning_Brief/app/guardian.py):
+- `top` — Top stories (`international/rss`)
+- `ai` — Artificial Intelligence (`technology/artificialintelligenceai/rss`)
+- `tech` — Technology (`uk/technology/rss`)
+- `politics` — Politics (`politics/rss`)
+- `entertainment` — Culture & Entertainment (`culture/rss`)
+- `science` — Science (`science/rss`)
+- `sports` — Sport (`uk/sport/rss`)
+
+The RSS order represents editorial curation, avoiding ranking models. The worker takes the top 5 articles per section (with a 5-article deduplication margin) and discards articles older than 48 hours.
+
+### Parsing with Trafilatura
+In [`app/fetcher.py`](file:///Users/vattitude/Coding/Morning_Brief/app/fetcher.py), `trafilatura` extracts clean article text, metadata, and hero images from raw HTML while discarding boilerplate, navigation menus, inline ads, and comments:
+
+```python
+def extract_article(page_html: str, url: str) -> dict:
+    raw = trafilatura.extract(
+        page_html,
+        url=url,
+        output_format="json",
+        with_metadata=True,
+        include_comments=False,
+        include_tables=False,
+        favor_precision=True,
+    )
+    if not raw:
+        meta = trafilatura.extract_metadata(page_html, default_url=url)
+        return {
+            "title": getattr(meta, "title", None),
+            "description": getattr(meta, "description", None),
+            "image": getattr(meta, "image", None),
+            "sitename": getattr(meta, "sitename", None),
+            "text": "",
+        }
+    data = json.loads(raw)
+    return {
+        "title": data.get("title"),
+        "description": data.get("description") or data.get("excerpt"),
+        "image": data.get("image"),
+        "sitename": data.get("sitename") or data.get("hostname"),
+        "date": data.get("date"),
+        "text": data.get("text") or data.get("raw_text") or "",
+    }
+```
+
+### Extractive Summarization
+Rather than using generative LLMs that risk hallucination and impose per-call API billing, [`app/summarizer.py`](file:///Users/vattitude/Coding/Morning_Brief/app/summarizer.py) generates spoken broadcast scripts algorithmically:
+1. Strips datelines, author credits, and photo captions.
+2. Identifies key informational sentences using lead paragraph proximity and term frequency.
+3. Produces a 2-to-3 sentence script calibrated to ~22 seconds of spoken speech.
+
+---
+
+## 2. On-Demand TTS & GCE GPU Lifecycle
+
+Neural audio synthesis requires an NVIDIA GPU (running Chatterbox-Turbo / PyTorch). To prevent the high cost of a 24/7 GPU VM (~$500/month), [`app/gce.py`](file:///Users/vattitude/Coding/Morning_Brief/app/gce.py) manages the instance lifecycle dynamically via Compute Engine REST APIs:
 
 ```text
- Browser / PWA (static, Vercel)  ──►  Supabase (auth, tables, MP3 storage)  ◄──  Worker (Docker)
-                                                                                  fetch → rank → summarize (Groq / Gemini)
- ◄──────────────────────────── Web Push "Your brief is ready" ────────────────  → Chatterbox-Turbo voice → upload
+Run cost comparison:
+- 24/7 GCE T4 GPU:            ~$500.00 / month
+- 1-hour static daily cron:    ~$21.00 / month
+- Dynamic on-demand lifecycle:   ~$4.50 / month (~$0.15 / day for ~12-14 min runtime)
 ```
 
-- **Web app** (`web/`): Pure static vanilla HTML/CSS/JS progressive web app. Zero client secrets, frosted-glass design system with light/dark themes.
-- **Supabase**: PostgreSQL database, Row-Level Security (RLS) keeping each user's preferences private, Magic Link & Google Auth, and audio storage buckets.
-- **Worker** (`app/`): Nightly Python batch engine. Outbound connections only; fetches feeds, ranks and deduplicates stories per user, summarizes via Groq or Gemini, coordinates voice rendering, and dispatches Web Push notifications.
-- **Voice Service** (`voice_service/`): A dedicated, high-fidelity neural narration service hosting Chatterbox-Turbo (stateless FastAPI service hosting Alice, Mike, and promo voices). Scales to zero when idle.
-- **Android App** (`android/`): Native Kotlin / Jetpack Compose application that builds and voices briefings on-device or streams cloud packs. See [`android/README.md`](../android/README.md).
+### Dynamic VM Session Flow
+[`app/gce.py:voice_vm_session`](file:///Users/vattitude/Coding/Morning_Brief/app/gce.py#L104-L180) handles authentication, boot, IP resolution, and shutdown in a Python context manager:
 
-### The Nightly Ingestion Pipeline
-Each morning the worker:
-1. **Fetches**: Reads every configured RSS and custom news feed once.
-2. **Ranks & Deduplicates**: Personalizes the story queue per user, skipping stories covered in their previous two briefings.
-3. **Summarizes**: Generates audio-ready concise summaries using Groq (or Gemini AI Studio), with graceful fallback to a local extractive summarizer.
-4. **Voices**: Synthesizes the master audio package using the Chatterbox-Turbo voice service.
-5. **Publishes & Notifies**: Stores audio clips in Supabase Storage and dispatches Web Push notifications when the brief is ready.
+1. **Authentication**: Requests an OAuth2 access token via Google Cloud internal metadata server (`http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token`) in Cloud Run, or falls back to `gcloud auth print-access-token` locally.
+2. **Dynamic IP Resolution**: Queries `https://compute.googleapis.com/compute/v1/projects/{project}/zones/{zone}/instances/{instance}` to read the instance's current external NAT IP. This eliminates hardcoded IP addresses.
+3. **Instance Start**: Calls the GCE start endpoint if the instance is not already running.
+4. **Health Check**: Polls `GET http://<VM_IP>:8090/health` until the FastAPI service responds with `{"status": "ok"}`.
+5. **Synthesis**: Synthesizes the day's stories and voice framing notes across all 4 narrators.
+6. **Automatic Teardown**: An outer `finally` block unconditionally calls the GCE stop endpoint once audio generation completes (or on error).
+
+### Voice Service API Contracts
+The TTS service in [`voice_service/`](file:///Users/vattitude/Coding/Morning_Brief/voice_service) exposes three primary endpoints on port `8090`:
+
+#### `GET /health`
+Returns service status, active device (`cuda`, `mps`, or `cpu`), and audio sample rate.
+```json
+{
+  "status": "ok",
+  "device": "cuda",
+  "sample_rate": 24000
+}
+```
+
+#### `GET /voices`
+Lists available voice reference clips bundled in `voice_service/data/voices/`:
+- `c3po_reference` — C-3PO (Polite protocol droid)
+- `jerry_reference` — Jerry (Observational wit)
+- `her_reference` — Alice (Warm British broadcast)
+- `him_reference` — Mike (Crisp American morning news)
+
+#### `POST /synthesize?format=mp3`
+Accepts text and voice identifier, returning synthesized audio bytes along with an `X-Duration` header indicating clip length in seconds:
+```http
+POST /synthesize?format=mp3 HTTP/1.1
+Content-Type: application/json
+
+{
+  "text": "Good morning. In artificial intelligence news today, researchers announced...",
+  "voice": "c3po_reference"
+}
+```
+Response:
+```http
+HTTP/1.1 200 OK
+Content-Type: audio/mpeg
+X-Duration: 21.84
+
+<binary audio bytes>
+```
 
 ---
 
-## 🚀 Setup & Deployment
+## 3. Storage & Client Assembly
 
-### 1. Supabase Backend
-1. Create a Supabase project and execute [`supabase/schema.sql`](../supabase/schema.sql) in the SQL Editor (safe to re-run idempotent schema).
-2. **Authentication → Providers → Email**: Enable Email provider. Toggle *"Allow new users to sign up"* off if you prefer an invite-only setup.
-3. **Authentication → URL Configuration**: Set the Site URL and Redirect URLs to your web app's address (and `me.vattitude.morningbrief://auth` for Android auth).
-4. **Keys**:
-   - Place your Supabase *publishable key* and *project URL* in [`web/config.js`](../web/config.js).
-   - Place your Supabase *service role secret key* exclusively in the server worker's `.env`.
+### Supabase Storage & Database Schema
+Synthesized audio files are stored in Supabase Storage under `briefings/{date}/{voice}/` and tracked in PostgreSQL:
 
-### 2. Web App Deployment
-Deploy the `web/` directory to any static CDN or hosting provider (Vercel, Cloudflare Pages, Netlify, or Nginx).
-- **Vercel**: Set root directory to `web/` with no build command needed.
+- **`story_audio`**: Individual story clips.
+  - Columns: `date`, `section`, `rank`, `title`, `script`, `url`, `source`, `image`, `audio_path`, `duration`, `voice`.
+- **`voice_notes`**: Spoken framing audio clips per voice.
+  - `note_key`: `greeting_morning`, `greeting_afternoon`, `greeting_evening`, `intro_{section}`, `outro`, `pack_ready`.
+- **`profiles`**: User settings stored as JSONB (`stories`, `section_order`, `voice`, `speed`, `daily`, `color_photos`).
 
-### 3. Worker (Docker)
-```bash
-cp .env.example .env              # Fill in Supabase URL + secret key, Groq/Gemini key, admin emails
-docker compose up -d --build
-docker compose exec worker python -m app check
-```
+### Client Assembly Engine (`StoryPack`)
+Audio clips are synthesized once for all listeners. The web PWA ([`web/js/storypack.js`](file:///Users/vattitude/Coding/Morning_Brief/web/js/storypack.js)) and Android app ([`StoryPack.kt`](file:///Users/vattitude/Coding/Morning_Brief/android/app/src/main/java/me/vattitude/morningbrief/data/StoryPack.kt)) assemble custom briefings client-side without re-encoding:
+
+1. **Verify Readiness**: Checks that `voice_notes` contains a `pack_ready` record for the requested voice and date.
+2. **Greeting Selection**: Selects `greeting_morning` (< 12:00), `greeting_afternoon` (12:00–17:00), or `greeting_evening` (>= 17:00) according to the user's local clock.
+3. **Category Ordering**: Loops through `section_order` (falling back to default: `top`, `ai`, `tech`, `politics`, `entertainment`, `science`, `sports`).
+4. **Story Counts**: Selects the top $N$ stories configured for each category in the user's settings.
+5. **Breaths**: Inserts a 0.8-second silent pause (`BREATH = 0.8`) between consecutive clips to ensure natural speech cadence.
+6. **Sign-off**: Plays the narrator's `outro` clip at the end.
 
 ---
 
-## 💻 Local Development with Docker
+## 4. Environment Configuration
 
-[`docker-compose.deploy.yml`](../docker-compose.deploy.yml) provides a multi-service local environment mimicking production:
-
-| Service | Role | Local Address |
+| Variable | Example Value | Description |
 | :--- | :--- | :--- |
-| `voice` | Chatterbox-Turbo Neural TTS API | `http://localhost:8090` |
-| `web` | Static Web App / PWA | `http://localhost:8080` |
-| `worker` | Nightly batch generation engine | profile `worker` |
+| `SUPABASE_URL` | `https://xyz.supabase.co` | Supabase API endpoint |
+| `SUPABASE_SECRET_KEY` | `ey...` | Service-role key for backend worker write operations |
+| `VOICE_SERVICE_URL` | `http://34.67.158.112:8090` | Primary voice service endpoint (or `auto` for dynamic IP) |
+| `GCP_PROJECT` | `project-67937e0a-4d2d-43ea-9ba` | Google Cloud project ID |
+| `GCE_ZONE` | `us-central1-c` | Zone containing the GPU VM |
+| `GCE_INSTANCE` | `morning-brief-voice` | Compute Engine VM instance name |
+| `GCE_MANAGE_VM` | `true` | Enables automatic VM boot, dynamic IP resolution, and shutdown |
+| `STORY_VOICES` | `her_reference,him_reference,jerry_reference,c3po_reference` | Comma-separated voices to render during daily batch |
+| `BRIEFING_TIMEZONE` | `America/Toronto` | Primary timezone for schedule calculations |
+| `VAPID_PRIVATE_KEY` | `...` | Key for Web Push delivery |
+| `VAPID_PUBLIC_KEY` | `...` | Public key distributed to clients for push subscription |
 
-### Running the Stack:
+---
+
+## 5. Operations & CLI Commands
+
+### Run Story Pack Generation Locally
 ```bash
-# Start Voice Service + Web App
-docker compose -f docker-compose.deploy.yml up --build
+# Build daily pack for all configured voices
+python3 -m app pack
 
-# Run a test batch pack
-docker compose -f docker-compose.deploy.yml --profile worker up -d worker
-docker compose -f docker-compose.deploy.yml run --rm worker python -m app pack
+# Build for a specific voice and date
+python3 -m app pack --date 2026-10-10 --voice c3po_reference
+
+# Verify environment and database connections
+python3 -m app check
+```
+
+### Trigger Batch with On-Demand GPU VM
+```bash
+./scripts/daily_pack_run.sh
+```
+
+### Deploy Cloud Run Scheduled Job
+```bash
+# Deploys container image and schedules Cloud Run Job for 05:00 AM daily
+./scripts/setup-scheduler.sh project-67937e0a-4d2d-43ea-9ba us-central1
+```
+
+### Sync Custom Voice Reference Audio to GCE VM
+```bash
+./scripts/sync-voices-to-gce.sh
 ```
 
 ---
 
-## ⚙️ Environment Configuration
+## 6. Testing
 
-| Variable | Default | Purpose |
-| :--- | :--- | :--- |
-| `SUPABASE_URL` | — | Supabase project endpoint URL |
-| `SUPABASE_SECRET_KEY` | — | Supabase service-role secret key (server-only) |
-| `GROQ_API_KEY` | — | API key for Groq inference (optional) |
-| `GROQ_MODELS` | `openai/gpt-oss-120b,openai/gpt-oss-20b` | Model fallback order |
-| `GEMINI_API_KEY` | — | Optional Google Gemini AI Studio key |
-| `BRIEFING_TIMEZONE` | `America/Toronto` | Primary timezone for scheduling |
-| `BATCH_TIME` | `07:05` | Target build time (24-hour clock) |
-| `KEEP_DAYS` | `2` | Retention window for historical briefing audio |
-| `ADMIN_EMAILS` | — | Comma-separated admin accounts |
-| `ADMIN_NOTIFY` | `issues` | Alerting level: `issues`, `always`, or `off` |
-| `VAPID_SUBJECT` | — | Contact email for Web Push notifications |
-| `MAX_CUSTOM_SOURCES` | `15` | Per-user custom link/RSS limit |
-
----
-
-## 🎙️ Voice Service (Chatterbox-Turbo)
-
-The voice service in `voice_service/` synthesizes daily news stories into audio using custom neural cloned narrators (Alice & Mike).
-
-- **Full Voice Documentation**: See [`voice_service/README.md`](../voice_service/README.md).
-- **Voice Roadmap & Styles**: See [`docs/CUSTOM_VOICE_ROADMAP.md`](CUSTOM_VOICE_ROADMAP.md).
-
-### Local Native Run (Apple Silicon / CUDA):
+### Python Backend Unit Tests
 ```bash
-cd voice_service
-uv venv --python 3.11 .venv
-uv pip install --python .venv/bin/python -e .
-mkdir -p data/voices && cp your_voice.wav data/voices/reference.wav
-.venv/bin/uvicorn --app-dir . api.app:app --host 0.0.0.0 --port 8090
-```
-
-### Core API Endpoints:
-- `GET /health`: Engine status, compute device (`mps`, `cuda`, or `cpu`), sample rate.
-- `GET /voices`: Available reference voice profiles.
-- `POST /synthesize`: Synthesizes raw text to WAV/MP3 with customizable pause beats.
-- `POST /news/sample`: Returns audio base64, chapter spans, and timing marks.
-
----
-
-## 🛠️ Operations & Maintenance
-
-- **Manual Trigger**: Run `./scripts/run-now.sh [--user you@example.com] [--no-push]` to immediately rebuild today's brief.
-- **Nightly Automation**: See [`docs/nightly.md`](nightly.md) for LaunchAgent / cron setup for `scripts/nightly-pack.sh` and `scripts/nightly-report.sh`.
-- **Admin Diagnostics**: Failures and system logs are written to the `run_log` table and viewable in the Web App's built-in Admin panel.
-
----
-
-## 🧪 Testing
-
-```bash
-# Backend worker unit tests
-pip install -r requirements.txt pytest
 pytest -q
+```
 
-# Android unit tests
-cd android && ./gradlew testDebugUnitTest
+### Android Unit Tests
+```bash
+cd android
+JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home ./gradlew testDebugUnitTest
 ```
