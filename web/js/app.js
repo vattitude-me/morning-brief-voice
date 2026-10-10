@@ -69,7 +69,7 @@ function summaryLine(b) {
   const minutes = Math.max(1, Math.round(b.duration / 60));
   const m = WORDS[minutes - 1] || String(minutes);
   let line = `${n === 1 ? '1 story' : `${n} stories`}, ${m} minute${minutes === 1 ? '' : 's'}.`;
-  if (b.weather) line += ` ${b.weather.conditions[0].toUpperCase()}${b.weather.conditions.slice(1)}, high ${b.weather.high}°.`;
+  if (b.weather && b.weather.conditions) line += ` ${b.weather.conditions[0].toUpperCase()}${b.weather.conditions.slice(1)}, high ${b.weather.high}°.`;
   return line;
 }
 
@@ -173,27 +173,25 @@ function renderHeader() {
 }
 
 /* ------------------------------------------------------------------ notice */
-/** The only notice left: today's brief isn't published yet, so the latest one is playing. */
+/** Sleek, compact status bar when today's brief isn't ready or is loading. */
 function renderNotice() {
   const box = $('notice');
   if (state.briefingLoading) {
-    box.replaceChildren(h('div', { class: 'glass notice-card loading-card', role: 'status' },
+    box.replaceChildren(h('div', { class: 'glass notice-compact loading-card', role: 'status' },
       h('span', { class: 'spinner', 'aria-hidden': 'true' }),
-      h('div', {},
-        h('h3', {}, "Checking for today's briefing"),
-        h('p', {}, 'Loading the latest audio and stories.'))));
+      h('span', { class: 'notice-text' }, "Checking for today's briefing…")));
     return;
   }
   if (!state.briefing) {
-    box.replaceChildren(h('div', { class: 'glass notice-card', role: 'status' },
-      h('h3', {}, "Today's brief isn't ready yet"),
-      h('p', {}, "It's recorded once each morning for everyone. Come back in a little while.")));
+    box.replaceChildren(h('div', { class: 'glass notice-compact', role: 'status' },
+      h('span', { class: 'notice-badge' }, 'SCHEDULED'),
+      h('span', { class: 'notice-text' }, "Today's briefing records daily at sunrise. Check back shortly.")));
     return;
   }
   if (state.briefing.fresh === false) {
-    box.replaceChildren(h('div', { class: 'glass notice-card', role: 'status' },
-      h('h3', {}, "Today's brief isn't ready yet"),
-      h('p', {}, `Playing the latest one, from ${chipLabel(state.briefing.date)}.`)));
+    box.replaceChildren(h('div', { class: 'glass notice-compact', role: 'status' },
+      h('span', { class: 'notice-badge' }, 'ARCHIVED'),
+      h('span', { class: 'notice-text' }, `Playing latest from ${chipLabel(state.briefing.date)} · Today's brief arrives before sunrise`)));
     return;
   }
   box.replaceChildren();
@@ -649,6 +647,7 @@ function displayBriefing() {
   renderDateChips();
   renderSections();
 }
+window.displayBriefing = displayBriefing;
 
 async function loadArchive() {
   try {
