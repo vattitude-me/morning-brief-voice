@@ -28,6 +28,12 @@
     } catch (e) {}
     // Chrome can offer the install prompt before the app's modules load; keep it for our own Install button.
     window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__installPrompt = e; });
+    // Safety fallback: ensure booting class never traps UI on network delay or offline load
+    setTimeout(function () {
+      if (document.body && document.body.classList.contains('booting')) {
+        document.body.classList.remove('booting');
+      }
+    }, 1800);
   </script>
 </head>
 <body class="booting">

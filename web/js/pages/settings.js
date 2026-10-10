@@ -217,7 +217,7 @@ export class SettingsPage {
       return row;
     });
 
-    const speed = Math.round(d.speed * 20);
+    const speed = Math.round((Number(d.speed) || 1.0) * 20);
     return GlassGroup(
       h('div', { class: 'voice-list' }, ...rows),
       Hairline(),

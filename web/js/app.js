@@ -786,6 +786,7 @@ let landing = null;
 let started = false;
 
 async function showLanding() {
+  document.body.classList.remove('booting');
   document.body.classList.add('signed-out');
   $('login').classList.remove('hidden');
   if (!landing) landing = new Landing({ onSignedIn: enterApp });
@@ -794,7 +795,7 @@ async function showLanding() {
 
 async function enterApp() {
   landing?.stop();
-  document.body.classList.remove('signed-out');
+  document.body.classList.remove('booting', 'signed-out');
   $('login').classList.add('hidden');
   if (location.hash.includes('access_token')) history.replaceState(null, '', location.pathname);
   if (started) return;
@@ -813,6 +814,7 @@ async function enterApp() {
 
 /* -------------------------------------------------------------------- boot */
 async function start() {
+  document.body.classList.remove('booting');
   state.briefingLoading = true;
   renderNotice();
   $('sections').replaceChildren(...Array.from({ length: 3 }, () => h('div', { class: 'skeleton' })));
@@ -848,6 +850,8 @@ async function start() {
       renderSections();
       toast("Couldn't reach the briefing service. Please try again shortly.", { error: true, ms: 5000 });
     }
+  } finally {
+    document.body.classList.remove('booting');
   }
 }
 
@@ -870,11 +874,23 @@ async function init() {
     if (event === 'SIGNED_OUT') { started = false; state.profile = null; syncAdminTab(); showLanding(); }
     else if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) setTimeout(enterApp, 0);
   });
-  let session = null;
-  try { session = await api.session(); } catch { /* offline */ }
-  if (session) { await enterApp(); return; }
-  if (store.get('last-briefing', null) && !navigator.onLine) { started = true; await start(); return; }
-  await showLanding();
+  try {
+    let session = null;
+    try { session = await api.session(); } catch { /* offline */ }
+    if (session) { await enterApp(); return; }
+    if (store.get('last-briefing', null) && !navigator.onLine) {
+      document.body.classList.remove('booting', 'signed-out');
+      started = true;
+      await start();
+      return;
+    }
+    await showLanding();
+  } catch (err) {
+    recordError(err, 'app.init');
+    await showLanding();
+  } finally {
+    document.body.classList.remove('booting');
+  }
 }
 
 init();

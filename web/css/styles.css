@@ -516,6 +516,8 @@ kbd { font-family: var(--font-head); font-size: .7rem; padding: .05rem .4rem; bo
 /* =============================================================== APP SHELL */
 .app-shell { display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); min-height: 100dvh; }
 body.signed-out .app-shell, body.signed-out .mini-player, body.signed-out .save-bar { display: none !important; }
+body.signed-out #login { display: block; }
+body:not(.signed-out) #login { display: none !important; }
 body.booting .app-shell { visibility: hidden; }
 
 /* Sidebar */
