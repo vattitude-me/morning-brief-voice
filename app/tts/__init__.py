@@ -139,3 +139,11 @@ def resolve(voice_id: str) -> tuple[Engine, str]:
     if engine is None or not voice:
         raise ValueError(f"Unknown voice '{voice_id}'")
     return engine, voice
+
+
+def synthesize(voice_id: str, text: str, speed: float = 1.0) -> np.ndarray:
+    from .text import speakable
+
+    engine, voice = resolve(voice_id)
+    return engine.synthesize(speakable(text), voice, speed)
+
