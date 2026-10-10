@@ -137,7 +137,13 @@ function renderHeader() {
   const nDesc = $('narratorDesc');
   if (nDesc) nDesc.textContent = activeVoice.style || activeVoice.desc;
   const narrBy = $('narratedBy');
-  if (narrBy) narrBy.textContent = `Narrated by ${activeVoice.name} · ${activeVoice.style || activeVoice.desc}`;
+  if (narrBy) {
+    if (b?.voice?.isFallback && b?.voice?.requested) {
+      narrBy.textContent = `Narrated by ${activeVoice.name} (${voiceName(b.voice.requested)} unrecorded) · ${activeVoice.style || activeVoice.desc}`;
+    } else {
+      narrBy.textContent = `Narrated by ${activeVoice.name} · ${activeVoice.style || activeVoice.desc}`;
+    }
+  }
   const heroNarrName = $('heroNarratorName');
   if (heroNarrName) heroNarrName.textContent = activeVoice.name;
 
@@ -194,6 +200,13 @@ function renderNotice() {
       h('span', { class: 'notice-text' }, `Playing latest from ${chipLabel(state.briefing.date)} · Today's brief arrives before sunrise`)));
     return;
   }
+  if (state.briefing.voice?.isFallback && state.briefing.voice?.requested) {
+    const reqName = voiceName(state.briefing.voice.requested);
+    box.replaceChildren(h('div', { class: 'glass notice-compact', role: 'status' },
+      h('span', { class: 'notice-badge' }, 'VOICE NOTE'),
+      h('span', { class: 'notice-text' }, `${reqName} is not yet voiced for ${chipLabel(state.briefing.date)} · Narrated by ${state.briefing.voice.name}`)));
+    return;
+  }
   box.replaceChildren();
 }
 
@@ -206,19 +219,22 @@ function renderPersonas() {
   const row = $('personaRow');
   if (!row) return;
   const activeVoiceId = state.briefing?.voice?.id || state.profile?.settings?.voice || 'her_reference';
+  const available = new Set(state.briefing?.availableVoices || []);
   row.replaceChildren(...VOICES.map((v) => {
     const on = v.id === activeVoiceId;
+    const isReady = available.size === 0 || available.has(v.id);
     const btn = h('button', {
       type: 'button',
-      class: 'persona' + (on ? ' on' : ''),
+      class: 'persona' + (on ? ' on' : '') + (!isReady ? ' unready' : ''),
       'aria-pressed': String(on),
       dataset: { voice: v.id },
     },
       h('span', { class: 'persona-avatar' }, icon(v.icon || 'mic')),
       h('span', { class: 'persona-text' },
         h('span', { class: 'persona-name' }, v.name),
-        h('span', { class: 'persona-desc' }, v.style || v.desc)
-      )
+        h('span', { class: 'persona-desc' }, isReady ? (v.style || v.desc) : 'Pending for today')
+      ),
+      isReady ? null : h('span', { class: 'persona-status' }, 'Pending')
     );
     btn.addEventListener('click', async () => {
       if (v.id === activeVoiceId) {
@@ -239,7 +255,11 @@ function renderPersonas() {
           displayBriefing();
           player.seekTo(currentPos);
           if (wasPlaying) player.audio.play().catch(() => {});
-          toast(`Now playing: read by ${v.name}.`);
+          if (pack.voice?.id === v.id) {
+            toast(`Now playing: read by ${v.name}.`);
+          } else {
+            toast(`${v.name}'s recording isn't ready for this edition yet. Playing ${pack.voice.name} instead.`, { error: true });
+          }
         } else {
           toast(`${v.name}'s recording isn't ready for this edition yet.`, { error: true });
         }
@@ -632,7 +652,15 @@ async function loadStoryPack(day) {
 /** One honest line under the brief: where it came from, and who read it. */
 function setFootnote() {
   const b = state.briefing;
-  $('footnote').textContent = b ? `The Guardian · read by ${b.voice?.name || 'the narrator'}` : '';
+  if (!b) {
+    $('footnote').textContent = '';
+    return;
+  }
+  if (b.voice?.isFallback && b.voice?.requested) {
+    $('footnote').textContent = `The Guardian · read by ${b.voice.name} (${voiceName(b.voice.requested)} unavailable today)`;
+  } else {
+    $('footnote').textContent = `The Guardian · read by ${b.voice?.name || 'the narrator'}`;
+  }
 }
 
 function displayBriefing() {

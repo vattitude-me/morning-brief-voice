@@ -169,12 +169,20 @@ export function buildBriefing(rows, settings, { date, voice, notes = [], hour } 
     .filter((key) => counts.has(key))
     .map((key) => ({ key, title: SECTIONS[key].title, count: counts.get(key) }));
 
+  const availableVoices = [...new Set((rows || []).map((r) => r.voice).filter(Boolean))];
+
   return {
     date,
     title: 'Your briefing',
     duration: round(cursor),
     generated_at: new Date().toISOString(),
-    voice: { id, name: voiceName(id) },
+    voice: {
+      id,
+      name: voiceName(id),
+      requested: voice || null,
+      isFallback: Boolean(voice && id !== voice),
+    },
+    availableVoices,
     writer: 'guardian',
     weather: null,
     sections, chapters, stories, clips,
