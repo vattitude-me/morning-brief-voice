@@ -230,7 +230,7 @@ private fun NarratorGroup(vm: AppViewModel) {
                 Column(Modifier.weight(1f)) {
                     Text(who.name, style = Type.body, color = t.ink)
                     Text(
-                        if (who.gender == "female") "A woman reads the news" else "A man reads the news",
+                        who.description.ifEmpty { if (who.gender == "female") "A woman reads the news" else "A man reads the news" },
                         Modifier.padding(top = 2.dp), style = Type.tiny, color = t.muted,
                     )
                 }
@@ -243,7 +243,7 @@ private fun NarratorGroup(vm: AppViewModel) {
         }
         Hairline()
         Hint(
-            "Both voices are recorded each morning from the same stories, so switching only changes who you hear. It starts with your next brief.",
+            "All four voices are recorded each morning from the same stories, so switching only changes who you hear. It starts with your next brief.",
             Modifier.padding(top = 12.dp, bottom = 4.dp),
         )
         Hairline()

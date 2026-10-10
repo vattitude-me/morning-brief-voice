@@ -1,12 +1,12 @@
 <div align="center">
 
-<img src="docs/play-store/feature-graphic.png" alt="Morning Brief — Your news, read aloud every morning" width="100%" style="border-radius: 16px; margin-bottom: 20px;" />
+<img src="docs/play-store/feature-graphic.png" alt="Morning Brief" width="100%" style="border-radius: 16px; margin-bottom: 20px;" />
 
 # ☀️ Morning Brief
 
-**Your news, read aloud anytime of the day.**  
-A calm, curated 5-minute audio briefing voiced by iconic neural personas—including **C-3PO**, **Jerry**, **Alice**, and **Mike**.  
-No ads. No algorithmic clickbait. Zero doom-scrolling.
+**Your daily news, read aloud anytime.**  
+A 5-minute audio briefing from The Guardian's top stories, voiced by 4 neural personas: **C-3PO**, **Jerry**, **Alice**, and **Mike**.  
+No ads. No tracking. Zero doom-scrolling.
 
 [![Web PWA](https://img.shields.io/badge/Web-PWA_Ready-2f6fed?style=flat-square&logo=googlechrome&logoColor=white)](web/)
 [![Android App](https://img.shields.io/badge/Android-APK_v0.1.35-1a9b5b?style=flat-square&logo=android&logoColor=white)](android/)
@@ -14,30 +14,30 @@ No ads. No algorithmic clickbait. Zero doom-scrolling.
 [![Changelog](https://img.shields.io/badge/Changelog-v0.1.35-orange?style=flat-square)](CHANGELOG.md)
 [![Privacy First](https://img.shields.io/badge/Privacy-No_Ads_%7C_No_Tracking-0D0D0D?style=flat-square)]()
 
-[**Try Web Experience**](#-modern-web--pwa-experience) · [**Get Android App**](#-native-android-app) · [**Features**](#-why-morning-brief) · [**Changelog**](CHANGELOG.md) · [**Technical Guide**](docs/TECHNICAL.md)
+[**Web PWA**](#-web-pwa) · [**Android App**](#-android-app) · [**Features**](#-features) · [**Changelog**](CHANGELOG.md) · [**Technical Guide**](docs/TECHNICAL.md)
 
 </div>
 
 ---
 
-## ☕ Why Morning Brief?
+## ☕ Features
 
-Start your day smarter, calmer, and informed. While you make your coffee, head out for a run, or commute to work, **Morning Brief** gathers the stories that matter most and turns them into a high-quality, five-minute spoken audio briefing ready whenever you want to listen.
-
-* **🤖 Iconic & Expressive Neural Narrators**: Choose who reads you the news with 1-tap switching:
-  * **C-3PO** — The polite, precise British protocol droid fluent in over six million forms of communication, bringing charisma and delightful gravitas to your daily briefing.
-  * **Jerry** — Observational wit with lively, engaging timing.
-  * **Alice & Mike** — Gold-standard warm broadcast and crisp morning news delivery.
-* **⏰ Listen Anytime of the Day**: Morning Brief dynamically adapts its greeting (`Good morning`, `Good afternoon`, `Good evening`) to your local hour. Listen at sunrise, during a midday lunch break, or during your evening commute.
-* **⏱️ Snappy 5-Minute Format**: Around 12 to 16 key stories across 7 editorial categories (Top Stories, AI, Tech, Politics, Entertainment, Science, Sports), each summarized specifically for listening. Hear the essentials without fluff.
-* **💡 Interactive Follow-Along**: Each story card lights up and smoothly scrolls into view as it's read aloud. Tap any card to jump immediately to that story, or click through to read the full original article.
-* **🔒 Private by Design**: No sponsored content, no intrusive tracking pixels, and no ad networks. Your preferences stay yours.
+* **4 Neural Narrators**: Switch between 4 distinct voice models with 1 tap:
+  * **C-3PO** — Polite British protocol droid.
+  * **Jerry** — Observational wit.
+  * **Alice** — Warm British newsreader.
+  * **Mike** — Crisp American morning news.
+* **Time-Adaptive Audio**: Adapts greetings (`Good morning`, `Good afternoon`, `Good evening`) to your local time.
+* **5-Minute Format**: 12–16 stories across 7 Guardian editorial sections (Top Stories, AI, Tech, Politics, Entertainment, Science, Sports), extracted and summarized for listening.
+* **Interactive Follow-Along**: Story cards highlight and auto-scroll as audio plays. Tap any story card to seek directly to it.
+* **Custom Category Ordering**: Drag and reorder topics to prioritize the sections you care about first.
+* **No Ads or Tracking**: No sponsored content, tracking pixels, or algorithmic feeds.
 
 ---
 
-## 🖥️ Modern Web & PWA Experience
+## 🖥️ Web PWA
 
-Access your briefing from any modern browser on your desktop, laptop, iPad, or iPhone. Features a modern frosted-glass interface with smooth audio scrubbing and seamless light and dark mode support.
+Works in any modern browser on desktop, tablet, and mobile with light and dark themes.
 
 <div align="center">
 
@@ -49,66 +49,54 @@ Access your briefing from any modern browser on your desktop, laptop, iPad, or i
 
 </div>
 
-> **Tip**: On Chrome, Edge, or iOS Safari, click **Install** or **Add to Home Screen** to install Morning Brief as a standalone Progressive Web App (PWA) with offline caching and web push notifications.
+Install as a Progressive Web App (PWA) on Chrome, Edge, or Safari for offline caching and web push notifications.
 
 ---
 
-## 📱 Native Android App
+## 📱 Android App
 
-Prefer a dedicated mobile app? The native Android app provides an on-the-go experience with background audio playback, lock-screen media controls, and customizable notifications.
+Native Android app with Jetpack Compose, Media3 background audio, and lock-screen controls.
 
 <div align="center">
 
-| Today's Briefing | Spoken Audio Follow-Along | Your Topics & Sources | Settings & Voices |
+| Today's Briefing | Follow-Along Audio | Topics & Sources | Settings & Voices |
 | :---: | :---: | :---: | :---: |
 | <img src="docs/screenshots/android-today-light.png" width="220" alt="Android Today Light" /> | <img src="docs/screenshots/android-playing-dark.png" width="220" alt="Android Playing Dark" /> | <img src="docs/screenshots/android-sources-light.png" width="220" alt="Android Sources Light" /> | <img src="docs/screenshots/android-settings-light.png" width="220" alt="Android Settings Light" /> |
 
 </div>
 
-- **Background Audio**: Seamless audio playback with Android Media3 notification controls.
-- **Smart Queueing**: 12 stories balanced across your selected topics, with visual indicators of how full your daily brief is.
-- **Flexible Narrators**: Stream cloud-voiced briefings or generate on-device audio offline.
-- **Custom AI Summaries**: Use default built-in summaries or bring your own free API key from Google Gemini, Groq, or OpenRouter.
+- **Background Audio**: Android Media3 notification and lock-screen playback controls.
+- **Narrator Switcher**: Instant switching between C-3PO, Jerry, Alice, and Mike.
+- **Custom Category Sorting**: Reorder news categories to listen in your preferred sequence.
+- **Device & Cloud Playback**: Stream cloud-voiced editions or run on-device audio offline.
 
 ---
 
 ## 🚀 Getting Started
 
-### 🌐 Listen on the Web
-1. Visit the Morning Brief web app.
-2. Hit **Play** on the landing page to listen to today’s public sample briefing immediately—no account required.
-3. Click **Start your brief** to sign in with Google or a magic email link to customize your personal topics and city.
+### Web
+1. Open the [Morning Brief web app](web/).
+2. Click **Play** on today’s edition—no account required.
+3. Sign in with Google or magic link to sync preferences across devices.
 
-### 🤖 Get the Android App
-1. Download the latest `.apk` from our [GitHub Releases](https://github.com/vattitude-me/morning-brief-voice/releases).
-2. Open the file on your Android device (Android 10+) and complete the quick 2-step setup.
-3. Choose your topics and set the time you want your briefing ready every morning.
-
----
-
-## 🗺️ What's Next & Feedback
-
-We're constantly improving Morning Brief based on listener feedback:
-- **Expressive Voice Styles**: Fun promo narrators and custom voice tones ([Voice Roadmap](docs/CUSTOM_VOICE_ROADMAP.md)).
-- **Smart Feedback**: Suggest features or report inaccurate story summaries directly within the app settings.
-- **Interactive Transcripts**: Word-level highlight sync and quick bookmarking.
+### Android
+1. Download the APK from [GitHub Releases](https://github.com/vattitude-me/morning-brief-voice/releases).
+2. Install on Android 10+.
+3. Pick your preferred narrator and topic order.
 
 ---
 
-## 🛠️ For Developers & Self-Hosters
+## 🛠️ Developer Documentation
 
-Looking to deploy your own instance, run the nightly batch worker, or explore the codebase? Technical and operational details are documented in dedicated guides:
-
-- 📖 [**Technical & Architecture Guide (`docs/TECHNICAL.md`)**](docs/TECHNICAL.md) — Complete architecture diagrams, Supabase database schema, Docker Compose environments, configuration variables, nightly automation, and testing.
-- 📱 [**Android App Guide (`android/README.md`)**](android/README.md) — Gradle build steps, Jetpack Compose architecture, and release signing.
-- 🎙️ [**Voice Service Guide (`voice_service/README.md`)**](voice_service/README.md) — Running the Chatterbox-Turbo neural TTS engine, FastAPI endpoints, GPU/MPS acceleration, and adding custom voices.
-- 🌙 [**Nightly Automation (`docs/nightly.md`)**](docs/nightly.md) — Setting up macOS LaunchAgents or cron jobs for scheduled rendering.
+- [**Technical & Architecture Guide (`docs/TECHNICAL.md`)**](docs/TECHNICAL.md) — Architecture diagrams, Supabase schema, Cloud Run jobs, and GCE GPU automation.
+- [**Android App Guide (`android/README.md`)**](android/README.md) — Gradle build steps, Compose architecture, and release signing.
+- [**Voice Service Guide (`voice_service/README.md`)**](voice_service/README.md) — Chatterbox-Turbo TTS service, FastAPI endpoints, GPU acceleration, and voice reference clips.
+- [**Changelog (`CHANGELOG.md`)**](CHANGELOG.md) — Version history and release notes.
 
 ---
 
 <div align="center">
 
-Made with care for a more peaceful morning routine.  
-Free · No ads · No tracking
+Free · Open Source · No ads · No tracking
 
 </div>

@@ -67,7 +67,7 @@ object StoryPack {
      * Null means there is genuinely nothing recorded yet.
      */
     suspend fun fetch(supabase: Supabase, date: String, stories: Map<String, Int>,
-                      voice: String? = null): Pack? {
+                      voice: String? = null, sectionOrder: List<String> = emptyList()): Pack? {
         var day = date
         var rows = supabase.storyAudio(day)
         if (rows.length() == 0) {
@@ -117,7 +117,8 @@ object StoryPack {
 
         sayNote(greetingKey())
 
-        for (key in SECTIONS.keys) {
+        val order = effectiveSectionOrder(sectionOrder)
+        for (key in order) {
             val count = wanted[key] ?: 0
             if (count <= 0) continue
             val chosen = all.filter { it.optString("section") == key }.sortedBy { it.optInt("rank") }.take(count)
@@ -153,8 +154,11 @@ object StoryPack {
             duration = cursor,
             intro = "",
             weather = null,
-            sections = SECTIONS.filterKeys { counts.containsKey(it) }
-                .map { (key, section) -> SectionInfo(key, section.title, section.emoji, counts[key] ?: 0) },
+            sections = order.filter { counts.containsKey(it) && SECTIONS.containsKey(it) }
+                .map { key ->
+                    val s = SECTIONS.getValue(key)
+                    SectionInfo(key, s.title, s.emoji, counts[key] ?: 0)
+                },
             chapters = chapters,
             cards = cards,
             notes = emptyList(),

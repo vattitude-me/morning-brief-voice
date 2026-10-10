@@ -33,6 +33,7 @@ import me.vattitude.morningbrief.data.Settings
 import me.vattitude.morningbrief.data.Pack
 import me.vattitude.morningbrief.data.StoryPack
 import me.vattitude.morningbrief.data.clipUrl
+import me.vattitude.morningbrief.data.effectiveSectionOrder
 import me.vattitude.morningbrief.pipeline.KOKORO_VOICES
 import me.vattitude.morningbrief.pipeline.Kokoro
 import me.vattitude.morningbrief.pipeline.KokoroPack
@@ -337,7 +338,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 val pack = runCatching {
-                    StoryPack.fetch(repo.supabase, date, _settings.value.stories, _settings.value.voice)
+                    StoryPack.fetch(repo.supabase, date, _settings.value.stories, _settings.value.voice, _settings.value.sectionOrder)
                 }.getOrNull()
                 packs[date] = pack
                 if (pack != null && selected.value == date) {
@@ -603,6 +604,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         st.copy(stories = st.stories + (section to n.coerceIn(0, MAX_PER_SECTION)))
     }
 
+    /** Changes reading order of category sections. */
+    fun moveSection(fromIndex: Int, toIndex: Int) {
+        val currentOrder = effectiveSectionOrder(_settings.value.sectionOrder)
+        if (fromIndex !in currentOrder.indices || toIndex !in currentOrder.indices || fromIndex == toIndex) return
+        val list = currentOrder.toMutableList()
+        val item = list.removeAt(fromIndex)
+        list.add(toIndex, item)
+        update { it.copy(sectionOrder = list) }
+    }
+
     /** Stories from the user's picks: follows and links share one count. */
     fun setPicks(n: Int) = update { st ->
         st.copy(stories = withPicks(st.stories, n.coerceIn(0, MAX_PER_SECTION)))
@@ -663,7 +674,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             _saved.value = repo.settings
             if (switches.isNotEmpty() || old.localCity != new.localCity) loadSources()
             // Both of these can be heard straight away, so they don't wait for the next brief.
-            if (old.voice != new.voice) switchNarrator()
+            if (old.voice != new.voice) {
+                switchNarrator()
+            } else if (old.sectionOrder != new.sectionOrder || old.stories != new.stories) {
+                val date = selected.value ?: LocalDate.now().toString()
+                packs.remove(date)
+                fetchPack(date)
+            }
             controller?.setPlaybackSpeed(new.speed.coerceIn(0.8f, 1.3f))
             message.value = problem ?: switchProblem ?: when {
                 old.voice != new.voice -> "Saved. Now read by ${packVoice(new.voice).name}."
@@ -744,8 +761,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         narratorPlayer?.release()
         narratorPlayer = null
         viewModelScope.launch {
-            val today = LocalDate.now().toString()
-            val notes = runCatching { repo.supabase.voiceNotes(today) }.getOrDefault(JSONArray())
+            var day = LocalDate.now().toString()
+            var notes = runCatching { repo.supabase.voiceNotes(day) }.getOrDefault(JSONArray())
+            if (notes.length() == 0) {
+                val latest = runCatching { repo.supabase.latestStoryDate() }.getOrNull()
+                if (latest != null && latest != day) {
+                    day = latest
+                    notes = runCatching { repo.supabase.voiceNotes(day) }.getOrDefault(JSONArray())
+                }
+            }
             val note = (0 until notes.length()).map { notes.getJSONObject(it) }
                 .firstOrNull { it.optString("voice") == id && it.optString("note_key") == "greeting_morning" }
             if (note == null) {

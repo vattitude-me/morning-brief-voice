@@ -300,6 +300,15 @@ fun TodayScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                                 if (mine) vm.jump(forward = true) else b.cards.firstOrNull()?.let { vm.seekTo(it.start) }
                             }
                         }
+                        if (b.voiceName.isNotBlank()) {
+                            Text(
+                                "The Guardian · read by ${b.voiceName}",
+                                Modifier.fillMaxWidth().padding(top = 8.dp),
+                                style = Type.tiny,
+                                color = t.muted,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
                         if (!mine) {
                             Hint("Drag along the bar, or tap \u25B6 beside any story, to start there.",
                                 Modifier.fillMaxWidth().padding(top = 10.dp), textAlign = TextAlign.Center)

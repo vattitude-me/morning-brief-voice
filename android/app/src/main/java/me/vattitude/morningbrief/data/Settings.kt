@@ -22,6 +22,8 @@ data class Settings(
     val saySources: Boolean = false,
     /** Stories per section; 0 turns a section off. */
     val stories: Map<String, Int> = DEFAULT_STORIES,
+    /** Custom reading order of category sections; empty means default SECTIONS order. */
+    val sectionOrder: List<String> = emptyList(),
     /** The city for local news; blank means the weather [city]. */
     val newsCity: String = "",
     /** Supabase ids of built-in sources switched off (signed in). */
@@ -31,7 +33,7 @@ data class Settings(
     // Phone-only settings.
     val daily: Boolean = true,
     val readyBy: String = "07:00",
-    /** Which narrator reads the news: an id from [NARRATORS] ("her_reference" = Alice), or null for the default. */
+    /** Which narrator reads the news: an id from [PACK_VOICES] ("her_reference" = Alice), or null for the default. */
     val voice: String? = "her_reference",
     val speed: Float = 1.0f,
     val groqKey: String = "",
@@ -66,6 +68,8 @@ data class Settings(
         .put("welcomed", welcomed)
         .put("android_color_photos", colorPhotos)
 
+    val orderedSections: List<String> get() = effectiveSectionOrder(sectionOrder)
+
     /** Only the fields the web app also uses. */
     fun sharedJson(): JSONObject = JSONObject()
         .put("name", name)
@@ -78,7 +82,15 @@ data class Settings(
         .put("news_city", newsCity)
         .put("disabled_sources", JSONArray(disabledSources.toList()))
         .put("disabled_urls", JSONArray(disabledUrls.toList()))
-        .apply { if (kokoroVoice(voice) != null) put("voice", voice) }
+        .put("speed", speed.toDouble())
+        .put("daily", daily)
+        .put("color_photos", colorPhotos)
+        .apply {
+            if (sectionOrder.isNotEmpty()) put("section_order", JSONArray(sectionOrder))
+            if (voice != null && (me.vattitude.morningbrief.pipeline.PACK_VOICES.any { it.id == voice } || kokoroVoice(voice) != null)) {
+                put("voice", voice)
+            }
+        }
 
     /** Takes the shared fields from the server's copy, keeping phone-only settings. */
     fun withShared(remote: JSONObject): Settings = copy(
@@ -91,31 +103,42 @@ data class Settings(
         stories = remote.optJSONObject("stories")?.let { s ->
             fitBudget(SECTIONS.keys.associateWith { k -> s.optInt(k, stories[k] ?: 0) })
         } ?: fitBudget(stories),
+        sectionOrder = remote.optJSONArray("section_order")?.let { a ->
+            (0 until a.length()).map { a.getString(it) }.filter { it.isNotBlank() }
+        } ?: sectionOrder,
         newsCity = remote.optString("news_city", newsCity),
         disabledSources = remote.optJSONArray("disabled_sources")?.let { a -> (0 until a.length()).map { a.getLong(it) }.toSet() }
             ?: disabledSources,
         disabledUrls = remote.optJSONArray("disabled_urls")?.let { a -> (0 until a.length()).map { a.getString(it) }.toSet() }
             ?: disabledUrls,
-        // A Kokoro voice picked on the web carries over, unless the phone's own voice was chosen here.
-        voice = remote.optString("voice").takeIf { kokoroVoice(it) != null && (voice == null || kokoroVoice(voice) != null) } ?: voice,
+        daily = if (remote.has("daily")) remote.optBoolean("daily", daily) else daily,
+        speed = if (remote.has("speed")) remote.optDouble("speed", speed.toDouble()).toFloat() else speed,
+        colorPhotos = if (remote.has("color_photos")) remote.optBoolean("color_photos", colorPhotos)
+            else if (remote.has("android_color_photos")) remote.optBoolean("android_color_photos", colorPhotos)
+            else colorPhotos,
+        voice = remote.optString("voice").takeIf { v ->
+            v.isNotBlank() && (me.vattitude.morningbrief.pipeline.PACK_VOICES.any { it.id == v } || kokoroVoice(v) != null)
+        } ?: voice,
     )
 
     companion object {
         fun fromJson(json: JSONObject?): Settings {
             json ?: return Settings()
             val base = Settings().withShared(json)
-            // New installs save a key per provider; older ones had one shared "android_ai_key",
-            // which belongs to whichever provider was chosen when it was saved.
+            val sectionOrder = json.optJSONArray("section_order")?.let { a ->
+                (0 until a.length()).map { a.getString(it) }.filter { it.isNotBlank() }
+            } ?: base.sectionOrder
             val aiKeys = json.optJSONObject("android_ai_keys")?.let { o ->
                 o.keys().asSequence().associateWith { o.optString(it) }.filterValues { it.isNotEmpty() }
             } ?: json.optString("android_ai_key", "").takeIf { it.isNotEmpty() }
                 ?.let { mapOf(json.optString("android_ai_provider", "groq") to it) } ?: emptyMap()
             return base.copy(
+                sectionOrder = sectionOrder,
                 disabledUrls = json.optJSONArray("disabled_urls")?.let { a -> (0 until a.length()).map { a.getString(it) }.toSet() }
                     ?: emptySet(),
                 daily = json.optBoolean("android_daily", true),
                 readyBy = json.optString("ready_by", "07:00"),
-                voice = json.optString("android_voice").takeIf { it.isNotEmpty() && it != "null" },
+                voice = json.optString("android_voice").takeIf { it.isNotEmpty() && it != "null" } ?: base.voice,
                 speed = json.optDouble("android_speed", 1.0).toFloat(),
                 groqKey = json.optString("groq_key", ""),
                 aiProvider = json.optString("android_ai_provider", "groq"),
@@ -127,4 +150,12 @@ data class Settings(
             )
         }
     }
+}
+
+val DEFAULT_SECTION_ORDER: List<String> get() = SECTIONS.keys.toList()
+
+fun effectiveSectionOrder(customOrder: List<String>): List<String> {
+    val valid = customOrder.filter { SECTIONS.containsKey(it) }
+    val remaining = SECTIONS.keys.filter { it !in valid }
+    return valid + remaining
 }

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.AlertDialog
@@ -53,6 +54,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import me.vattitude.morningbrief.data.effectiveSectionOrder
 import me.vattitude.morningbrief.pipeline.FOLLOW_EXAMPLES
 import me.vattitude.morningbrief.pipeline.MAX_PER_SECTION
 import me.vattitude.morningbrief.pipeline.PICKS
@@ -112,7 +114,7 @@ fun SourcesScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         }
 
         item {
-            Hint("Set story counts, turn topics off, or open one to review its sources.",
+            Hint("Set story counts, reorder categories, or open one to review its sources.",
                 Modifier.padding(start = 4.dp, top = 4.dp))
         }
 
@@ -121,8 +123,10 @@ fun SourcesScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         }
 
         item(key = "topics") {
+            val orderedKeys = effectiveSectionOrder(st.sectionOrder)
+            val topicSections = orderedKeys.mapNotNull { SECTIONS[it] }
             GlassGroup {
-                SECTIONS.values.filter { it.isCategory || it.key == "local" }.forEachIndexed { i, s ->
+                topicSections.forEachIndexed { i, s ->
                     if (i > 0) Hairline()
                     val n = st.stories[s.key] ?: 0
                     val city = st.localCity.substringBefore(",").trim()
@@ -137,6 +141,8 @@ fun SourcesScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                         open = open,
                         onExpand = { expanded[s.key] = !open },
                         onChange = { vm.setStories(s.key, it) },
+                        onMoveUp = if (i > 0) { { vm.moveSection(i, i - 1) } } else null,
+                        onMoveDown = if (i < topicSections.size - 1) { { vm.moveSection(i, i + 1) } } else null,
                         sources = topicSources,
                         on = ::on,
                         onToggle = { src, enabled -> vm.setEnabled(src, enabled) },
@@ -171,6 +177,8 @@ private fun Topic(
     open: Boolean,
     onExpand: () -> Unit,
     onChange: (Int) -> Unit,
+    onMoveUp: (() -> Unit)? = null,
+    onMoveDown: (() -> Unit)? = null,
     sources: List<Source>,
     on: (Source) -> Boolean,
     onToggle: (Source, Boolean) -> Unit,
@@ -184,7 +192,7 @@ private fun Topic(
                 .padding(horizontal = 4.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(Modifier.weight(1f).padding(end = 10.dp)) {
+            Column(Modifier.weight(1f).padding(end = 6.dp)) {
                 Text(label, style = Type.title, color = t.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val sourceCount = when (sources.size) {
                     1 -> "1 source"
@@ -195,6 +203,42 @@ private fun Topic(
                 val summary = if (sourceCount.isEmpty()) storyCount else "$sourceCount · $storyCount"
                 Text(summary, Modifier.padding(top = 3.dp), style = Type.meta, color = t.muted,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            if (onMoveUp != null || onMoveDown != null) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(end = 6.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(22.dp)
+                            .clip(CircleShape)
+                            .clickable(enabled = onMoveUp != null) { onMoveUp?.invoke() },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Outlined.KeyboardArrowUp,
+                            contentDescription = "Move ${section.title} up",
+                            modifier = Modifier.size(16.dp),
+                            tint = if (onMoveUp != null) t.muted else t.track,
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(22.dp)
+                            .clip(CircleShape)
+                            .clickable(enabled = onMoveDown != null) { onMoveDown?.invoke() },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Outlined.KeyboardArrowDown,
+                            contentDescription = "Move ${section.title} down",
+                            modifier = Modifier.size(16.dp),
+                            tint = if (onMoveDown != null) t.muted else t.track,
+                        )
+                    }
+                }
             }
             StoryStepper(n, canRaise, MAX_PER_SECTION, onChange)
             if (openable) {

@@ -6,11 +6,19 @@ package me.vattitude.morningbrief.pipeline
  * not a per-listener recording. Named [PackVoice] because the on-device [Narrator] and the
  * phone/Kokoro [Voice] this app grew up with are different, older things.
  */
-data class PackVoice(val id: String, val name: String, val gender: String)
+data class PackVoice(
+    val id: String,
+    val name: String,
+    val gender: String,
+    val style: String = "",
+    val description: String = "",
+)
 
 val PACK_VOICES = listOf(
-    PackVoice("her_reference", "Alice", "female"),
-    PackVoice("him_reference", "Mike", "male"),
+    PackVoice("her_reference", "Alice", "female", "Warm Broadcast", "Warm British newsreader"),
+    PackVoice("him_reference", "Mike", "male", "Crisp Morning News", "Calm American newsreader"),
+    PackVoice("jerry_reference", "Jerry", "male", "Observational Wit", "Observational comedy style"),
+    PackVoice("c3po_reference", "C-3PO", "male", "Polite & Precise", "Polite protocol droid"),
 )
 
 /** The voice a listener picked, falling back to the first for anything older or unknown. */
