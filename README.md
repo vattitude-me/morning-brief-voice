@@ -4,16 +4,17 @@
 
 # ☀️ Morning Brief
 
-**Wake up to the news, read aloud.**  
-A calm, curated 5-minute audio briefing delivered every morning by a warm, natural neural voice.  
+**Your news, read aloud anytime of the day.**  
+A calm, curated 5-minute audio briefing voiced by iconic neural personas—including **C-3PO**, **Jerry**, **Alice**, and **Mike**.  
 No ads. No algorithmic clickbait. Zero doom-scrolling.
 
 [![Web PWA](https://img.shields.io/badge/Web-PWA_Ready-2f6fed?style=flat-square&logo=googlechrome&logoColor=white)](web/)
-[![Android App](https://img.shields.io/badge/Android-APK_v0.2+-1a9b5b?style=flat-square&logo=android&logoColor=white)](android/)
+[![Android App](https://img.shields.io/badge/Android-APK_v0.1.35-1a9b5b?style=flat-square&logo=android&logoColor=white)](android/)
 [![Neural Voice](https://img.shields.io/badge/Voice-Chatterbox--Turbo-6a4cf5?style=flat-square)](voice_service/)
+[![Changelog](https://img.shields.io/badge/Changelog-v0.1.35-orange?style=flat-square)](CHANGELOG.md)
 [![Privacy First](https://img.shields.io/badge/Privacy-No_Ads_%7C_No_Tracking-0D0D0D?style=flat-square)]()
 
-[**Try Web Experience**](#-listen-on-the-web) · [**Get Android App**](#-get-the-android-app) · [**Features**](#-why-morning-brief) · [**Technical Guide**](docs/TECHNICAL.md)
+[**Try Web Experience**](#-modern-web--pwa-experience) · [**Get Android App**](#-native-android-app) · [**Features**](#-why-morning-brief) · [**Changelog**](CHANGELOG.md) · [**Technical Guide**](docs/TECHNICAL.md)
 
 </div>
 
@@ -21,12 +22,15 @@ No ads. No algorithmic clickbait. Zero doom-scrolling.
 
 ## ☕ Why Morning Brief?
 
-Start your morning smarter, calmer, and informed. While you make your coffee, head out for a run, or commute to work, **Morning Brief** gathers the stories that matter to you overnight and turns them into a high-quality, five-minute spoken audio briefing ready the moment you wake up.
+Start your day smarter, calmer, and informed. While you make your coffee, head out for a run, or commute to work, **Morning Brief** gathers the stories that matter most and turns them into a high-quality, five-minute spoken audio briefing ready whenever you want to listen.
 
-* **🎙️ Natural Neural Narrators**: Voiced by warm, human-like narrators (**Alice & Mike**) with natural pacing, audio pauses, and expressive delivery.
-* **📰 Personalized to You**: Choose your favorite topics (Top Stories, World, Business, Tech, Science, Health, Sports, Entertainment), set your city for local weather and news, or track specific people, teams, and custom RSS links.
-* **⏱️ Snappy 5-Minute Format**: Around 12 to 16 key stories, each summarized specifically for listening. Hear the essentials without fluff.
-* **💡 Interactive Follow-Along**: Each story card lights up and scrolls into view as it's read aloud. Tap any story card to jump straight to that story, or click through to read the full original article.
+* **🤖 Iconic & Expressive Neural Narrators**: Choose who reads you the news with 1-tap switching:
+  * **C-3PO** — The polite, precise British protocol droid fluent in over six million forms of communication, bringing charisma and delightful gravitas to your daily briefing.
+  * **Jerry** — Observational wit with lively, engaging timing.
+  * **Alice & Mike** — Gold-standard warm broadcast and crisp morning news delivery.
+* **⏰ Listen Anytime of the Day**: Morning Brief dynamically adapts its greeting (`Good morning`, `Good afternoon`, `Good evening`) to your local hour. Listen at sunrise, during a midday lunch break, or during your evening commute.
+* **⏱️ Snappy 5-Minute Format**: Around 12 to 16 key stories across 7 editorial categories (Top Stories, AI, Tech, Politics, Entertainment, Science, Sports), each summarized specifically for listening. Hear the essentials without fluff.
+* **💡 Interactive Follow-Along**: Each story card lights up and smoothly scrolls into view as it's read aloud. Tap any card to jump immediately to that story, or click through to read the full original article.
 * **🔒 Private by Design**: No sponsored content, no intrusive tracking pixels, and no ad networks. Your preferences stay yours.
 
 ---
