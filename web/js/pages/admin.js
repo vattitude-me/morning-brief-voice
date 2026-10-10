@@ -1,8 +1,9 @@
 // Admin tab: the day's shared pack, and the switch that re-records it.
 // The tab appears for the admin account only. Every action is checked again server-side:
 // row-level security on `build_requests`, then the worker, then the batch lock.
-import { SECTIONS, VOICES, api, h, toast } from '../api.js';
+import { BUILTIN_VOICES, SECTIONS, VOICES, api, deleteCustomVoice, h, icon, saveCustomVoice, toast } from '../api.js';
 import { READY_KEY } from '../storypack.js';
+import { processReferenceAudio } from '../audio-processor.js';
 import {
   CheckDot, GlassGroup, Hairline, Hint, ListRow, Overline, PillButton, SectionLabel, SwitchRow,
 } from '../design.js';
@@ -48,18 +49,22 @@ export class AdminPage {
     this.loading = true;
     try {
       const [status, dates, requests, log] = await Promise.all([
-        api.status(), api.storyDates(), api.packRequests(),
-        api.runLog(3).catch((err) => { this.logError = err.message; return []; }),
+        api.status().catch(() => ({ running: false })),
+        api.storyDates().catch(() => [today()]),
+        api.packRequests().catch(() => []),
+        api.runLog(3).catch((err) => { this.logError = err?.message || String(err); return []; }),
       ]);
-      this.status = status;
+      this.status = status || {};
       this.dates = [...new Set([today(), ...(dates || [])])].slice(0, 10);
       if (!this.dates.includes(this.day)) this.day = this.dates[0];
-      this.requests = requests;
-      this.log = log;
-      this.pack = await api.packState(this.day);
+      this.requests = requests || [];
+      this.log = log || [];
+      this.pack = await api.packState(this.day).catch(() => null);
+    } catch (err) {
+      console.warn('Admin load failed, rendering fallback UI:', err);
+    } finally {
       this.render();
       this.keepWatching();
-    } finally {
       this.loading = false;
     }
   }
@@ -89,6 +94,9 @@ export class AdminPage {
       SectionLabel('Recent runs', { detail: 'Last three days, newest first' }),
       this.logGroup(),
 
+      SectionLabel('Narrators & Voice Studio', { detail: 'Active voices, reference audio & Chatterbox-Turbo 24kHz formatter' }),
+      this.narratorsGroup(),
+
       SectionLabel('Rebuild the audio', { detail: 'One recording, heard by every listener' }),
       this.rebuildGroup(),
 
@@ -102,6 +110,179 @@ export class AdminPage {
       this.diagnosticsGroup(),
 
       Hint('A full rebuild takes about as long as the audio it records, so give it a few minutes.'),
+    );
+  }
+
+  narratorsGroup() {
+    const list = h('div', { class: 'narrators-admin-list' }, ...VOICES.map((v) => {
+      const isCustom = !v.builtin;
+      const avatar = h('span', { class: 'narrator-avatar' }, icon(v.icon || 'mic'));
+      const text = h('div', { class: 'narrator-info' },
+        h('div', { class: 'narrator-title-row' },
+          h('span', { class: 'narrator-name' }, v.name),
+          h('span', { class: 'tag-ink' }, v.id),
+          isCustom ? h('span', { class: 'tag-ink tag-warn' }, 'Custom') : h('span', { class: 'tag-ink tag-accent' }, 'Standard')
+        ),
+        h('p', { class: 'narrator-meta' }, `${v.gender === 'female' ? 'Female' : 'Male'} · ${v.style || v.desc || 'Spoken news'}`)
+      );
+
+      const actions = h('div', { class: 'narrator-actions' });
+      if (isCustom) {
+        const delBtn = h('button', {
+          type: 'button',
+          class: 'pill-btn glass-btn sm',
+          style: 'color:var(--err); padding: .25rem .6rem;',
+          title: `Delete voice ${v.name}`,
+          onclick: () => {
+            if (confirm(`Remove custom narrator "${v.name}" (${v.id})?`)) {
+              deleteCustomVoice(v.id);
+              this.voices.delete(v.id);
+              toast(`Removed narrator ${v.name}.`);
+              this.render();
+            }
+          },
+        }, icon('trash'), 'Delete');
+        actions.appendChild(delBtn);
+      }
+
+      return h('div', { class: 'narrator-item' }, avatar, text, actions);
+    }));
+
+    // Form inputs
+    let processedAudio = null;
+    let audioUrl = null;
+
+    const nameInput = h('input', { type: 'text', class: 'text-input sm', placeholder: 'e.g. Jerry Seinfeld, C-3PO' });
+    const idInput = h('input', { type: 'text', class: 'text-input sm', placeholder: 'e.g. jerry_reference' });
+    nameInput.addEventListener('input', () => {
+      if (!idInput.dataset.manual) {
+        idInput.value = nameInput.value.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') + '_reference';
+      }
+    });
+    idInput.addEventListener('input', () => { idInput.dataset.manual = 'true'; });
+
+    const genderSelect = h('select', { class: 'text-input sm' },
+      h('option', { value: 'male' }, 'Male'),
+      h('option', { value: 'female' }, 'Female')
+    );
+    const styleInput = h('input', { type: 'text', class: 'text-input sm', placeholder: 'e.g. Observational comedy style' });
+    const iconSelect = h('select', { class: 'text-input sm' },
+      h('option', { value: 'smile' }, 'Smile (Comedy / Warm)'),
+      h('option', { value: 'bot' }, 'Bot (Droid / Tech)'),
+      h('option', { value: 'mic' }, 'Mic (Broadcast)'),
+      h('option', { value: 'radio' }, 'Radio (Crisp News)'),
+      h('option', { value: 'spark' }, 'Spark (Unique Character)')
+    );
+
+    const statusBadge = h('div', { class: 'audio-status-badge hidden' });
+    const audioPreview = h('audio', { controls: true, class: 'audio-preview-player hidden' });
+    const downloadBtn = h('button', {
+      type: 'button',
+      class: 'pill-btn glass-btn sm hidden',
+      onclick: () => {
+        if (!processedAudio?.blob) return;
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(processedAudio.blob);
+        a.download = `${idInput.value.trim() || 'voice_reference'}.wav`;
+        a.click();
+      },
+    }, icon('download'), 'Download 24kHz WAV');
+
+    const fileInput = h('input', { type: 'file', accept: 'audio/*', class: 'file-input-hidden' });
+    const dropzone = h('div', { class: 'audio-dropzone', onclick: () => fileInput.click() },
+      icon('wave'),
+      h('div', { class: 'dropzone-text' },
+        h('b', {}, 'Select or drop voice recording'),
+        h('small', {}, 'Accepts any format (WAV, MP3, M4A, AAC). Auto-converted to 24kHz Mono 16-bit PCM WAV.')
+      )
+    );
+
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      statusBadge.className = 'audio-status-badge busy';
+      statusBadge.textContent = 'Converting to 24kHz Mono 16-bit PCM WAV…';
+      statusBadge.classList.remove('hidden');
+
+      try {
+        processedAudio = await processReferenceAudio(file);
+        if (audioUrl) URL.revokeObjectURL(audioUrl);
+        audioUrl = URL.createObjectURL(processedAudio.blob);
+        audioPreview.src = audioUrl;
+        audioPreview.classList.remove('hidden');
+        downloadBtn.classList.remove('hidden');
+
+        statusBadge.className = 'audio-status-badge ' + (processedAudio.isOptimal ? 'ok' : (processedAudio.isUsable ? 'warn' : 'err'));
+        const durStr = `${processedAudio.duration.toFixed(1)}s`;
+        const sizeStr = `${(processedAudio.sizeBytes / 1024).toFixed(0)} KB`;
+        statusBadge.textContent = `✓ 24,000 Hz Mono WAV (${durStr}, ${sizeStr}) · ${processedAudio.isOptimal ? 'Optimal length for Chatterbox-Turbo' : (processedAudio.isUsable ? 'Usable (8-30s recommended)' : 'Too short (<5.0s)')}`;
+      } catch (err) {
+        statusBadge.className = 'audio-status-badge err';
+        statusBadge.textContent = `Conversion error: ${err.message}`;
+      }
+    });
+
+    const saveBtn = PillButton('Save Narrator', {
+      iconName: 'plus',
+      onClick: async () => {
+        const name = nameInput.value.trim();
+        const id = idInput.value.trim();
+        if (!name || !id) {
+          toast('Please enter a narrator name and voice ID.', { error: true });
+          return;
+        }
+        if (processedAudio && !processedAudio.isUsable) {
+          toast('Reference clip is too short. Chatterbox-Turbo requires >= 5.0 seconds.', { error: true });
+          return;
+        }
+
+        saveBtn.classList.add('busy');
+        try {
+          const newVoice = {
+            id,
+            name,
+            gender: genderSelect.value,
+            style: styleInput.value.trim() || 'Custom narrator',
+            desc: styleInput.value.trim() || 'Custom narrator',
+            icon: iconSelect.value,
+            duration: processedAudio?.duration ? Math.round(processedAudio.duration) : null,
+          };
+
+          if (processedAudio?.blob) {
+            toast(`Uploading 24kHz reference audio for ${name}…`);
+            await api.uploadVoiceFile(id, processedAudio.blob);
+          }
+
+          saveCustomVoice(newVoice);
+          this.voices.add(id);
+          toast(`✓ Narrator "${name}" registered with 24kHz reference WAV.`);
+          this.render();
+        } catch (err) {
+          toast(err.message, { error: true });
+        } finally {
+          saveBtn.classList.remove('busy');
+        }
+      },
+    });
+
+    return GlassGroup(
+      list,
+      Hairline(),
+      h('div', { class: 'add-voice-form' },
+        h('h3', { class: 'form-title' }, 'Add Narrator & Format Reference Audio'),
+        h('div', { class: 'form-grid' },
+          h('label', {}, 'Narrator Name', nameInput),
+          h('label', {}, 'Voice ID (Reference)', idInput),
+          h('label', {}, 'Gender', genderSelect),
+          h('label', {}, 'Style / Delivery', styleInput),
+          h('label', {}, 'Icon', iconSelect)
+        ),
+        fileInput,
+        dropzone,
+        statusBadge,
+        audioPreview,
+        h('div', { class: 'form-actions' }, downloadBtn, saveBtn)
+      )
     );
   }
 

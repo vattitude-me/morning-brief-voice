@@ -20,6 +20,8 @@ const state = {
 const $ = (id) => document.getElementById(id);
 const player = new Player();
 window.player = player;
+window.state = state;
+window.switchTab = switchTab;
 let sourcesPage = null;
 let settingsPage = null;
 let adminPage = null;
@@ -33,6 +35,7 @@ function syncAdminTab() {
   const tab = $('adminTab');
   if (tab) tab.classList.toggle('hidden', !isAdmin(state.profile));
 }
+window.syncAdminTab = syncAdminTab;
 
 /* ------------------------------------------------------------------ header */
 function syncInstallBtn() {

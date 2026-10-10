@@ -72,7 +72,7 @@ services:
       VOICE_SERVICE_URL: http://voice:8090
       STORY_VOICE: ${STORY_VOICE:-her_reference}
       # Both voices are rendered each morning; listeners hear the one they picked.
-      STORY_VOICES: ${STORY_VOICES:-her_reference,him_reference}
+      STORY_VOICES: ${STORY_VOICES:-her_reference,him_reference,jerry_reference,c3po_reference}
       STORIES_PER_SECTION: ${STORIES_PER_SECTION:-5}
     volumes:
       - ./data:/data

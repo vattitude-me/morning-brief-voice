@@ -78,7 +78,7 @@ class Config:
     # Every voice the pack renders each day. A listener hears the one they picked, and the
     # clips are shared, so the cost is stories × voices rather than × listeners.
     story_voices: tuple[str, ...] = tuple(
-        v.strip() for v in os.getenv("STORY_VOICES", "her_reference,him_reference").split(",") if v.strip()
+        v.strip() for v in os.getenv("STORY_VOICES", "her_reference,him_reference,jerry_reference,c3po_reference").split(",") if v.strip()
     )
     stories_per_section: int = int(os.getenv("STORIES_PER_SECTION", "5"))
 

@@ -21,17 +21,62 @@ export const SECTIONS = {
 
 export const sectionLabel = (key) => { const s = SECTIONS[key] || SECTIONS.top; return `${s.emoji} ${s.title}`; };
 
+export const store = {
+  get(key, fallback) {
+    try { const v = localStorage.getItem(`mb-${key}`); return v == null ? fallback : JSON.parse(v); } catch { return fallback; }
+  },
+  set(key, value) {
+    try { localStorage.setItem(`mb-${key}`, JSON.stringify(value)); } catch { /* storage unavailable */ }
+  },
+};
+
 /**
  * The narrators the pack records every morning (app/storypack.py). A listener picks one and
  * hears that recording; the clips are shared, so this is a choice of who reads, not a
  * per-listener recording.
  */
-export const VOICES = [
-  { id: 'her_reference', name: 'Alice', gender: 'female', desc: 'Warm British newsreader', style: 'Warm Broadcast', icon: 'mic' },
-  { id: 'him_reference', name: 'Mike', gender: 'male', desc: 'Calm American newsreader', style: 'Crisp Morning News', icon: 'radio' },
-  { id: 'jerry_reference', name: 'Jerry', gender: 'male', desc: 'Observational comedy style', style: 'Observational Wit', icon: 'smile' },
-  { id: 'c3po_reference', name: 'C-3PO', gender: 'male', desc: 'Polite protocol droid', style: 'Polite & Precise', icon: 'bot' },
+export const BUILTIN_VOICES = [
+  { id: 'her_reference', name: 'Alice', gender: 'female', desc: 'Warm British newsreader', style: 'Warm Broadcast', icon: 'mic', builtin: true },
+  { id: 'him_reference', name: 'Mike', gender: 'male', desc: 'Calm American newsreader', style: 'Crisp Morning News', icon: 'radio', builtin: true },
+  { id: 'jerry_reference', name: 'Jerry', gender: 'male', desc: 'Observational comedy style', style: 'Observational Wit', icon: 'smile', builtin: true },
+  { id: 'c3po_reference', name: 'C-3PO', gender: 'male', desc: 'Polite protocol droid', style: 'Polite & Precise', icon: 'bot', builtin: true },
 ];
+
+export function getCustomVoices() {
+  return store.get('custom_voices', []);
+}
+
+export function getAllVoices() {
+  const custom = getCustomVoices();
+  const map = new Map(BUILTIN_VOICES.map((v) => [v.id, v]));
+  for (const c of custom) {
+    map.set(c.id, { ...c, builtin: false });
+  }
+  return Array.from(map.values());
+}
+
+export const VOICES = getAllVoices();
+
+export function refreshVoices() {
+  VOICES.length = 0;
+  VOICES.push(...getAllVoices());
+  return VOICES;
+}
+
+export function saveCustomVoice(voice) {
+  const custom = getCustomVoices().filter((v) => v.id !== voice.id);
+  custom.push({ ...voice, builtin: false, updated_at: new Date().toISOString() });
+  store.set('custom_voices', custom);
+  refreshVoices();
+  return VOICES;
+}
+
+export function deleteCustomVoice(id) {
+  const custom = getCustomVoices().filter((v) => v.id !== id);
+  store.set('custom_voices', custom);
+  refreshVoices();
+  return VOICES;
+}
 
 /** The voice a listener picked, falling back to the first for anything older or unknown. */
 export const voiceFor = (id) => VOICES.find((v) => v.id === id) || VOICES[0];
@@ -220,6 +265,20 @@ export const api = {
     }
   },
 
+  /** Upload formatted reference WAV to Supabase storage. */
+  async uploadVoiceFile(voiceId, wavBlob) {
+    const path = `voices/${voiceId}.wav`;
+    try {
+      const res = await sb.storage.from('briefings').upload(path, wavBlob, {
+        upsert: true,
+        contentType: 'audio/wav',
+      });
+      return { ok: !res.error, path, error: res.error?.message };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  },
+
   // -------------------------------------------------------------- requests
   async request(kind) {
     const row = check(await sb.from('build_requests').insert({ kind }).select('id').single());
@@ -378,15 +437,6 @@ export function clockLabel(hhmm) {
   const [hr, min] = hhmm.split(':').map(Number);
   return new Date(2000, 0, 1, hr, min).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' });
 }
-
-export const store = {
-  get(key, fallback) {
-    try { const v = localStorage.getItem(`mb-${key}`); return v == null ? fallback : JSON.parse(v); } catch { return fallback; }
-  },
-  set(key, value) {
-    try { localStorage.setItem(`mb-${key}`, JSON.stringify(value)); } catch { /* storage unavailable */ }
-  },
-};
 
 let toastTimer;
 export function toast(message, { error = false, type = null, ms = 3800 } = {}) {
