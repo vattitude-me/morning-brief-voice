@@ -51,6 +51,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import me.vattitude.morningbrief.pipeline.FOLLOW_EXAMPLES
 import me.vattitude.morningbrief.pipeline.MAX_PER_SECTION
@@ -90,6 +91,12 @@ fun SourcesScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     fun on(src: Source) = vm.isOn(src, st, pending)
 
     LaunchedEffect(email) { vm.loadSources() }
+    LaunchedEffect(note) {
+        if (note != null) {
+            delay(8_000)
+            vm.sourcesNote.value = null
+        }
+    }
 
     LazyColumn(modifier.fillMaxSize(), contentPadding = screenPadding()) {
         item {

@@ -81,6 +81,11 @@ class Config:
         v.strip() for v in os.getenv("STORY_VOICES", "her_reference,him_reference,jerry_reference,c3po_reference").split(",") if v.strip()
     )
     stories_per_section: int = int(os.getenv("STORIES_PER_SECTION", "5"))
+    # GCE VM automated lifecycle (Chatterbox-Turbo on-demand GPU VM)
+    gcp_project: str = os.getenv("GCP_PROJECT", "project-67937e0a-4d2d-43ea-9ba")
+    gce_zone: str = os.getenv("GCE_ZONE", "us-central1-c")
+    gce_instance: str = os.getenv("GCE_INSTANCE", "morning-brief-voice")
+    gce_manage_vm: bool = _bool("GCE_MANAGE_VM", True)
 
     @property
     def cache_dir(self) -> Path:

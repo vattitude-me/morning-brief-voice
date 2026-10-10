@@ -17,4 +17,10 @@ object BuildState {
     fun update(p: Progress) {
         _progress.value = p
     }
+
+    fun clearError() {
+        if (_progress.value.error != null) {
+            _progress.value = _progress.value.copy(error = null)
+        }
+    }
 }

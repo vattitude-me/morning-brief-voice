@@ -7,7 +7,7 @@ set -euo pipefail
 INSTANCE="morning-brief-voice"
 ZONE="us-central1-c"
 PROJECT="project-67937e0a-4d2d-43ea-9ba"
-HEALTH_URL="http://34.61.73.242:8090/health"
+HEALTH_URL="http://34.67.158.112:8090/health"
 
 cleanup() {
   echo "[$(date -u)] Ensuring GPU VM $INSTANCE is stopped..."

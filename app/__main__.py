@@ -217,6 +217,7 @@ def cmd_pack(args) -> int:
     import asyncio
 
     from .config import load
+    from .gce import voice_vm_session
     from .storypack import (NOTES, build, build_notes, mark_ready, notify_admins, notify_listeners,
                            publish_showcase, ready, total_seconds, voice_name, write_sample_bundle)
 
@@ -291,16 +292,19 @@ def cmd_pack(args) -> int:
                   f"{brief['duration']:.1f}s ({len(brief['stories'])} stories)")
             return 0
         if getattr(args, "notes_only", False):
-            notes = asyncio.run(build_notes(cfg, _store(cfg), day=args.day, voice=args.voice))
+            with voice_vm_session(cfg) as active_url:
+                notes = asyncio.run(build_notes(cfg, _store(cfg), day=args.day, voice=args.voice, voice_url=active_url))
             print(f"✓ Published {len(notes)} voice notes as {args.voice or cfg.story_voice}")
             for note in notes:
                 print(f"  {note['note_key']:20} {note['text'][:52]!r} — {note['duration']:.1f}s")
             return 0 if notes else 1
         t0 = time.monotonic()
-        rows = asyncio.run(build(cfg, _store(cfg), day=args.day, voice=args.voice,
-                                 sections=sections, per_section=args.per_section,
-                                 notes=not getattr(args, "no_notes", False),
-                                 force=getattr(args, "force", False)))
+        with voice_vm_session(cfg) as active_url:
+            rows = asyncio.run(build(cfg, _store(cfg), day=args.day, voice=args.voice,
+                                     sections=sections, per_section=args.per_section,
+                                     voice_url=active_url,
+                                     notes=not getattr(args, "no_notes", False),
+                                     force=getattr(args, "force", False)))
         elapsed_sec = time.monotonic() - t0
         duration_fmt = f"{int(elapsed_sec // 60)}m {int(elapsed_sec % 60):02d}s" if elapsed_sec >= 60 else f"{elapsed_sec:.1f}s"
     except Exception as exc:  # noqa: BLE001 — say why and fail the run

@@ -60,7 +60,11 @@ import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.foundation.layout.ColumnScope
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -102,11 +106,25 @@ fun TodayScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     val player by vm.player.collectAsState()
     val saved by vm.saved.collectAsState()
     val pack by vm.packInstalled.collectAsState()
+    val isAdmin by vm.isAdmin.collectAsState()
     val reported by vm.reported.collectAsState()
     var reporting by remember { mutableStateOf<Pair<Card, String>?>(null) }
     reporting?.let { (card, date) -> ReportDialog(vm, card, date) { reporting = null } }
     val context = LocalContext.current
     val t = Mb.t
+
+    var latestNoticeDismissed by remember(briefing?.date) { mutableStateOf(false) }
+    var voiceNoticeDismissed by remember(briefing, saved, pack) { mutableStateOf(false) }
+
+    LaunchedEffect(briefing) {
+        if (briefing != null) vm.clearBuildError()
+    }
+    LaunchedEffect(build.error) {
+        if (build.error != null) {
+            delay(10_000)
+            vm.clearBuildError()
+        }
+    }
 
     val b = briefing
     val mine = player.date == b?.date
@@ -183,20 +201,20 @@ fun TodayScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 )
                 Hint("This takes a few minutes. Feel free to leave the app; it keeps going.", Modifier.padding(top = 10.dp))
             }
-        } else build.error?.let { err ->
+        } else if (isAdmin && b == null) build.error?.let { err ->
             entry {
-                Notice(Modifier.padding(top = 22.dp)) {
+                Notice(Modifier.padding(top = 22.dp), onDismiss = { vm.clearBuildError() }) {
                     Text("Your last brief couldn't be made", style = Type.title, color = t.error)
                     Text(err, Modifier.padding(top = 4.dp), style = Type.body, color = t.ink)
                 }
             }
         }
 
-        if (b != null && !build.running && voiceChanged) entry {
+        if (b != null && !build.running && voiceChanged && !voiceNoticeDismissed) entry {
             val (id, name) = vm.currentVoice(saved)
             val now = if (id == PHONE_VOICE) "the phone voice" else name
             val then = if (b.voiceId.startsWith("kokoro:")) b.voiceName else "the phone voice"
-            Notice(Modifier.padding(top = 22.dp)) {
+            Notice(Modifier.padding(top = 22.dp), onDismiss = { voiceNoticeDismissed = true }) {
                 Text("You've switched to $now", style = Type.title, color = t.ink)
                 Text("This brief was recorded with $then. Re-record it with the same stories, " +
                     "or the new voice starts with your next brief.", Modifier.padding(top = 4.dp), style = Type.body, color = t.muted)
@@ -231,10 +249,10 @@ fun TodayScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
 
         // The night's recording may not be out yet: the most recent day stands in for today.
         val today = LocalDate.now().toString()
-        if (b.date != today) entry {
+        if (b.date != today && !latestNoticeDismissed) entry {
             val day = runCatching { LocalDate.parse(b.date) }.getOrNull()
                 ?.format(DateTimeFormatter.ofPattern("EEE · d MMM", Locale.ENGLISH)) ?: b.date
-            Notice(Modifier.padding(top = 22.dp)) {
+            Notice(Modifier.padding(top = 22.dp), onDismiss = { latestNoticeDismissed = true }) {
                 Text("Showing the latest brief, from $day", style = Type.title, color = t.ink)
                 Text("Today's recording isn't out yet. This is the most recent one, in your usual topics. " +
                     "It'll switch over on its own.",
@@ -359,8 +377,31 @@ private fun Skip(icon: ImageVector, label: String, enabled: Boolean, onClick: ()
 
 /** A glass card for status and prompts. */
 @Composable
-private fun Notice(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Glass(modifier.fillMaxWidth()) { Column(Modifier.padding(18.dp)) { content() } }
+private fun Notice(
+    modifier: Modifier = Modifier,
+    onDismiss: (() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Glass(modifier.fillMaxWidth()) {
+        Box(Modifier.fillMaxWidth().padding(18.dp)) {
+            Column(Modifier.fillMaxWidth().padding(end = if (onDismiss != null) 28.dp else 0.dp)) {
+                content()
+            }
+            if (onDismiss != null) {
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.align(Alignment.TopEnd).size(24.dp)
+                ) {
+                    Icon(
+                        Icons.Outlined.Close,
+                        contentDescription = "Dismiss",
+                        tint = Mb.t.muted,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+    }
 }
 
 /** "12 stories, five minutes. Light drizzle, high 21°." */

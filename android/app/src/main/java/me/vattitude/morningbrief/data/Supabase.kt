@@ -20,6 +20,7 @@ import java.util.concurrent.TimeUnit
 /** The same public settings as web/config.js: the publishable key is safe to ship, row-level security does the rest. */
 const val SUPABASE_URL = "https://oohbmeffdncyzujmeqcz.supabase.co"
 const val SUPABASE_KEY = "sb_publishable_HgWQGelTuCEU6ayqFdY4Cg_F_-VVEYv"
+val ADMIN_EMAILS = setOf("vatsakrish@gmail.com")
 
 data class Session(val accessToken: String, val refreshToken: String, val expiresAt: Long, val userId: String, val email: String) {
     fun toJson(): JSONObject = JSONObject().put("access_token", accessToken).put("refresh_token", refreshToken)
@@ -115,12 +116,16 @@ class Supabase(private val prefs: Prefs) {
 
     fun signOut() {
         prefs.session = null
+        prefs.isAdmin = false
     }
 
     suspend fun profileSettings(): JSONObject {
         val s = fresh()
-        val rows = call("GET", "/rest/v1/profiles?select=settings&id=eq.${s.userId}") as JSONArray
-        return rows.optJSONObject(0)?.optJSONObject("settings") ?: JSONObject()
+        val rows = call("GET", "/rest/v1/profiles?select=settings,is_admin&id=eq.${s.userId}") as JSONArray
+        val row = rows.optJSONObject(0) ?: JSONObject()
+        val isAdm = row.optBoolean("is_admin", false) || ADMIN_EMAILS.contains(s.email.lowercase())
+        prefs.isAdmin = isAdm
+        return row.optJSONObject("settings") ?: JSONObject()
     }
 
     /**
@@ -231,6 +236,9 @@ class Supabase(private val prefs: Prefs) {
             email = user.optString("email"),
         )
         prefs.session = session
+        if (ADMIN_EMAILS.contains(session.email.lowercase())) {
+            prefs.isAdmin = true
+        }
         return session
     }
 

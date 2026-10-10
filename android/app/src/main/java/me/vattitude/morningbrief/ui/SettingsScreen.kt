@@ -58,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import kotlinx.coroutines.delay
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -460,6 +461,13 @@ private fun AccountGroup(vm: AppViewModel) {
     val context = LocalContext.current
     val t = Mb.t
     var confirm by remember { mutableStateOf(false) }
+
+    LaunchedEffect(signIn.error) {
+        if (signIn.error != null) {
+            delay(8_000)
+            vm.clearSignInError()
+        }
+    }
     GlassGroup {
         val signedIn = email
         if (signedIn != null) {

@@ -18,8 +18,10 @@ import me.vattitude.morningbrief.MainActivity
 import me.vattitude.morningbrief.MorningBriefApp
 import me.vattitude.morningbrief.R
 import me.vattitude.morningbrief.data.Repo
+import me.vattitude.morningbrief.data.StoryPack
 import me.vattitude.morningbrief.pipeline.BuildFailed
 import me.vattitude.morningbrief.pipeline.Builder
+import me.vattitude.morningbrief.ui.Briefing
 import org.json.JSONObject
 import java.time.Instant
 import java.time.LocalDate
@@ -46,6 +48,24 @@ class BuildWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
     }
 
     private suspend fun attempt(repo: Repo, scheduled: Boolean): Result {
+        if (!repo.isAdmin) {
+            // Normal listeners rely on the shared daily audio pack published each morning,
+            // never on-device Kokoro/scraping builds.
+            val today = LocalDate.now().toString()
+            return try {
+                if (repo.signedIn) {
+                    val pack = StoryPack.fetch(repo.supabase, today, repo.settings.stories, repo.settings.voice)
+                    if (pack != null && pack.briefing.date == today) {
+                        notifyDone("Your morning brief is ready", readySummary(pack.briefing))
+                        return Result.success()
+                    }
+                }
+                if (scheduled && runAttemptCount < 3) Result.retry() else Result.success()
+            } catch (e: Exception) {
+                if (scheduled && runAttemptCount < 3) Result.retry() else Result.success()
+            }
+        }
+
         runCatching { setForeground(foreground("Getting started", 0f)) }
         repo.prefs.lastBuild = JSONObject().put("day", LocalDate.now().toString()).put("started", Instant.now().toString())
         BuildState.update(BuildState.Progress(running = true, step = "Getting started"))
@@ -94,6 +114,14 @@ class BuildWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         val count = stories?.length() ?: 0
         // Leading with the top story gives a reason to tap.
         val lead = stories?.optJSONObject(0)?.optString("headline")?.trim().orEmpty()
+        val tail = "$count stories, about $minutes min."
+        return if (lead.isBlank()) "$tail Tap to listen." else "$lead · $tail"
+    }
+
+    private fun readySummary(b: Briefing): String {
+        val minutes = (b.duration / 60).let { if (it < 1) 1 else Math.round(it).toInt() }
+        val count = b.cards.size
+        val lead = b.cards.firstOrNull()?.headline?.trim().orEmpty()
         val tail = "$count stories, about $minutes min."
         return if (lead.isBlank()) "$tail Tap to listen." else "$lead · $tail"
     }

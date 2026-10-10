@@ -81,6 +81,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val _settings = MutableStateFlow(repo.settings)
     val settings: StateFlow<Settings> = _settings
     val signedInEmail = MutableStateFlow(repo.email)
+    val isAdmin = MutableStateFlow(repo.isAdmin)
     /** True once the draft differs from what's saved, so the Save bar only appears after a real edit. */
     val dirty = MutableStateFlow(false)
 
@@ -164,6 +165,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
         viewModelScope.launch {
             repo.pullSettings()
+            isAdmin.value = repo.isAdmin
             refreshSaved()
         }
     }
@@ -315,8 +317,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun select(date: String?) {
         selected.value = date
-        briefing.value = date?.let { packs[it] }?.briefing
+        val direct = date?.let { packs[it] }?.briefing
             ?: date?.let { repo.briefings.load(it) }?.let { Briefing.from(it) }
+        // Fall back to any existing data already on the phone rather than leaving it empty
+        val fallback = direct ?: repo.briefings.dates().firstOrNull()?.let { repo.briefings.load(it) }?.let { Briefing.from(it) }
+        briefing.value = fallback
+        if (fallback != null) BuildState.clearError()
         if (date != null) fetchPack(date)
     }
 
@@ -337,12 +343,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 if (pack != null && selected.value == date) {
                     nowPlayingTried = null
                     briefing.value = pack.briefing
+                    BuildState.clearError()
                     val c = load(date)
                     tick()
                     // A narrator switch keeps the listener where they were.
                     resumeAt?.let { at ->
                         if (c != null) seekGlobal(c, at, play = resumePlaying)
                         resumeAt = null
+                    }
+                } else if (briefing.value == null) {
+                    repo.briefings.dates().firstOrNull()?.let { repo.briefings.load(it) }?.let {
+                        briefing.value = Briefing.from(it)
+                        BuildState.clearError()
                     }
                 }
             } finally {
@@ -361,6 +373,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun buildNow() {
         Scheduler.buildNow(getApplication())
+    }
+
+    fun clearBuildError() {
+        BuildState.clearError()
+    }
+
+    fun clearSignInError() {
+        signIn.value = SignIn()
     }
 
     private fun connectPlayer() {
@@ -676,6 +696,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Takes in changes saved elsewhere (sync, sign-in, a finished download), keeping a draft in progress. */
     private fun refreshSaved() {
+        isAdmin.value = repo.isAdmin
         val before = _saved.value
         val now = repo.settings
         _saved.value = now
@@ -825,6 +846,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun signedIn() {
         signIn.value = SignIn()
         signedInEmail.value = repo.email
+        isAdmin.value = repo.isAdmin
         repo.pullSettings()
         refreshSaved()
         loadSources()
@@ -850,6 +872,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun signOut() {
         repo.supabase.signOut()
         signedInEmail.value = null
+        isAdmin.value = false
         loadSources()
     }
 }

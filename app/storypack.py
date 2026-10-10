@@ -434,12 +434,11 @@ async def write_sample_bundle(cfg, store, directory: str = SAMPLE_BUNDLE_DIR, *,
 
 
 async def synthesise(client: httpx.AsyncClient, base: str, text: str, voice: str,
-                     attempts: int = 4) -> tuple[bytes, float]:
+                     attempts: int = 2) -> tuple[bytes, float]:
     """One MP3 from the voice service, plus its duration (from the response header).
 
-    A long pack must not die because the service blipped or was restarted: transport
-    errors are retried with a growing back-off (a container restart needs a few seconds
-    to serve again). A 4xx/5xx answer is a real error and is raised straight away.
+    Transport errors are retried once with back-off. If unreachable, fails fast so the
+    underlying GPU VM can be shut down immediately to prevent unnecessary compute costs.
     """
     delay = 5
     last: Exception | None = None

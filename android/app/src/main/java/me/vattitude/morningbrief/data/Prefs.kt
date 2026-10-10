@@ -17,6 +17,10 @@ class Prefs(context: Context) {
         get() = sp.getString("session", null)?.let { runCatching { Session.fromJson(JSONObject(it)) }.getOrNull() }
         set(value) = sp.edit().putString("session", value?.toJson()?.toString()).apply()
 
+    var isAdmin: Boolean
+        get() = sp.getBoolean("is_admin", false)
+        set(value) = sp.edit().putBoolean("is_admin", value).apply()
+
     /** Whether the first-run setup is done; installs from before it existed count as done. */
     var onboarded: Boolean
         get() = sp.getBoolean("onboarded", sp.contains("settings") || sp.contains("last_build"))

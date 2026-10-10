@@ -21,6 +21,7 @@ class Repo(context: Context) {
 
     val signedIn: Boolean get() = prefs.session != null
     val email: String? get() = prefs.session?.email
+    val isAdmin: Boolean get() = prefs.isAdmin || (email != null && ADMIN_EMAILS.contains(email!!.lowercase()))
 
     var settings: Settings
         get() = prefs.settings
