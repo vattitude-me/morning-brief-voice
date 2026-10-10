@@ -19,6 +19,7 @@ const state = {
 
 const $ = (id) => document.getElementById(id);
 const player = new Player();
+window.player = player;
 let sourcesPage = null;
 let settingsPage = null;
 let adminPage = null;
@@ -546,6 +547,7 @@ function followChapter() {
     r.querySelector('.story-detail')?.classList.toggle('hidden', !mine);
   });
   if (!id || !row || !player.isPlaying || Date.now() - lastScroll < 8000) return;
+  if (player.heroInView) return; // Don't scroll window away from hero card while user is reading along
   window.scrollTo({ top: row.getBoundingClientRect().top + window.scrollY - 96, behavior: 'smooth' });
 }
 
@@ -766,6 +768,16 @@ function bindEvents() {
   $('narratorChip')?.addEventListener('click', openNarratorSheet);
   $('heroNarratorBtn')?.addEventListener('click', openNarratorSheet);
   $('avatarBtn')?.addEventListener('click', () => switchTab('settings'));
+
+  // Transcript full text / compact view toggle
+  const transBox = $('transcript');
+  const transExpandBtn = $('transcriptExpandBtn');
+  const transExpandLabel = $('transcriptExpandLabel');
+  transExpandBtn?.addEventListener('click', () => {
+    const isExpanded = transBox?.classList.toggle('expanded');
+    transExpandBtn.setAttribute('aria-expanded', String(!!isExpanded));
+    if (transExpandLabel) transExpandLabel.textContent = isExpanded ? 'Compact' : 'Full text';
+  });
 
   player.addEventListener('chapter', syncPlaying);
   player.addEventListener('chapter', followChapter);

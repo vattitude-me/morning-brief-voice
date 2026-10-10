@@ -763,11 +763,35 @@ main { flex: 1; }
 .transcript-live { display: inline-flex; align-items: center; gap: .55rem; }
 .transcript-live .overline { color: var(--accent-text); font-size: .72rem; letter-spacing: .08em; }
 .transcript-live .tiny { color: var(--muted); font-size: .75rem; }
-.transcript-body { max-height: 8.5rem; overflow-y: auto; scroll-behavior: smooth; }
+.transcript-expand-btn {
+  display: inline-flex; align-items: center; gap: .35rem;
+  font-size: .72rem; padding: .25rem .6rem; min-height: 1.6rem;
+  color: var(--muted); border-radius: var(--r-full);
+}
+.transcript-expand-btn:hover { color: var(--ink); }
+.transcript-expand-btn svg { width: .75rem; height: .75rem; transition: transform .2s ease; }
+.hero-transcript.expanded .transcript-expand-btn svg { transform: rotate(180deg); }
+.transcript-body {
+  max-height: 11.5rem; overflow-y: auto; scroll-behavior: smooth;
+  scrollbar-width: thin; scrollbar-color: var(--line-2) transparent;
+  padding-right: .25rem;
+}
+.transcript-body::-webkit-scrollbar { width: 5px; }
+.transcript-body::-webkit-scrollbar-track { background: transparent; }
+.transcript-body::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 9999px; }
+.transcript-body::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+.hero-transcript.expanded .transcript-body { max-height: none; overflow-y: visible; padding-right: 0; }
 .transcript-text { font-size: 1.0625rem; line-height: 1.7; color: var(--faint); font-weight: 450; }
-.transcript-text .w { transition: color .25s var(--ease); }
+.transcript-text .w {
+  transition: color .2s var(--ease), background-color .2s var(--ease);
+  cursor: pointer; border-radius: 4px; padding: 1px 2px;
+}
+.transcript-text .w:hover { color: var(--ink); background: var(--well-strong); }
 .transcript-text .w.done { color: var(--ink); }
-.transcript-text .w.now { color: var(--accent-text); font-weight: 600; text-shadow: 0 0 16px var(--accent-soft); }
+.transcript-text .w.now {
+  color: var(--accent-text); font-weight: 600;
+  text-shadow: 0 0 16px var(--accent-soft); background: var(--accent-soft);
+}
 
 /* Narrator persona modal sheet & cards */
 .persona-sheet-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; margin-top: 1rem; }
@@ -1225,7 +1249,8 @@ dialog.sheet::backdrop { background: rgba(5, 8, 14, .55); -webkit-backdrop-filte
   /* Integrated live Read Along */
   .hero-transcript { margin-top: .85rem; padding: .75rem .85rem; border-radius: var(--r); }
   .transcript-head { margin-bottom: .45rem; }
-  .transcript-body { max-height: 6.8rem; }
+  .transcript-body { max-height: 10.5rem; }
+  .hero-transcript.expanded .transcript-body { max-height: none; }
   .transcript-text { font-size: .95rem; line-height: 1.55; }
   
   /* Today's story list on phone */

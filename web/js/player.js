@@ -7,6 +7,21 @@
 //     played back to back with the next clip pre-buffered so the joins are seamless.
 import { fmtTime, h, store } from './api.js';
 
+export function splitSentences(text) {
+  if (!text) return [];
+  const clean = text.trim();
+  if (!clean) return [];
+  if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+    try {
+      const segmenter = new Intl.Segmenter('en', { granularity: 'sentence' });
+      const parts = Array.from(segmenter.segment(clean), (s) => s.segment.trim()).filter(Boolean);
+      if (parts.length) return parts;
+    } catch { /* fallback below */ }
+  }
+  const parts = clean.split(/(?<=[.!?]["'”’»)]?)\s+(?=[A-Z0-9"'“‘])/).map((s) => s.trim()).filter(Boolean);
+  return parts.length ? parts : [clean];
+}
+
 export class Player extends EventTarget {
   constructor() {
     super();
@@ -223,12 +238,12 @@ export class Player extends EventTarget {
   }
 
   storyFor(chapter) {
-    return this.briefing?.stories.find((s) => s.id === chapter?.id);
+    return this.briefing?.stories?.find((s) => s.id === chapter?.id);
   }
 
   sectionTitle(chapter) {
     const story = this.storyFor(chapter);
-    return this.briefing?.sections.find((s) => s.key === story?.section)?.title || '';
+    return this.briefing?.sections?.find((s) => s.key === story?.section)?.title || '';
   }
 
   currentChapter(t = this.position) {
@@ -390,23 +405,94 @@ export class Player extends EventTarget {
     // Synchronized transcript
     const transBox = document.getElementById('transcript');
     const transText = document.getElementById('transcriptText');
-    if (transBox && transText) {
+    const transBody = document.getElementById('transcriptBody');
+    if (transBox && transText && transBody) {
       const text = story?.summary || story?.headline || ch?.title || '';
       if (text) {
         transBox.classList.remove('hidden');
-        if (transText.dataset.storyId !== (story?.id || ch?.id)) {
-          transText.dataset.storyId = story?.id || ch?.id;
-          const sentences = text.match(/[^.!?]+[.!?]+|\S+/g) || [text];
-          transText.replaceChildren(...sentences.map((s) => h('span', { class: 'w' }, s.trim() + ' ')));
+        const currentId = story?.id || ch?.id || '';
+        if (transText.dataset.storyId !== currentId) {
+          transText.dataset.storyId = currentId;
+          transBody.scrollTop = 0;
+
+          const sentences = splitSentences(text);
+          const weights = sentences.map((s) => Math.max(1, s.length));
+          const totalWeight = weights.reduce((a, b) => a + b, 0);
+          let running = 0;
+          const cumFractions = weights.map((w) => {
+            const start = running / totalWeight;
+            running += w;
+            return { start, end: running / totalWeight };
+          });
+
+          transText._storyData = { sentences, cumFractions };
+          transText.replaceChildren(...sentences.map((s, idx) => h('span', {
+            class: 'w',
+            role: 'button',
+            tabindex: '0',
+            title: 'Jump to this sentence',
+            dataset: { idx: String(idx) },
+            onclick: (e) => {
+              e.stopPropagation();
+              const chDur = Math.max(1, (ch?.end || dur) - (ch?.start || 0));
+              const targetSec = (ch?.start || 0) + (cumFractions[idx].start * chDur);
+              this.seekTo(targetSec);
+              if (!this.isPlaying) this.audio.play().catch(() => {});
+            },
+          }, s + ' ')));
+
+          if (!transBody._scrollListenersAttached) {
+            transBody._scrollListenersAttached = true;
+            const markUserScroll = () => {
+              transBody._userScrollUntil = Date.now() + 2800;
+            };
+            transBody.addEventListener('touchstart', markUserScroll, { passive: true });
+            transBody.addEventListener('wheel', markUserScroll, { passive: true });
+            transBody.addEventListener('mousedown', markUserScroll, { passive: true });
+          }
         }
+
         const chDur = Math.max(1, (ch?.end || dur) - (ch?.start || 0));
         const chProgress = Math.min(1, Math.max(0, (t - (ch?.start || 0)) / chDur));
         const spans = transText.querySelectorAll('.w');
-        const activeIdx = Math.min(spans.length - 1, Math.floor(chProgress * spans.length));
+        const cumFractions = transText._storyData?.cumFractions;
+
+        let activeIdx = 0;
+        if (cumFractions && cumFractions.length === spans.length) {
+          for (let i = 0; i < cumFractions.length; i++) {
+            if (chProgress >= cumFractions[i].start) {
+              activeIdx = i;
+            }
+          }
+        } else if (spans.length) {
+          activeIdx = Math.min(spans.length - 1, Math.floor(chProgress * spans.length));
+        }
+
         spans.forEach((sp, idx) => {
           sp.classList.toggle('done', idx < activeIdx);
           sp.classList.toggle('now', idx === activeIdx);
         });
+
+        // Auto-scroll transcript container smoothly so the active line stays in view
+        const isUserScrolling = transBody._userScrollUntil && Date.now() < transBody._userScrollUntil;
+        if (!isUserScrolling && spans.length > 0) {
+          const activeSpan = spans[activeIdx];
+          if (activeSpan) {
+            if (activeIdx === spans.length - 1 || chProgress >= 0.95) {
+              if (transBody.scrollTop < transBody.scrollHeight - transBody.clientHeight - 4) {
+                transBody.scrollTo({ top: transBody.scrollHeight, behavior: 'smooth' });
+              }
+            } else {
+              const spanRect = activeSpan.getBoundingClientRect();
+              const bodyRect = transBody.getBoundingClientRect();
+              const relativeTop = spanRect.top - bodyRect.top + transBody.scrollTop;
+              const targetScroll = Math.max(0, relativeTop - Math.floor(bodyRect.height * 0.28));
+              if (Math.abs(transBody.scrollTop - targetScroll) > 8) {
+                transBody.scrollTo({ top: targetScroll, behavior: 'smooth' });
+              }
+            }
+          }
+        }
       }
     }
 
