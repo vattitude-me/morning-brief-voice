@@ -39,6 +39,8 @@ import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.RecordVoiceOver
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Icon
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -77,8 +79,10 @@ fun OnboardingScreen(vm: AppViewModel) {
     val step = Step.entries[index]
     val st by vm.settings.collectAsState()
     val email by vm.signedInEmail.collectAsState()
+    val message by vm.message.collectAsState()
     val context = LocalContext.current
     val t = Mb.t
+    val snackbar = remember { SnackbarHostState() }
 
     var canNotify by remember {
         mutableStateOf(Build.VERSION.SDK_INT < 33 ||
@@ -94,10 +98,23 @@ fun OnboardingScreen(vm: AppViewModel) {
 
     BackHandler(index > 0) { index-- }
     LaunchedEffect(step) { if (step != Step.Welcome) vm.stopDemo() }
+    LaunchedEffect(message) {
+        message?.let {
+            snackbar.showSnackbar(it)
+            vm.message.value = null
+        }
+    }
     // Sign-in finishes in the browser tab, so move the flow on when the account appears.
-    LaunchedEffect(email) { if (email != null && step == Step.SignIn) index++ }
+    LaunchedEffect(email) {
+        if (email == null) {
+            index = 0
+        } else if (step == Step.SignIn) {
+            index++
+        }
+    }
 
-    Column(Modifier.fillMaxSize().backdrop(t).statusBarsPadding().navigationBarsPadding().imePadding()) {
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().backdrop(t).statusBarsPadding().navigationBarsPadding().imePadding()) {
         // Progress: one dash per step.
         Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 16.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             for (i in Step.entries.indices) {
@@ -135,6 +152,8 @@ fun OnboardingScreen(vm: AppViewModel) {
                 }
             }
         }
+        }
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 72.dp))
     }
 }
 

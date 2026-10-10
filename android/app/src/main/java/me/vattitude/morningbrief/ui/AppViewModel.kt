@@ -55,6 +55,7 @@ import me.vattitude.morningbrief.playback.PlaybackService
 import me.vattitude.morningbrief.work.BuildState
 import me.vattitude.morningbrief.work.Scheduler
 import me.vattitude.morningbrief.work.VoicePackWorker
+import androidx.work.WorkManager
 import java.time.LocalDate
 
 enum class Tab { Today, Sources, Settings }
@@ -131,11 +132,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val signIn = MutableStateFlow(SignIn())
 
     init {
-        refreshBriefings()
+        if (repo.prefs.onboarded) refreshBriefings()
         viewModelScope.launch {
             var wasRunning = BuildState.progress.value.running
             BuildState.progress.collect {
-                if (wasRunning && !it.running) refreshBriefings(selectLatest = true)
+                if (wasRunning && !it.running && repo.prefs.onboarded) refreshBriefings(selectLatest = true)
                 wasRunning = it.running
             }
         }
@@ -155,6 +156,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun onOpen() {
         connectPlayer()
         packInstalled.value = KokoroPack.current(getApplication())
+        if (!repo.prefs.onboarded) return
         // Coming back to the app must not empty the screen. This used to re-list the phone's own
         // recordings, which the shared pack replaced: with none on disk it selected nothing, so the
         // news vanished while the audio, which plays from the service, carried on regardless.
@@ -885,18 +887,69 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             runCatching { repo.supabase.deleteAccount() }.onSuccess {
                 deleting.value = null
-                signOut()
+                resetToFreshInstall()
                 message.value = "Your account has been deleted."
             }.onFailure {
                 if (repo.supabase.session == null) {
                     deleting.value = null
-                    signOut()
+                    resetToFreshInstall()
                     message.value = "Your account has been deleted."
                 } else {
                     deleting.value = Deleting(error = it.message)
                 }
             }
         }
+    }
+
+    /**
+     * Completely wipes local data, caches, playback, and settings, returning the app
+     * to the onboarding flow as a brand new install.
+     */
+    fun resetToFreshInstall() {
+        controller?.let { c ->
+            c.stop()
+            c.clearMediaItems()
+        }
+        player.value = PlayerState()
+        nowPlaying.value = null
+        nowPlayingTried = null
+        resumeAt = null
+        resumePlaying = false
+        stopDemo()
+        stopSample()
+
+        runCatching {
+            WorkManager.getInstance(getApplication()).cancelAllWork()
+        }
+
+        repo.clearAllData()
+
+        dates.value = emptyList()
+        selected.value = null
+        briefing.value = null
+        packs.clear()
+        currentPack = null
+        packLoadingDate.value = null
+
+        val defaultSettings = Settings()
+        _settings.value = defaultSettings
+        _saved.value = defaultSettings
+        dirty.value = false
+
+        sources.value = emptyList()
+        sourcesNote.value = null
+        sourcesBusy.value = false
+        pendingEnabled.value = emptyMap()
+        sharedUrl.value = null
+
+        signedInEmail.value = null
+        isAdmin.value = false
+        reported.value = emptySet()
+        upsellsSeen.value = false
+
+        appearance.value = "system"
+        tab.value = Tab.Today
+        onboarded.value = false
     }
 
     fun signOut() {

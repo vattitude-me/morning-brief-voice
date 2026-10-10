@@ -524,7 +524,7 @@ private fun DeleteAccountDialog(vm: AppViewModel, email: String, onDismiss: () -
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("This can't be undone. Your sign-in for $email, your own news links, saved settings and web " +
                     "briefings are removed for good, on every device.", style = Type.body)
-                Hint("Briefings already on this phone stay here. You can sign up again later, but you'll start from scratch.")
+                Hint("All local data and recordings will be cleared from this device, and you'll return to the setup screen.")
                 Row(Modifier.fillMaxWidth().clickable(enabled = !busy) { understood = !understood },
                     verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(understood, { understood = it }, enabled = !busy,

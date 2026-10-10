@@ -47,4 +47,9 @@ class Briefings(context: Context) {
         val cutoff = today.minusDays(keepDays).toString()
         dir.listFiles().orEmpty().filter { it.name.take(10) < cutoff }.forEach { it.delete() }
     }
+
+    /** Deletes all cached briefings and recordings. */
+    fun clearAll() {
+        dir.listFiles()?.forEach { it.deleteRecursively() }
+    }
 }

@@ -145,4 +145,11 @@ class Repo(context: Context) {
 
     private fun detectionJson(d: Detection) =
         JSONObject().put("kind", d.kind).put("feed_url", d.feedUrl ?: "").put("name", d.name)
+
+    /** Clears all authentication, SharedPreferences, and cached briefing files. */
+    fun clearAllData() {
+        supabase.signOut()
+        prefs.clearAll()
+        briefings.clearAll()
+    }
 }

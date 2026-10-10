@@ -23,7 +23,7 @@ class Prefs(context: Context) {
 
     /** Whether the first-run setup is done; installs from before it existed count as done. */
     var onboarded: Boolean
-        get() = sp.getBoolean("onboarded", sp.contains("settings") || sp.contains("last_build"))
+        get() = if (sp.contains("onboarded")) sp.getBoolean("onboarded", false) else (sp.contains("settings") || sp.contains("last_build"))
         set(value) = sp.edit().putBoolean("onboarded", value).apply()
 
     /** Ids of stories this phone has reported. */
@@ -91,5 +91,9 @@ class Prefs(context: Context) {
                 .put("enabled", s.enabled).put("builtin", s.builtin))
         }
         sp.edit().putString(key, arr.toString()).apply()
+    }
+
+    fun clearAll() {
+        sp.edit().clear().putBoolean("onboarded", false).apply()
     }
 }
