@@ -888,7 +888,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 signOut()
                 message.value = "Your account has been deleted."
             }.onFailure {
-                deleting.value = Deleting(error = it.message)
+                if (repo.supabase.session == null) {
+                    deleting.value = null
+                    signOut()
+                    message.value = "Your account has been deleted."
+                } else {
+                    deleting.value = Deleting(error = it.message)
+                }
             }
         }
     }

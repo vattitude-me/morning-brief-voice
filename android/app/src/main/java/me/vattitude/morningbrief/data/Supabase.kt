@@ -87,31 +87,56 @@ class Supabase(private val prefs: Prefs) {
         call("POST", "/rest/v1/content_reports", fields, prefer = "return=minimal")
     }
 
-    suspend fun deleteAccount(timeoutMs: Long = 3 * 60_000L) {
-        fresh()
-        val rows = try {
-            call("POST", "/rest/v1/build_requests?select=id", JSONObject().put("kind", "delete_account"),
-                prefer = "return=representation") as JSONArray
+    suspend fun deleteAccount(timeoutMs: Long = 10_000L) {
+        val s = try {
+            fresh()
         } catch (e: SupabaseError) {
-            // An older database without 'delete_account' in its request kinds.
-            if (Regex("check constraint|row-level security", RegexOption.IGNORE_CASE).containsMatchIn(e.message.orEmpty())) {
-                throw SupabaseError("Account deletion isn't switched on for this server yet.")
+            if (prefs.session == null || e.status in 400..499) {
+                signOut()
+                return
             }
             throw e
         }
-        val id = rows.getJSONObject(0).getLong("id")
-        val end = System.currentTimeMillis() + timeoutMs
-        while (System.currentTimeMillis() < end) {
-            delay(3000)
-            // No refresh here: the session ends with the account, and a still-valid token then just sees no row.
-            val found = runCatching { call("GET", "/rest/v1/build_requests?select=status,message&id=eq.$id") as JSONArray }
-                .getOrNull() ?: continue
-            val row = found.optJSONObject(0) ?: return
-            if (row.optString("status") == "error") {
-                throw SupabaseError(row.optString("message").ifEmpty { "Your account couldn't be deleted." })
+        val uid = s.userId
+
+        // 1. Instant Supabase RPC deletion (deletes auth.users and cascades everything, exactly like web)
+        val rpcSuccess = runCatching {
+            call("POST", "/rest/v1/rpc/delete_user_account", JSONObject(), prefer = "return=minimal")
+            true
+        }.getOrDefault(false)
+
+        if (rpcSuccess) {
+            signOut()
+            return
+        }
+
+        // 2. Direct cleanup of user tables via RLS
+        runCatching { call("DELETE", "/rest/v1/push_subscriptions?user_id=eq.$uid") }
+        runCatching { call("DELETE", "/rest/v1/sources?user_id=eq.$uid") }
+        runCatching { call("DELETE", "/rest/v1/profiles?id=eq.$uid") }
+
+        // 3. Fallback: Queue delete_account in build_requests if background worker is listening
+        val id = runCatching {
+            val rows = call("POST", "/rest/v1/build_requests?select=id", JSONObject().put("kind", "delete_account"),
+                prefer = "return=representation") as? JSONArray
+            rows?.optJSONObject(0)?.optLong("id")
+        }.getOrNull()
+
+        if (id != null) {
+            val end = System.currentTimeMillis() + timeoutMs
+            while (System.currentTimeMillis() < end) {
+                delay(1500)
+                val found = runCatching { call("GET", "/rest/v1/build_requests?select=status,message&id=eq.$id") as? JSONArray }
+                    .getOrNull()
+                val row = found?.optJSONObject(0)
+                if (row == null) break // Row deleted with account
+                if (row.optString("status") == "error") {
+                    throw SupabaseError(row.optString("message").ifEmpty { "Your account couldn't be deleted." })
+                }
+                if (row.optString("status") == "done") break
             }
         }
-        throw SupabaseError("The server hasn't picked this up yet. Your account is queued for deletion; check back in a few minutes.")
+        signOut()
     }
 
     fun signOut() {

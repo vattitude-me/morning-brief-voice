@@ -462,6 +462,9 @@ private fun AccountGroup(vm: AppViewModel) {
     val t = Mb.t
     var confirm by remember { mutableStateOf(false) }
 
+    LaunchedEffect(email) {
+        if (email == null) confirm = false
+    }
     LaunchedEffect(signIn.error) {
         if (signIn.error != null) {
             delay(8_000)
