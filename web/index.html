@@ -298,11 +298,10 @@
               <div class="brief-head-text">
                 <div class="brief-badges">
                   <span class="freshness-tag" id="freshnessTag"></span>
-                  <span class="overline" id="dateOverline"></span>
+                  <span class="overline hidden" id="dateOverline"></span>
                 </div>
                 <h1 class="display" id="briefTitle">Your Morning Brief</h1>
                 <p class="brief-meta" id="screenSubtitle"></p>
-                <p class="brief-voice" id="narratedBy"></p>
               </div>
             </header>
 
@@ -322,7 +321,13 @@
                   </p>
                   <h2 class="hero-title" id="heroTitle"></h2>
                 </div>
-                <a class="pill-btn glass-btn sm hero-article hidden" id="heroArticle" target="_blank" rel="noopener noreferrer"><span>Read article</span><svg aria-hidden="true"><use href="#i-external"/></svg></a>
+                <div class="hero-top-actions">
+                  <button class="narrator-pill-btn" id="heroNarratorBtn" type="button" aria-label="Change narrator" title="Change narrator">
+                    <svg aria-hidden="true"><use href="#i-mic"/></svg>
+                    <span id="heroNarratorName">Narrator</span>
+                  </button>
+                  <a class="pill-btn glass-btn sm hero-article hidden" id="heroArticle" target="_blank" rel="noopener noreferrer"><span>Read article</span><svg aria-hidden="true"><use href="#i-external"/></svg></a>
+                </div>
               </div>
 
               <div class="wave-panel">
@@ -348,28 +353,21 @@
                 </div>
               </div>
 
-              <div class="persona-block" id="personaBlock">
-                <div class="persona-head">
-                  <span class="overline"><svg aria-hidden="true"><use href="#i-mic"/></svg>Narrator</span>
-                  <span class="tiny">Every narrator reads the same stories. Switch any time.</span>
+              <!-- Integrated Read Along live pane -->
+              <div class="hero-transcript" id="transcript">
+                <div class="transcript-head">
+                  <div class="transcript-live">
+                    <span class="live-dot" aria-hidden="true"></span>
+                    <span class="overline">Read along</span>
+                    <span class="tiny">Follows narrator</span>
+                  </div>
                 </div>
-                <div class="persona-row" id="personaRow"></div>
+                <div class="transcript-body" id="transcriptBody">
+                  <p class="transcript-text" id="transcriptText">Tap play to listen and read along.</p>
+                </div>
               </div>
-              <audio id="audio" preload="metadata"></audio>
-            </section>
 
-            <!-- Read along -->
-            <section class="glass transcript hidden" id="transcript" aria-labelledby="transcriptTitle">
-              <button class="transcript-head" type="button" id="transcriptToggle" aria-expanded="true" aria-controls="transcriptBody">
-                <span class="live-dot" aria-hidden="true"></span>
-                <span class="overline" id="transcriptTitle">Read along</span>
-                <span class="tiny" id="transcriptSub">Follows the narrator</span>
-                <span class="spacer"></span>
-                <svg class="caret" aria-hidden="true"><use href="#i-chev-u"/></svg>
-              </button>
-              <div class="transcript-body" id="transcriptBody">
-                <p class="transcript-text" id="transcriptText"></p>
-              </div>
+              <audio id="audio" preload="metadata"></audio>
             </section>
 
             <div class="today-cols">
@@ -598,6 +596,21 @@
     <div class="sheet-foot">
       <button class="btn btn-ghost" data-close>Cancel</button>
       <button class="btn btn-primary" id="suggestSend">Submit idea</button>
+    </div>
+  </dialog>
+
+  <!-- Narrator Switcher modal sheet -->
+  <dialog class="sheet" id="narratorSheet" aria-labelledby="narratorSheetTitle">
+    <div class="sheet-head">
+      <h2 id="narratorSheetTitle"><svg aria-hidden="true"><use href="#i-mic"/></svg>Choose narrator</h2>
+      <button class="icon-btn" data-close aria-label="Close"><svg><use href="#i-close"/></svg></button>
+    </div>
+    <div class="sheet-body">
+      <p class="hint">All four narrators read the same daily briefing. Pick who you'd like to hear.</p>
+      <div class="persona-sheet-grid" id="personaRow"></div>
+    </div>
+    <div class="sheet-foot">
+      <button class="btn btn-primary" data-close>Done</button>
     </div>
   </dialog>
 

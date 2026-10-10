@@ -91,8 +91,6 @@ function renderHeader() {
   const now = new Date();
   const wd = now.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
   const mon = now.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
-  const dateOverline = $('dateOverline');
-  if (dateOverline) dateOverline.textContent = `${wd} · ${now.getDate()} ${mon}`;
 
   // Time-based greeting with user's name
   const hr = now.getHours();
@@ -136,6 +134,8 @@ function renderHeader() {
   if (nDesc) nDesc.textContent = activeVoice.style || activeVoice.desc;
   const narrBy = $('narratedBy');
   if (narrBy) narrBy.textContent = `Narrated by ${activeVoice.name} · ${activeVoice.style || activeVoice.desc}`;
+  const heroNarrName = $('heroNarratorName');
+  if (heroNarrName) heroNarrName.textContent = activeVoice.name;
 
   // Avatar initial
   const avInitial = $('avatarInitial');
@@ -145,7 +145,10 @@ function renderHeader() {
   }
 
   const sub = $('screenSubtitle');
-  if (sub) sub.textContent = b ? summaryLine(b) : 'Your news, read aloud each morning.';
+  if (sub) {
+    const baseSummary = b ? summaryLine(b) : 'Your news, read aloud each morning.';
+    sub.textContent = b ? `${baseSummary} · Read by ${activeVoice.name}` : baseSummary;
+  }
 
   const tag = $('freshnessTag');
   if (tag) {
@@ -153,9 +156,15 @@ function renderHeader() {
     const formatted = formatFreshnessDate(bDate);
     const todayStr = new Date().toLocaleDateString('en-CA');
     const isToday = Boolean(bDate && bDate === todayStr);
-    tag.textContent = `New as of · ${formatted}`;
+    tag.textContent = isToday ? `Fresh today · ${wd} ${now.getDate()} ${mon}` : `Archived · ${formatted}`;
     tag.className = 'freshness-tag' + (isToday ? ' fresh' : ' stale');
     tag.title = isToday ? "Today's fresh briefing" : `Archived briefing from ${formatted}`;
+  }
+
+  const dateOverline = $('dateOverline');
+  if (dateOverline) {
+    dateOverline.textContent = '';
+    dateOverline.classList.add('hidden');
   }
 }
 
@@ -210,7 +219,10 @@ function renderPersonas() {
       )
     );
     btn.addEventListener('click', async () => {
-      if (v.id === activeVoiceId) return;
+      if (v.id === activeVoiceId) {
+        $('narratorSheet')?.close();
+        return;
+      }
       btn.classList.add('busy');
       try {
         await api.saveSettings({ voice: v.id });
@@ -229,6 +241,7 @@ function renderPersonas() {
         } else {
           toast(`${v.name}'s recording isn't ready for this edition yet.`, { error: true });
         }
+        $('narratorSheet')?.close();
       } catch (err) {
         toast(err.message, { error: true });
       } finally {
@@ -744,16 +757,15 @@ function bindEvents() {
     player.seekTo(0);
     player.audio.play().catch(() => {});
   });
-  $('narratorChip')?.addEventListener('click', () => {
-    $('personaBlock')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  });
+  const narrSheet = $('narratorSheet');
+  if (narrSheet) wireSheet(narrSheet);
+  const openNarratorSheet = () => {
+    renderPersonas();
+    narrSheet?.showModal();
+  };
+  $('narratorChip')?.addEventListener('click', openNarratorSheet);
+  $('heroNarratorBtn')?.addEventListener('click', openNarratorSheet);
   $('avatarBtn')?.addEventListener('click', () => switchTab('settings'));
-  $('transcriptToggle')?.addEventListener('click', () => {
-    const btn = $('transcriptToggle');
-    const expanded = btn.getAttribute('aria-expanded') === 'true';
-    btn.setAttribute('aria-expanded', String(!expanded));
-    $('transcriptBody')?.classList.toggle('hidden', expanded);
-  });
 
   player.addEventListener('chapter', syncPlaying);
   player.addEventListener('chapter', followChapter);
