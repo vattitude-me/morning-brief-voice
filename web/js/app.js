@@ -1,4 +1,4 @@
-import { api, fmtTime, h, icon, isAdmin, recordError, sb, store, timeAgo, toast } from './api.js';
+import { api, fmtTime, h, icon, isAdmin, recordError, sb, store, timeAgo, toast, VOICES, voiceFor, SECTIONS } from './api.js';
 import { Player } from './player.js';
 import { Landing } from './landing.js';
 import { WelcomeSheet, installMode, onInstallChange, promptInstall, pushSupported, wireSheet } from './sheets.js';
@@ -35,7 +35,7 @@ function syncAdminTab() {
 
 /* ------------------------------------------------------------------ header */
 function syncInstallBtn() {
-  $('installBtn').classList.toggle('hidden', !installMode());
+  $('installBtn')?.classList.toggle('hidden', !installMode());
 }
 
 async function install() {
@@ -44,7 +44,7 @@ async function install() {
 }
 
 function syncThemeIcon() {
-  $('themeToggle').querySelector('use').setAttribute('href', currentTheme() === 'dark' ? '#i-sun' : '#i-moon');
+  $('themeToggle')?.querySelector('use')?.setAttribute('href', currentTheme() === 'dark' ? '#i-sun' : '#i-moon');
 }
 
 function setTheme(theme) {
@@ -91,18 +91,69 @@ function renderHeader() {
   const now = new Date();
   const wd = now.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
   const mon = now.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
-  $('dateOverline').textContent = `${wd} · ${now.getDate()} ${mon}`;
-  const w = state.briefing?.weather;
-  $('wxChip').textContent = w ? `${w.city} ${w.now}°` : '';
-  $('screenSubtitle').textContent = state.briefing ? summaryLine(state.briefing) : 'Your news, read aloud each morning.';
+  const dateOverline = $('dateOverline');
+  if (dateOverline) dateOverline.textContent = `${wd} · ${now.getDate()} ${mon}`;
+
+  // Time-based greeting with user's name
+  const hr = now.getHours();
+  const baseGreeting = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
+  const name = state.profile?.settings?.name || '';
+  const greetingEl = $('greeting');
+  if (greetingEl) {
+    greetingEl.textContent = name.trim() ? `${baseGreeting}, ${name.trim()}` : baseGreeting;
+  }
+  const lgGreeting = $('lgGreeting');
+  if (lgGreeting) lgGreeting.textContent = baseGreeting;
+
+  // Status text chip
+  const b = state.briefing;
+  const statusChip = $('statusChip');
+  const statusText = $('statusText');
+  if (statusText) {
+    if (b) {
+      const minutes = Math.max(1, Math.round((b.duration || 0) / 60));
+      const w = b.weather;
+      statusText.textContent = w ? `${w.city} ${w.now}° · ${b.stories.length} stories` : `${b.stories.length} stories · ${minutes}m`;
+      if (statusChip) statusChip.classList.remove('hidden');
+    } else {
+      statusText.textContent = 'Curating';
+    }
+  }
+
+  // Weather chip (safely guarded)
+  const wxChip = $('wxChip');
+  if (wxChip) {
+    const w = b?.weather;
+    wxChip.textContent = w ? `${w.city} ${w.now}°` : '';
+  }
+
+  // Active narrator chip & preview
+  const activeVoiceId = b?.voice?.id || state.profile?.settings?.voice || 'her_reference';
+  const activeVoice = voiceFor(activeVoiceId);
+  const nName = $('narratorName');
+  if (nName) nName.textContent = activeVoice.name;
+  const nDesc = $('narratorDesc');
+  if (nDesc) nDesc.textContent = activeVoice.style || activeVoice.desc;
+  const narrBy = $('narratedBy');
+  if (narrBy) narrBy.textContent = `Narrated by ${activeVoice.name} · ${activeVoice.style || activeVoice.desc}`;
+
+  // Avatar initial
+  const avInitial = $('avatarInitial');
+  if (avInitial) {
+    const raw = name || state.profile?.email || '';
+    if (raw.trim()) avInitial.textContent = raw.trim()[0].toUpperCase();
+  }
+
+  const sub = $('screenSubtitle');
+  if (sub) sub.textContent = b ? summaryLine(b) : 'Your news, read aloud each morning.';
 
   const tag = $('freshnessTag');
   if (tag) {
-    const bDate = state.briefing?.date;
+    const bDate = b?.date;
     const formatted = formatFreshnessDate(bDate);
     const todayStr = new Date().toLocaleDateString('en-CA');
     const isToday = Boolean(bDate && bDate === todayStr);
-    tag.textContent = `New as of - ${formatted}`;
+    tag.textContent = `New as of · ${formatted}`;
     tag.className = 'freshness-tag' + (isToday ? ' fresh' : ' stale');
     tag.title = isToday ? "Today's fresh briefing" : `Archived briefing from ${formatted}`;
   }
@@ -140,6 +191,118 @@ function renderHero() {
   $('hero').classList.toggle('hidden', !state.briefing);
 }
 
+function renderPersonas() {
+  const row = $('personaRow');
+  if (!row) return;
+  const activeVoiceId = state.briefing?.voice?.id || state.profile?.settings?.voice || 'her_reference';
+  row.replaceChildren(...VOICES.map((v) => {
+    const on = v.id === activeVoiceId;
+    const btn = h('button', {
+      type: 'button',
+      class: 'persona' + (on ? ' on' : ''),
+      'aria-pressed': String(on),
+      dataset: { voice: v.id },
+    },
+      h('span', { class: 'persona-avatar' }, icon(v.icon || 'mic')),
+      h('span', { class: 'persona-text' },
+        h('span', { class: 'persona-name' }, v.name),
+        h('span', { class: 'persona-desc' }, v.style || v.desc)
+      )
+    );
+    btn.addEventListener('click', async () => {
+      if (v.id === activeVoiceId) return;
+      btn.classList.add('busy');
+      try {
+        await api.saveSettings({ voice: v.id });
+        if (state.profile?.settings) state.profile.settings.voice = v.id;
+        toast(`Switching narrator to ${v.name}…`);
+        const targetDate = state.briefing?.date || new Date().toLocaleDateString('en-CA');
+        const pack = await loadStoryPack(targetDate);
+        if (pack) {
+          const currentPos = player.position;
+          const wasPlaying = player.isPlaying;
+          state.briefing = pack;
+          displayBriefing();
+          player.seekTo(currentPos);
+          if (wasPlaying) player.audio.play().catch(() => {});
+          toast(`Now playing: read by ${v.name}.`);
+        } else {
+          toast(`${v.name}'s recording isn't ready for this edition yet.`, { error: true });
+        }
+      } catch (err) {
+        toast(err.message, { error: true });
+      } finally {
+        btn.classList.remove('busy');
+      }
+    });
+    return btn;
+  }));
+}
+
+/* -------------------------------------------------------------- side widgets */
+function renderNextCard() {
+  const card = $('nextCard');
+  if (!card) return;
+  const time = state.profile?.settings?.delivery_time || '06:30';
+  const [hStr, mStr] = time.split(':');
+  const hNum = parseInt(hStr, 10) || 6;
+  const ampm = hNum >= 12 ? 'PM' : 'AM';
+  const displayH = hNum % 12 || 12;
+  const displayTime = `${displayH}:${mStr || '30'}`;
+
+  card.replaceChildren(
+    h('header', { class: 'side-card-head' },
+      h('span', { class: 'cat-tile cat-neutral' }, icon('clock')),
+      h('h3', {}, "Tomorrow's Brief"),
+      h('span', { class: 'live-dot', 'aria-hidden': 'true' })
+    ),
+    h('div', { class: 'next-time' }, displayTime, h('small', {}, ampm)),
+    h('p', { class: 'hint' }, 'Freshly curated and voiced before you wake.'),
+    h('button', {
+      type: 'button',
+      class: 'side-toggle',
+      onclick: () => switchTab('settings'),
+      'aria-label': 'Adjust delivery schedule in settings',
+    },
+      icon('bell'),
+      h('span', {}, 'Delivery & push settings'),
+      icon('chev-r')
+    ),
+    h('div', { class: 'side-foot' },
+      h('span', {}, icon('refresh'), 'Automated daily at sunrise'),
+      h('span', {}, '7 topics')
+    )
+  );
+}
+
+function renderLineupCard() {
+  const card = $('lineupCard');
+  if (!card) return;
+  const b = state.briefing;
+  if (!b || !b.sections?.length) {
+    card.classList.add('hidden');
+    return;
+  }
+  card.classList.remove('hidden');
+  const totalStories = b.stories?.length || 1;
+  const items = b.sections.map((sec) => {
+    const count = b.stories.filter((s) => s.section === sec.key).length;
+    const pct = Math.round((count / totalStories) * 100);
+    return h('div', { class: `lineup-item cat-${sec.key}` },
+      h('b', {}, sec.title),
+      h('span', {}, `${count} ${count === 1 ? 'story' : 'stories'}`),
+      h('div', { class: 'bar' }, h('i', { style: `width:${pct}%; --cat: var(--c-${sec.key}, var(--accent))` }))
+    );
+  });
+  card.replaceChildren(
+    h('header', { class: 'side-card-head' },
+      h('span', { class: 'cat-tile cat-top' }, icon('playlist')),
+      h('h3', {}, "Today's Lineup")
+    ),
+    h('div', { class: 'lineup-list' }, ...items)
+  );
+}
+
 /* -------------------------------------------------------------- date chips */
 function chipLabel(date) {
   const today = new Date().toLocaleDateString('en-CA');
@@ -151,17 +314,24 @@ function chipLabel(date) {
 
 function renderDateChips() {
   const box = $('dateChips');
+  const card = $('archiveCard');
+  if (!box) return;
   const dates = state.archiveDates;
-  box.classList.toggle('hidden', dates.length < 2);
+  const show = dates.length >= 2;
+  box.classList.toggle('hidden', !show);
+  if (card) card.classList.toggle('hidden', !show);
   box.replaceChildren(...dates.map((d) => {
-    const b = h('button', { class: 'dchip' + (d === state.briefing?.date ? ' active' : ''), type: 'button' }, chipLabel(d));
+    const isCur = d === state.briefing?.date;
+    const b = h('button', { class: 'dchip' + (isCur ? ' active' : ''), type: 'button' },
+      h('span', {}, chipLabel(d)),
+      h('small', {}, isCur ? 'Active' : d)
+    );
     b.addEventListener('click', () => selectDate(d));
     return b;
   }));
 }
 
 async function selectDate(date) {
-  const today = new Date().toLocaleDateString('en-CA');
   try {
     const pack = await loadStoryPack(date);
     if (pack) {
@@ -179,34 +349,60 @@ async function selectDate(date) {
 /* ----------------------------------------------------------------- sections */
 function audioLen(story) {
   const secs = Math.round((story.end || 0) - (story.start || 0));
-  return secs < 60 ? `${secs}s of audio` : `${fmtTime(secs)} of audio`;
+  return secs < 60 ? `${secs}s audio` : `${fmtTime(secs)}`;
 }
 
 function storyRow(story) {
+  const sec = SECTIONS[story.section] || SECTIONS.top;
+  const secKey = story.section || 'top';
   const row = h('article', { class: 'story-row', dataset: { id: story.id } });
+
   const dot = h('button', { class: 'play-dot', type: 'button', 'aria-label': `Play from: ${story.headline}` },
-    icon('play', 'i-play'), icon('pause', 'i-pause'));
+    icon('play', 'i-play'),
+    icon('pause', 'i-pause'),
+    h('span', { class: 't' }, fmtTime(story.start || 0)));
+
   dot.addEventListener('click', (e) => {
     e.stopPropagation();
-    // The dot is this story's own play/pause: tapping the one already being read stops it.
     if (player.current === story.id) player.toggle();
     else player.playChapter(story.id);
   });
 
+  const catTile = h('div', { class: `story-tile cat-tile cat-${secKey}` },
+    icon(sec.icon || 'globe'),
+    h('span', { class: 'eq', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('i'))
+  );
+
   const main = h('div', { class: 'story-main' },
-    h('div', { class: 'play-col' }, dot, h('span', { class: 't' }, fmtTime(story.start || 0))),
+    catTile,
     h('div', { class: 'story-text' },
+      h('div', { class: 'story-meta' },
+        h('span', { class: `badge badge-cat cat-${secKey}` }, sec.title),
+        h('span', { class: 'dur' }, icon('clock'), audioLen(story)),
+        h('span', {}, '·'),
+        h('span', {}, story.source || 'The Guardian'),
+        story.also?.length ? h('span', {}, `· +${story.also.length} source${story.also.length === 1 ? '' : 's'}`) : null
+      ),
       h('h3', {}, story.headline),
-      h('p', { class: 'story-meta' }, [story.source, audioLen(story), story.also?.length ? `+${story.also.length} source${story.also.length === 1 ? '' : 's'}` : null].filter(Boolean).join(' · '))),
-    story.image ? h('img', { class: 'story-thumb', src: story.image, alt: '', loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer', onerror: (e) => e.target.remove() }) : null);
+      story.summary ? h('p', { class: 'story-snippet' }, story.summary) : null
+    ),
+    story.image ? h('img', {
+      class: 'story-thumb', src: story.image, alt: '', loading: 'lazy', decoding: 'async',
+      referrerpolicy: 'no-referrer', onerror: (e) => e.target.remove(),
+    }) : null,
+    dot
+  );
 
   const detail = h('div', { class: 'story-detail hidden' },
     h('p', { class: 'summary' }, story.summary),
     story.also?.length ? h('p', { class: 'also' }, `Also covered by ${story.also.join(', ')}`) : null,
     h('div', { class: 'story-actions' },
-      h('button', { class: 'pill-btn', type: 'button', onclick: () => player.playChapter(story.id) }, icon('play'), 'Play from here'),
-      h('a', { class: 'pill-btn glass-btn', href: story.url, target: '_blank', rel: 'noopener noreferrer' }, 'Article', icon('external'))),
-    reportRow(story));
+      h('button', { class: 'pill-btn sm', type: 'button', onclick: () => player.playChapter(story.id) }, icon('play'), 'Play from here'),
+      story.url ? h('a', { class: 'pill-btn glass-btn sm', href: story.url, target: '_blank', rel: 'noopener noreferrer' }, 'Read article', icon('external')) : null
+    ),
+    reportRow(story)
+  );
+
   main.addEventListener('click', () => detail.classList.toggle('hidden'));
   row.append(main, detail);
   return row;
@@ -223,30 +419,92 @@ function reportRow(story) {
 function renderSections() {
   const box = $('sections');
   const b = state.briefing;
+  const listHead = $('listHead');
+  const storyCount = $('storyCount');
+
   if (!b) {
+    if (listHead) listHead.classList.add('hidden');
     box.replaceChildren(h('div', { class: 'empty' }, h('h3', {}, 'Not published yet'),
       h('p', {}, "Today's brief is recorded once each morning for everyone. Reload in a minute, or set your topics in Sources.")));
     return;
   }
+
+  if (listHead) {
+    listHead.classList.remove('hidden');
+    if (storyCount) storyCount.textContent = `${b.stories.length}`;
+  }
+
   const currentSection = (() => {
     const ch = player.chapters.find((c) => c.id === player.current);
     return b.stories.find((s) => s.id === ch?.id)?.section;
   })();
-  box.replaceChildren(...(b.sections || []).flatMap((sec) => {
+
+  let secNum = 1;
+  const blocks = (b.sections || []).flatMap((sec) => {
     const stories = b.stories.filter((s) => s.section === sec.key);
     if (!stories.length) return [];
     const here = currentSection === sec.key;
-    const right = here
-      ? [h('span', { class: 'dot', 'aria-hidden': 'true' }), h('span', { class: 'overline here', style: 'color:var(--ink)' }, player.isPlaying ? 'Playing' : 'Paused')]
-      : [h('span', { class: 'overline' }, `${stories.length} ${stories.length === 1 ? 'story' : 'stories'}`)];
-    const head = h('button', { class: 'section-head', type: 'button', 'aria-label': `Play from ${sec.title}` },
-      h('span', { class: 'overline', style: 'color:var(--ink)' }, sec.title), ...right);
-    head.addEventListener('click', () => player.seekTo(stories[0].start || 0));
-    const group = h('div', { class: 'glass glass-group' }, ...stories.map(storyRow));
-    return [head, group];
-  }));
+    const head = h('div', { class: 'section-head' },
+      h('span', { class: 'num' }, String(secNum++).padStart(2, '0')),
+      h('span', { class: 'overline' }, sec.title),
+      h('span', { class: 'count' }, `· ${stories.length} ${stories.length === 1 ? 'story' : 'stories'}`),
+      here
+        ? h('span', { class: 'here' }, h('span', { class: 'live-dot', 'aria-hidden': 'true' }), player.isPlaying ? 'Playing' : 'Paused')
+        : h('button', {
+            class: 'play-section', type: 'button',
+            'aria-label': `Play ${sec.title}`,
+            onclick: () => { player.seekTo(stories[0].start || 0); player.audio.play().catch(() => {}); },
+          }, icon('play'), 'Play section')
+    );
+    const list = h('div', { class: 'section-list' }, ...stories.map(storyRow));
+    const block = h('div', { class: 'section-block', dataset: { section: sec.key } }, head, list);
+    return [block];
+  });
+
+  box.replaceChildren(...blocks);
   syncPlaying();
   followChapter();
+  applySearch($('searchInput')?.value);
+}
+
+/* ----------------------------------------------------------- search & text size */
+function applySearch(query) {
+  const q = (query || '').trim().toLowerCase();
+  const rows = document.querySelectorAll('.story-row');
+  let matchCount = 0;
+  rows.forEach((row) => {
+    const id = row.dataset.id;
+    const story = state.briefing?.stories.find((s) => s.id === id);
+    if (!story) return;
+    const text = `${story.headline} ${story.summary || ''} ${story.source || ''}`.toLowerCase();
+    const match = !q || text.includes(q);
+    row.classList.toggle('hidden', !match);
+    if (match) matchCount++;
+  });
+  document.querySelectorAll('.section-block').forEach((block) => {
+    const visibleStories = block.querySelectorAll('.story-row:not(.hidden)');
+    block.classList.toggle('hidden', visibleStories.length === 0);
+  });
+  let empty = document.getElementById('searchEmptyNotice');
+  if (q && matchCount === 0) {
+    if (!empty) {
+      empty = h('div', { id: 'searchEmptyNotice', class: 'search-empty' },
+        h('h3', {}, 'No stories found'),
+        h('p', {}, `No stories match "${query}".`)
+      );
+      $('sections')?.appendChild(empty);
+    }
+  } else if (empty) {
+    empty.remove();
+  }
+}
+
+function setTextSize(size) {
+  document.documentElement.dataset.textSize = size;
+  try { localStorage.setItem('mb-text-size', size); } catch { /* ignore */ }
+  document.querySelectorAll('#textSize button').forEach((btn) => {
+    btn.classList.toggle('on', btn.dataset.size === size);
+  });
 }
 
 function syncPlaying() {
@@ -367,6 +625,9 @@ function displayBriefing() {
   renderHeader();
   renderHero();
   renderNotice();
+  renderPersonas();
+  renderNextCard();
+  renderLineupCard();
   renderDateChips();
   renderSections();
 }
@@ -461,13 +722,38 @@ function bindEvents() {
     if (e.target.closest('button')) return;
     switchTab('today');
   });
-  $('installBtn').addEventListener('click', install);
+  $('installBtn')?.addEventListener('click', install);
   wireSheet($('installSheet'));
   onInstallChange(syncInstallBtn);
-  $('themeToggle').addEventListener('click', () => setTheme(currentTheme() === 'dark' ? 'light' : 'dark'));
+  $('themeToggle')?.addEventListener('click', () => setTheme(currentTheme() === 'dark' ? 'light' : 'dark'));
   document.addEventListener('mb-theme', syncThemeIcon);
-  $('reportSend').addEventListener('click', sendReport);
+  $('reportSend')?.addEventListener('click', sendReport);
   wireSheet($('reportSheet'));
+
+  // Search input & keyboard shortcut
+  $('searchInput')?.addEventListener('input', (e) => applySearch(e.target.value));
+
+  // Text size toggles
+  document.querySelectorAll('#textSize button').forEach((btn) => {
+    btn.addEventListener('click', () => setTextSize(btn.dataset.size));
+  });
+
+  // Action buttons
+  $('reorderBtn')?.addEventListener('click', () => switchTab('sources'));
+  $('playAllBtn')?.addEventListener('click', () => {
+    player.seekTo(0);
+    player.audio.play().catch(() => {});
+  });
+  $('narratorChip')?.addEventListener('click', () => {
+    $('personaBlock')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+  $('avatarBtn')?.addEventListener('click', () => switchTab('settings'));
+  $('transcriptToggle')?.addEventListener('click', () => {
+    const btn = $('transcriptToggle');
+    const expanded = btn.getAttribute('aria-expanded') === 'true';
+    btn.setAttribute('aria-expanded', String(!expanded));
+    $('transcriptBody')?.classList.toggle('hidden', expanded);
+  });
 
   player.addEventListener('chapter', syncPlaying);
   player.addEventListener('chapter', followChapter);
@@ -480,6 +766,11 @@ function bindEvents() {
 
   document.addEventListener('keydown', (e) => {
     if (e.target.closest('input, textarea, select, dialog[open]') || e.metaKey || e.ctrlKey) return;
+    if (e.key === '/') {
+      e.preventDefault();
+      $('searchInput')?.focus();
+      return;
+    }
     if (e.key === ' ' || e.key === 'k') { e.preventDefault(); player.toggle(); }
     else if (e.key === 'ArrowRight') player.nextChapter();
     else if (e.key === 'ArrowLeft') player.prevChapter();
@@ -532,6 +823,10 @@ async function start() {
     state.profile = profile;
     syncAdminTab();
     applyPhotoMode(profile?.settings?.color_photos);
+    renderHeader();
+    renderPersonas();
+    renderNextCard();
+    renderLineupCard();
     await loadArchive();
     // The shared pack *is* the briefing now. When today's hasn't been published yet,
     // loadStoryPack falls back to the most recent one and renderNotice says so.
@@ -561,11 +856,15 @@ async function init() {
   window.addEventListener('unhandledrejection', (e) => { recordError(e.reason, 'window.unhandledrejection'); });
   syncThemeIcon();
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', syncThemeIcon);
+  setTextSize(localStorage.getItem('mb-text-size') || 'md');
   bindEvents();
   syncInstallBtn();
   syncAdminTab();
   renderHeader();
   renderNotice();
+  renderPersonas();
+  renderNextCard();
+  renderLineupCard();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
   sb.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT') { started = false; state.profile = null; syncAdminTab(); showLanding(); }

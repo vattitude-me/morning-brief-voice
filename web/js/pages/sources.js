@@ -187,7 +187,7 @@ export class SourcesPage {
   }
 
   topic(key, index) {
-    const sec = SECTIONS[key];
+    const sec = SECTIONS[key] || { title: key, icon: 'globe' };
     const n = this.draft.stories[key] || 0;
     const items = this.sources.filter((s) => s.section === key);
     const open = this.expanded.has(key) && items.length > 0;
@@ -221,8 +221,11 @@ export class SourcesPage {
       }
     });
 
+    const catTile = h('span', { class: `cat-tile sm cat-${key}` }, icon(sec.icon || 'globe'));
+
     const head = h('div', { class: 'topic-head' },
       dragHandle,
+      catTile,
       h('button', { type: 'button', class: 'topic-toggle', 'aria-expanded': String(open), disabled: !items.length },
         h('span', { class: 'topic-title' }, label),
         h('span', { class: 'topic-summary' }, summary)),
@@ -235,7 +238,7 @@ export class SourcesPage {
     head.querySelector('.topic-expand')?.addEventListener('click', toggle);
 
     const card = h('section', {
-      class: 'topic-card',
+      class: 'topic-card' + (n === 0 ? ' off' : ''),
       draggable: 'true',
       'data-key': key,
       'data-index': String(index),

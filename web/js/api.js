@@ -8,15 +8,15 @@ export const sb = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
 
 /** Briefing sections in reading order — the seven Guardian categories (app/guardian.py). */
 export const SECTIONS = {
-  top: { title: 'Top stories', emoji: '📰' },
-  ai: { title: 'AI', emoji: '🤖' },
-  tech: { title: 'Tech', emoji: '💻' },
-  politics: { title: 'Politics', emoji: '🏛️' },
-  entertainment: { title: 'Entertainment', emoji: '🎬' },
-  science: { title: 'Science', emoji: '🔬' },
-  sports: { title: 'Sports', emoji: '🏅' },
+  top: { title: 'Top stories', emoji: '📰', icon: 'globe' },
+  ai: { title: 'AI', emoji: '🤖', icon: 'bot' },
+  tech: { title: 'Tech', emoji: '💻', icon: 'chip' },
+  politics: { title: 'Politics', emoji: '🏛️', icon: 'landmark' },
+  entertainment: { title: 'Entertainment', emoji: '🎬', icon: 'film' },
+  science: { title: 'Science', emoji: '🔬', icon: 'flask' },
+  sports: { title: 'Sports', emoji: '🏅', icon: 'ball' },
   // Not part of the narrated pack: the Sources tab's user-pasted links keep their own bucket.
-  custom: { title: 'My Sources', emoji: '⭐' },
+  custom: { title: 'My Sources', emoji: '⭐', icon: 'spark' },
 };
 
 export const sectionLabel = (key) => { const s = SECTIONS[key] || SECTIONS.top; return `${s.emoji} ${s.title}`; };
@@ -27,10 +27,10 @@ export const sectionLabel = (key) => { const s = SECTIONS[key] || SECTIONS.top; 
  * per-listener recording.
  */
 export const VOICES = [
-  { id: 'her_reference', name: 'Alice', gender: 'female', desc: 'Warm British newsreader' },
-  { id: 'him_reference', name: 'Mike', gender: 'male', desc: 'Calm American newsreader' },
-  { id: 'jerry_reference', name: 'Jerry', gender: 'male', desc: 'Observational comedy style' },
-  { id: 'c3po_reference', name: 'C-3PO', gender: 'male', desc: 'Polite protocol droid' },
+  { id: 'her_reference', name: 'Alice', gender: 'female', desc: 'Warm British newsreader', style: 'Warm Broadcast', icon: 'mic' },
+  { id: 'him_reference', name: 'Mike', gender: 'male', desc: 'Calm American newsreader', style: 'Crisp Morning News', icon: 'radio' },
+  { id: 'jerry_reference', name: 'Jerry', gender: 'male', desc: 'Observational comedy style', style: 'Observational Wit', icon: 'smile' },
+  { id: 'c3po_reference', name: 'C-3PO', gender: 'male', desc: 'Polite protocol droid', style: 'Polite & Precise', icon: 'bot' },
 ];
 
 /** The voice a listener picked, falling back to the first for anything older or unknown. */

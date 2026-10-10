@@ -202,18 +202,18 @@ export class SettingsPage {
     const rows = VOICES.map((v) => {
       const on = v.id === id;
       const row = h('button', {
-        type: 'button', class: `voice-row${on ? ' on' : ''}`, 'aria-pressed': String(on),
+        type: 'button', class: `persona${on ? ' on' : ''}`, 'aria-pressed': String(on),
       },
-      h('span', { class: 'avatar' }, v.name[0]),
-      h('span', { class: 'v-text' },
-        h('span', { class: 'v-name' }, v.name),
-        h('span', { class: 'v-meta' }, v.desc || (v.gender === 'female' ? 'A woman reads the news' : 'A man reads the news'))),
-      h('span', { class: 'preview-btn', role: 'button', tabindex: '0', 'aria-label': `Hear ${v.name}` }, icon('play')));
+      h('span', { class: 'persona-avatar' }, icon(v.icon || 'mic')),
+      h('span', { class: 'persona-text' },
+        h('span', { class: 'persona-name' }, v.name),
+        h('span', { class: 'persona-desc' }, v.style || v.desc || (v.gender === 'female' ? 'Warm British newsreader' : 'Calm American newsreader'))),
+      h('span', { class: 'persona-play', role: 'button', tabindex: '0', 'aria-label': `Hear ${v.name}` }, icon('play')));
       row.addEventListener('click', (e) => {
-        if (e.target.closest('.preview-btn')) return;
+        if (e.target.closest('.persona-play')) return;
         this.set({ voice: v.id });
       });
-      row.querySelector('.preview-btn').addEventListener('click', (e) => { e.stopPropagation(); this.preview(v); });
+      row.querySelector('.persona-play').addEventListener('click', (e) => { e.stopPropagation(); this.preview(v); });
       return row;
     });
 
@@ -221,7 +221,7 @@ export class SettingsPage {
     return GlassGroup(
       h('div', { class: 'voice-list' }, ...rows),
       Hairline(),
-      Hint('Both voices are recorded each morning from the same stories, so switching only changes who you hear. It starts with your next brief.'),
+      Hint('All four narrators read the same daily briefing, so switching only changes who you hear. Changes take effect on your next brief or switch on the Today screen.'),
       Hairline(),
       ListRow({
         label: 'Playback speed',

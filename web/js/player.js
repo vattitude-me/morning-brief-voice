@@ -47,10 +47,16 @@ export class Player extends EventTarget {
   bind() {
     const { el } = this;
     el.play.addEventListener('click', () => this.toggle());
-    document.getElementById('miniPlay').addEventListener('click', () => this.toggle());
+    document.getElementById('miniPlay')?.addEventListener('click', () => this.toggle());
     el.prev.addEventListener('click', () => this.prevChapter());
     el.next.addEventListener('click', () => this.nextChapter());
-    document.getElementById('miniNext').addEventListener('click', () => this.nextChapter());
+    document.getElementById('miniNext')?.addEventListener('click', () => this.nextChapter());
+    document.getElementById('back15')?.addEventListener('click', () => this.skip(-15));
+    document.getElementById('fwd30')?.addEventListener('click', () => this.skip(30));
+    document.getElementById('miniBack')?.addEventListener('click', () => this.skip(-15));
+
+    // Speed pills
+    this.renderSpeedPills();
 
     // Tap or drag the segmented bar to seek.
     const seekToEvent = (e) => {
@@ -284,10 +290,32 @@ export class Player extends EventTarget {
     else if (i > 0) this.playChapter(this.chapters[i - 1].id);
   }
 
+  renderSpeedPills() {
+    const box = document.getElementById('speedPills');
+    if (!box) return;
+    const speeds = [0.8, 1.0, 1.25, 1.5];
+    box.replaceChildren(...speeds.map((s) => {
+      const b = h('button', {
+        type: 'button',
+        class: 'seg-opt' + (Math.abs(this.speed - s) < 0.05 ? ' on' : ''),
+      }, `${s}x`);
+      b.addEventListener('click', () => this.setRate(s));
+      return b;
+    }));
+  }
+
+  syncSpeedPills() {
+    document.querySelectorAll('#speedPills .seg-opt').forEach((btn) => {
+      const val = parseFloat(btn.textContent);
+      btn.classList.toggle('on', Math.abs(this.speed - val) < 0.05);
+    });
+  }
+
   setRate(rate) {
     this.speed = rate;
     this.buffers.forEach((buf) => { buf.playbackRate = rate; });
     store.set('rate', rate);
+    this.syncSpeedPills();
   }
 
   setPlaying(on) {
@@ -295,6 +323,8 @@ export class Player extends EventTarget {
     this.hero.classList.toggle('playing-now', on);
     this.el.play.setAttribute('aria-label', on ? 'Pause briefing' : 'Play briefing');
     if ('mediaSession' in navigator) navigator.mediaSession.playbackState = on ? 'playing' : 'paused';
+    const liveStatus = document.getElementById('liveStatus');
+    if (liveStatus) liveStatus.textContent = on ? 'Playing' : 'Paused';
     this.dispatchEvent(new CustomEvent('state', { detail: { playing: on } }));
   }
 
@@ -330,6 +360,56 @@ export class Player extends EventTarget {
       ? `Ready · ${b.stories.length} ${b.stories.length === 1 ? 'story' : 'stories'}`
       : [this.isPlaying ? 'Now playing' : 'Paused', section].filter(Boolean).join(' · ');
     el.title.textContent = story?.headline || ch?.title || b.title;
+
+    // Hero section label & count
+    const heroSection = document.getElementById('heroSection');
+    if (heroSection) heroSection.textContent = section ? `· ${section}` : '';
+    const heroCount = document.getElementById('heroCount');
+    if (heroCount) {
+      const idx = story ? b.stories.indexOf(story) + 1 : 0;
+      heroCount.textContent = idx ? `Story ${idx} of ${b.stories.length}` : (b.stories?.length ? `${b.stories.length} stories` : '');
+    }
+    const heroArticle = document.getElementById('heroArticle');
+    if (heroArticle) {
+      if (story?.url) {
+        heroArticle.href = story.url;
+        heroArticle.classList.remove('hidden');
+      } else {
+        heroArticle.classList.add('hidden');
+      }
+    }
+
+    // Sidebar daily progress & live status
+    const progVal = document.getElementById('dayProgressVal');
+    if (progVal) progVal.textContent = `${fmtTime(t)} / ${fmtTime(dur)}`;
+    const progBar = document.getElementById('dayProgressBar');
+    if (progBar) progBar.style.width = `${frac * 100}%`;
+    const liveStatus = document.getElementById('liveStatus');
+    if (liveStatus) liveStatus.textContent = this.isPlaying ? 'Playing' : (t > 0 ? 'Paused' : 'Ready');
+
+    // Synchronized transcript
+    const transBox = document.getElementById('transcript');
+    const transText = document.getElementById('transcriptText');
+    if (transBox && transText) {
+      const text = story?.summary || story?.headline || ch?.title || '';
+      if (text) {
+        transBox.classList.remove('hidden');
+        if (transText.dataset.storyId !== (story?.id || ch?.id)) {
+          transText.dataset.storyId = story?.id || ch?.id;
+          const sentences = text.match(/[^.!?]+[.!?]+|\S+/g) || [text];
+          transText.replaceChildren(...sentences.map((s) => h('span', { class: 'w' }, s.trim() + ' ')));
+        }
+        const chDur = Math.max(1, (ch?.end || dur) - (ch?.start || 0));
+        const chProgress = Math.min(1, Math.max(0, (t - (ch?.start || 0)) / chDur));
+        const spans = transText.querySelectorAll('.w');
+        const activeIdx = Math.min(spans.length - 1, Math.floor(chProgress * spans.length));
+        spans.forEach((sp, idx) => {
+          sp.classList.toggle('done', idx < activeIdx);
+          sp.classList.toggle('now', idx === activeIdx);
+        });
+      }
+    }
+
     // A greeting or a section intro has no picture of its own, so the cover shows what
     // is about to be read instead of jumping back to the first story of the brief.
     const upNext = story ? null : this.chapters.find((c) => c.kind === 'story' && c.start >= t - 0.01);
